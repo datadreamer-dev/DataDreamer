@@ -1,0 +1,11 @@
+.venv
+.venv_dev
+
+.venv_poetry
+dist/
+poetry.lock
+
+wandb/
+
+.jupyter_ystore.db
+.ipynb_checkpoints

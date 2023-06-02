@@ -1,0 +1,41 @@
+name = "ml_project_template"
+
+[tool.poetry]
+name = "ml_project_template"
+version = "0.1.0"
+description = "A ML project template."
+license = "MIT"
+authors= [
+    "Ajay Patel <me@ajayp.app>",
+]
+maintainers = [
+    "Ajay Patel <me@ajayp.app>",
+]
+readme = "README.md"
+# homepage = "https://python-poetry.org/"
+# repository = "https://github.com/python-poetry/poetry"
+# documentation = "https://python-poetry.org/docs/"
+keywords = ["machine learning", "nlp"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence"
+]
+packages = [
+    {include = "ml_project_template"}
+]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.12"
+
+[tool.poetry.group.dev.dependencies]
+poetry = "1.4.2"
