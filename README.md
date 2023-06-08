@@ -1,4 +1,4 @@
-![DataDreamer](docs/source/_static/images/logo.svg | width=100)
+![DataDreamer](docs/source/_static/images/logo.svg)
 
 <p align="center">
     <a href="https://circleci.com/gh/huggingface/transformers">
