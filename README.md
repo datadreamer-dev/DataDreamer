@@ -1,6 +1,6 @@
 <p align="center">
   <picture>
-    ![DataDreamer](docs/_static/images/logo.svg | width=100)
+    ![DataDreamer](docs/source/_static/images/logo.svg | width=100)
   </picture>
   <br/>
   <br/>
