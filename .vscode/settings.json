@@ -31,7 +31,16 @@
         "**/.git": true,
         "**/.cluster": true,
         "**/.venv": true,
+        "**/.venv_dev": true,
         "**/docs/build": true,
         "**/docs/source/!(index.rst)": true,
     },
+    "files.watcherExclude": {
+        "**/.git/**": true,
+        "**/.cluster/**": true,
+        "**/.venv/**": true,
+        "**/.venv_dev/**": true,
+        "**/docs/build/**": true,
+        "**/docs/source/!(index.rst)": true,
+    }
 }

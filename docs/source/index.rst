@@ -16,7 +16,7 @@ DataDreamer documentation
    :hidden:
    :caption: References
 
-   API Reference <#>
+   API Reference <ml_project_template>
    pages/get_started/cli
    Index <modindex>
 
@@ -24,9 +24,9 @@ DataDreamer documentation
    :hidden:
    :caption: About
 
-   GitHub <https://github.com/#/#>
-   PyPI <https://pypi.org/project/#/>
-   License <https://github.com/#/#/blob/main/LICENSE.txt>
+   GitHub <https://github.com/AjayP13/ml-project-template>
+   PyPI <https://pypi.org/project/ml_project_template/>
+   License <https://github.com/AjayP13/ml-project-template/blob/main/LICENSE.txt>
 
 
 Welcome to the documentation site.

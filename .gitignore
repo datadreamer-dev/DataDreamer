@@ -10,3 +10,5 @@ wandb/
 .jupyter_ystore.db
 .ipynb_checkpoints
 .coverage
+
+datadreamer
