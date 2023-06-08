@@ -7,7 +7,7 @@
         "editor.codeActionsOnSave": {
             "source.organizeImports": true
         },
-        "editor.defaultFormatter": "ms-python.black-formatter"
+        "editor.defaultFormatter": "ms-python.python"
     },
     "[shellscript]": {
         "editor.tabSize": 4,
@@ -32,6 +32,7 @@
         "**/.cluster": true,
         "**/.venv": true,
         "**/.venv_dev": true,
+        "**/wandb/**": true,
         "**/docs/build": true,
         "**/docs/source/!(index.rst)": true,
     },
@@ -40,6 +41,7 @@
         "**/.cluster/**": true,
         "**/.venv/**": true,
         "**/.venv_dev/**": true,
+        "**/wandb/**": true,
         "**/docs/build/**": true,
         "**/docs/source/!(index.rst)": true,
     }
