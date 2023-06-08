@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="/docs/source/_static/images/logo.svg" alt="DataDreamer" style="max-width: 100%;">
+  <a href="#"><img src="/docs/source/_static/images/logo.svg" alt="DataDreamer" style="max-width: 100%;"></a>
 </p>
 
 <p align="center">
