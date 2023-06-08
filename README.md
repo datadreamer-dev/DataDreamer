@@ -1,7 +1,5 @@
 <p align="center">
-
-![DataDreamer](docs/source/_static/images/logo.svg)
-
+  <img src="/AjayP13/DataDreamer/raw/main/docs/source/_static/images/logo.svg" alt="DataDreamer" style="max-width: 100%;">
 </p>
 
 <p align="center">
