@@ -32,7 +32,7 @@ def get_tf_cpu_device():
 
 def get_tf_device(rank=0, fallback_to_cpu=True):
     """Gets the `rank` TensorFlow accelerator device, potentially falling back to the
-        TensorFlow CPU device if that accelerator device cannot be found.
+    TensorFlow CPU device if that accelerator device cannot be found.
 
     Args:
         rank (int, optional): Which TensorFlow accelerator device to get. Defaults to 0.
@@ -88,7 +88,7 @@ def get_torch_cpu_device():
 
 def get_torch_device(rank=0, fallback_to_cpu=True):
     """Gets the `rank` PyTorch accelerator device, potentially falling back to the
-        PyTorch CPU device if that accelerator device cannot be found.
+    PyTorch CPU device if that accelerator device cannot be found.
 
     Args:
         rank (int, optional): Which PyTorch accelerator device to get. Defaults to 0.
@@ -142,7 +142,7 @@ def get_jax_cpu_device():
 
 def get_jax_device(rank=0, fallback_to_cpu=True):
     """Gets the `rank` JAX accelerator device, potentially falling back to the
-        JAX CPU device if that accelerator device cannot be found.
+    JAX CPU device if that accelerator device cannot be found.
 
     Args:
         rank (int, optional): Which JAX accelerator device to get. Defaults to 0.

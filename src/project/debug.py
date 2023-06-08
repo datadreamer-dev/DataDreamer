@@ -5,7 +5,7 @@ import pty
 import tempfile
 from time import sleep
 
-from project.report import _deep_defaultdict
+from .report import _deep_defaultdict
 
 
 def _get_callers_locals_and_globals():
@@ -24,7 +24,7 @@ def _get_callers_locals_and_globals():
 
 def debugger(rank=None, launch_on_rank=0):
     """Pauses execution and opens an interactive REPL with access to local and global
-        variables.
+    variables.
 
     Args:
         rank (Any, optional): The current rank. Defaults to None (will always

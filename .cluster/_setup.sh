@@ -123,7 +123,9 @@ else
 fi
 
 # Set custom environment variables
-export COMMAND_PRE=python3
+export COMMAND_PRE="python3 -m"
+export COMMAND_ENTRYPOINT="src.__main__"
+export COMMAND_POST=""
 set -o allexport
 if [ -f "src/.env" ]; then
     source src/.env
@@ -134,17 +136,24 @@ fi
 set +o allexport
 PROJECT_SAFE_TASK=$(echo "$1" | tr '-' '_') # Replace dashes with underscore
 COMMAND_TASK_PRE_ENV_NAME="COMMAND_TASK_${PROJECT_SAFE_TASK}_PRE"
+COMMAND_TASK_ENTRYPOINT_ENV_NAME="COMMAND_TASK_${PROJECT_SAFE_TASK}_ENTRYPOINT"
 COMMAND_TASK_POST_ENV_NAME="COMMAND_TASK_${PROJECT_SAFE_TASK}_POST"
 eval COMMAND_TASK_PRE=\$"$COMMAND_TASK_PRE_ENV_NAME"
+eval COMMAND_TASK_ENTRYPOINT=\$"$COMMAND_TASK_ENTRYPOINT_ENV_NAME"
 eval COMMAND_TASK_POST=\$"$COMMAND_TASK_POST_ENV_NAME"
 if [ -n "$COMMAND_TASK_PRE" ]; then
     export COMMAND_PRE=$COMMAND_TASK_PRE
 fi
+if [ -n "$COMMAND_TASK_ENTRYPOINT" ]; then
+    export COMMAND_ENTRYPOINT=$COMMAND_TASK_ENTRYPOINT
+fi
 if [ -n "$COMMAND_TASK_POST" ]; then
     export COMMAND_POST=$COMMAND_TASK_POST
 fi
-if [ -n "$COMMAND_POST" ]; then
-    export COMMAND_POST=" $COMMAND_POST"
+if [[ $PROJECT_JOB_NAME == "test" ]] || [[ $PROJECT_JOB_NAME == "test_"* ]]; then
+    export COMMAND_PRE="pytest"
+    export COMMAND_ENTRYPOINT=""
+    export COMMAND_POST="src/tests"
 fi
 
 # Run a preinstall script
@@ -164,7 +173,7 @@ device-requirements-files-exist() {
 install-device-requirements() {
     if [ -f "$1.txt" ]; then
         python3 -m pip install --upgrade pip
-        pip3 install -r src/requirements.txt -r "$1.txt"
+        pip3 install -r src/requirements.txt -r "$1.txt" -r src/requirements-test.txt
     fi
     if [ -f "$1.sh" ]; then
         chmod +x ./"$1".sh

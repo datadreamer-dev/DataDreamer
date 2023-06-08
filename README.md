@@ -20,9 +20,11 @@ Finally, this project allows for easily publishing the code as a PyPI library fo
 * Runs that are important can be saved an "experiment" so they can be more easily found later when reporting results in a paper or presentation.
 * Helps you more easily run your codebase against different types of accelerator devices (CUDA, TPU, etc.).
 * Helps you keep your code clean by linting and formating your code using [flake8](https://pypi.org/project/flake8/), [flake8-bugbear](https://github.com/PyCQA/flake8-bugbear), [black](https://pypi.org/project/black/), and [isort](https://pypi.org/project/isort/). It also enforces a max [cyclomatic complexity](https://en.wikipedia.org/wiki/Cyclomatic_complexity).
+* Helps test and measure code coverage of the project with [pytest](https://docs.pytest.org/).
 * The project includes a helpful VSCode extensions and configurations for automatically formatting, linting, generating Python docstrings, etc.
 * Helps you write code with [GitHub Copilot](https://github.com/features/copilot).
 * The project allows for easy building, packaging, and distributing on PyPI via [poetry](https://python-poetry.org/).
+* The project allows for documentation building via [sphinx](https://www.sphinx-doc.org/en/master/).
 
 ## Table of Contents
 
@@ -38,6 +40,7 @@ Finally, this project allows for easily publishing the code as a PyPI library fo
   * [Cluster commands](#cluster-commands)
   * [Log commands](#log-commands)
   * [Experiment commands](#experiment-commands)
+  * [Running tests](#running-tests)
   * [Reset commands](#reset-commands)
   * [Running JupyterLab](#running-jupyterlab)
   * [Running a HTTP server](#running-a-http-server)
@@ -64,6 +67,7 @@ Finally, this project allows for easily publishing the code as a PyPI library fo
 - [Production Run](#production-run)
   * [Project environment variables](#project-environment-variables)
 - [Building and Publishing to PyPI](#building-and-publishing-to-pypi)
+- [Building Documentation](#building-documentation)
 
 ## Setup and Configuration
 
@@ -210,6 +214,16 @@ To tag the last job or a specific job as an experiment:
 .cluster/tag.sh [<job_name>]
 ```
 
+### Running tests
+
+To run tests and see code coverage simply run a job called `test` or beginning with `test_` in the job name.
+
+```bash
+.cluster/<cluster_type>/interactive_submit.sh test [<args>...]
+```
+
+Then the arguments are flags to pass to [`pytest`](https://docs.pytest.org/en/6.2.x/usage.html). Configuration around testing can be modified in `pyproject.toml`. Any libraries needed solely for testing can be added to `requirements-test.txt`
+
 ### Reset commands
 
 To reset the virtual environment built for a cluster:
@@ -270,9 +284,11 @@ You can add secret environment variables (for API keys or secret tokens, etc.) b
 
 ### Customizing the interpreter
 
-If you want to customize the command used to run the `__main__.py` script, you can define `COMMAND_PRE` or `COMMAND_POST` in `src/.env`. By default, `COMMAND_PRE='python3'` and `COMMAND_POST` is empty. 
+If you want to customize the command used to run, you can define `COMMAND_ENTRYPOINT`, which is by default the `src.__main__` modul. You can also define `COMMAND_PRE` or `COMMAND_POST` in `src/.env`. By default, `COMMAND_PRE='python3 -m'` and `COMMAND_POST` is empty.  
 
-If you want to customize the command used to run the `__main__.py` script for specific tasks, you can define `COMMAND_TASK_<task_name>_PRE` and `COMMAND_TASK_<task_name>_POST` environment variables (`<task_name>` here should use underscores instead of dashes).
+For [running tests](#running-tests), `COMMAND_PRE` is `pytest`, `COMMAND_ENTRYPOINT` is empty, and `COMMAND_POST` is `src/tests`.
+
+If you want to customize the command used to run specific tasks, you can define `COMMAND_TASK_<task_name>_PRE`, `COMMAND_TASK_<task_name>_ENTRYPOINT`, and `COMMAND_TASK_<task_name>_POST` environment variables (`<task_name>` here should use underscores instead of dashes).
 
 ### Adding an `__entry__` script
 
@@ -471,3 +487,21 @@ Simply use `./package.sh` to build and package the project into distributable wh
 Then, use `./package_publish.sh <args>` to publish the package to PyPI where are the `<args>` are the [arguments of the `poetry publish` subcommand](https://python-poetry.org/docs/cli/#publish).
 
 The metadata for the package can be found and modified in `pyproject.toml`.
+
+## Building Documentation
+
+The project can be automatically documented using [Google-style docstrings](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html). Templates, pages, and assets for documentation can be found in `docs/source`.
+
+You can continuously auto-build documentation and live watch for changes with:
+```bash
+./docs.sh
+```
+
+You can one-time build documentation with:
+```bash
+./docs.sh --no-watch --no-serve
+```
+
+A documentation coverage report is produced upon the first build by `./docs.sh`. The built documentation website will be output to `docs/build/html`.
+
+Configuration around documentation can be modified in `pyproject.toml` and `docs/source/conf.py` (`html_logo`, `html_favicon`, etc...). Any libraries for documentation can be added to `requirements-dev.txt`.

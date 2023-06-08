@@ -1,0 +1,3 @@
+build
+source/*.rst
+!source/index.rst

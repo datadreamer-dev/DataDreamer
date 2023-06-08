@@ -31,5 +31,7 @@
         "**/.git": true,
         "**/.cluster": true,
         "**/.venv": true,
+        "**/docs/build": true,
+        "**/docs/source/!(index.rst)": true,
     },
 }

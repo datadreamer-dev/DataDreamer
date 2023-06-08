@@ -1,8 +1,8 @@
 import click
 
-import project
-from project.builtin_tasks import register_builtin_tasks
-from tasks.hello_world import hello_world
+from . import project
+from .project.builtin_tasks import register_builtin_tasks
+from .tasks.hello_world import hello_world
 
 
 # Register main

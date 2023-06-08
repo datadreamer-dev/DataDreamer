@@ -1,7 +1,7 @@
 import click
 from loguru import logger
 
-from project.serve import (
+from .serve import (
     run_cloudflared,
     run_http_server,
     run_jupyter,

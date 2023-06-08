@@ -1,0 +1,8 @@
+{%- if show_headings %}
+{{- basename.split('.')[1:] | join('.') | e | heading }}
+
+{% endif -%}
+.. automodule:: {{ qualname }}
+{%- for option in automodule_options %}
+   :{{ option }}:
+{%- endfor %}

@@ -5,7 +5,7 @@ export PROJECT_COMMAND_PATH=$(mktemp /tmp/projectcmd.XXXXXX)
 (
   printf '%s' "$COMMAND_PRE"
   printf " "
-  printf "src/__main__.py"
+  printf '%s' "$COMMAND_ENTRYPOINT"
   printf " "
 
   # For each argument

@@ -1,22 +1,37 @@
+"""``project`` provides project-wide helpers and utilities useful in machine learning projects.
+
+Attributes:
+    INITIAL_CWD (str): The initial current working directory path.
+    context (dict): A dictionary to use to store global context.
+    RUNNING_IN_PYTEST (bool): Whether or not the project is running in ``pytest``.
+    RUNNING_IN_CLUSTER (bool): Whether or not the project is running on a cluster.
+"""
+
 import json
 import os
 import sys
 
 from loguru import logger
 
-from project.debug import bash, context, debugger  # noqa: F401
-from project.devices import get_jax_cpu_device  # noqa: F401
-from project.devices import get_jax_device  # noqa: F401
-from project.devices import get_jax_devices  # noqa: F401
-from project.devices import get_tf_cpu_device  # noqa: F401
-from project.devices import get_tf_device  # noqa: F401
-from project.devices import get_tf_devices  # noqa: F401
-from project.devices import get_torch_cpu_device  # noqa: F401
-from project.devices import get_torch_device  # noqa: F401
-from project.devices import get_torch_devices  # noqa: F401
-from project.persistent_storage import get_persistent_dir  # noqa: F401
-from project.report import reporter  # noqa: F401
-from project.serve import run_ngrok  # noqa: F401
+from .debug import bash, context, debugger
+from .devices import (
+    get_jax_cpu_device,
+    get_jax_device,
+    get_jax_devices,
+    get_tf_cpu_device,
+    get_tf_device,
+    get_tf_devices,
+    get_torch_cpu_device,
+    get_torch_device,
+    get_torch_devices,
+)
+from .environment import RUNNING_IN_CLUSTER, RUNNING_IN_PYTEST
+from .persistent_storage import get_persistent_dir
+from .report import reporter
+from .serve import run_ngrok
+
+# Initial cwd (defined in __main__.py)
+INITIAL_CWD = None
 
 # Make sure CUDA/NVIDIA_VISIBLE_DEVICES is set if it is needed
 if os.environ.get("PROJECT_ACCELERATOR_TYPE", None) == "cuda":
@@ -58,6 +73,28 @@ def init():
     )
 
     # Write args
-    if "PROJECT_CLUSTER" in os.environ:
+    if RUNNING_IN_CLUSTER:
         with open(os.environ["PROJECT_ARGS_FILE"], "w+") as f:
             f.write(json.dumps(sys.argv, indent=2))
+
+
+__all__ = [
+    "RUNNING_IN_CLUSTER",
+    "RUNNING_IN_PYTEST",
+    "bash",
+    "context",
+    "debugger",
+    "get_jax_cpu_device",
+    "get_jax_device",
+    "get_jax_devices",
+    "get_tf_cpu_device",
+    "get_tf_device",
+    "get_tf_devices",
+    "get_torch_cpu_device",
+    "get_torch_device",
+    "get_torch_devices",
+    "get_persistent_dir",
+    "reporter",
+    "run_ngrok",
+    "init",
+]

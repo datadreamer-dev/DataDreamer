@@ -2,7 +2,7 @@ import hashlib
 import json
 import os
 
-from project.report import reporter
+from .report import reporter
 
 
 def _dict_hash(dictionary):
@@ -24,11 +24,11 @@ def _dict_hash(dictionary):
 
 def get_persistent_dir(name, config_path):
     """Returns the path to a persistent directory that will be usable across jobs. Any
-        future jobs
+    future jobs
 
     Args:
-        name ([type]): [description]
-        config_path ([type]): [description]
+        name (str): [description]
+        config_path (str): [description]
     """
     config_hash = _dict_hash(reporter.get(config_path))
     persistent_dir = os.path.join(

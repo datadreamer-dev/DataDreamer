@@ -1,0 +1,49 @@
+.sidebar-container {
+    width: 100%;
+}
+
+.sidebar-brand {
+    text-align: center;
+}
+
+.sidebar-brand-text.subtitle {
+    margin-top: 0;
+    font-size: 1em;
+}
+
+.sidebar-star-button {
+    text-align: center;
+}
+
+.content {
+    width: 100%
+}
+
+.toc-drawer {
+    min-width: 20em;
+}
+
+@media (max-width: 82em) {
+    .toc-drawer {
+        min-width: 0;
+    }
+}   
+
+.toc-drawer.no-toc {
+    max-width: 0;
+}
+
+.footer-emojis {
+    font-size: 2em;
+    position: relative;
+    bottom: 0.3em;
+    margin-bottom: -0.3em;
+}
+
+.bottom-of-page .left-details {
+    font-size: 0em;
+}
+
+.copyright {
+    font-size: 12.25px;
+}

@@ -10,6 +10,8 @@ from datetime import datetime
 
 from loguru import logger
 
+from .environment import RUNNING_IN_CLUSTER, RUNNING_IN_PYTEST
+
 
 def _deep_defaultdict():
     """A recursively defined defaultdict.
@@ -30,7 +32,7 @@ class _Reporter:
         self._config = _deep_defaultdict()
         self.series_files = {}
         self.wandb_run = None
-        if "PROJECT_CLUSTER" in os.environ:
+        if RUNNING_IN_CLUSTER and not RUNNING_IN_PYTEST:
             self._setup_wandb()
 
     def _setup_wandb(self):
@@ -57,7 +59,7 @@ class _Reporter:
 
     def _select(self, path):
         """Given a dot-style path to an object in the config, resolve the final
-            dictionary housing the object along with the key for the object.
+        dictionary housing the object along with the key for the object.
 
         Args:
             path (str): The dot-style path to an object in the config.
@@ -74,7 +76,7 @@ class _Reporter:
 
     def set(self, path, value):
         """Given a dot-style path to an object in the config, stores the object at that
-            path.
+        path.
 
         Args:
             path (str): The dot-style path to an object in the config.
@@ -85,7 +87,7 @@ class _Reporter:
         """
         d, key = self._select(path)
         d[key] = value
-        if "PROJECT_CLUSTER" in os.environ:
+        if RUNNING_IN_CLUSTER and not RUNNING_IN_PYTEST:
             with open(os.environ["PROJECT_CONFIG_FILE"], "w+", encoding="utf-8") as f:
                 f.truncate(0)
                 f.write(json.dumps(self._config, indent=2))
@@ -98,7 +100,7 @@ class _Reporter:
 
     def get(self, path):
         """Given a dot-style path to an object in the config, returns the object at that
-            path.
+        path.
 
         Args:
             path (str): The dot-style path to an object in the config.
@@ -120,8 +122,8 @@ class _Reporter:
         ext="csv",
     ):
         """Stores a series of data as a CSV file. Each function call will write one
-            row of data to the CSV. The name of the series is given by `series` and the
-            data to write at each row is given by `data`.
+        row of data to the CSV. The name of the series is given by `series` and the
+        data to write at each row is given by `data`.
 
         Args:
             series (str): The name of the series.
@@ -137,7 +139,7 @@ class _Reporter:
             ext (str, optional): The extension for the CSV file. Defaults to
                 "csv".
         """
-        if "PROJECT_CLUSTER" not in os.environ:
+        if not RUNNING_IN_CLUSTER or RUNNING_IN_PYTEST:
             return
         from filelock import FileLock
 
