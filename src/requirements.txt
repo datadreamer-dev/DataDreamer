@@ -27,3 +27,6 @@ bitsandbytes==0.38.1
 wandb==0.14.2
 taskflow==5.2.0
 guidance==0.0.61
+SQLAlchemy==2.0.15
+alembic==1.11.1
+SQLAlchemy-Utils==0.41.1

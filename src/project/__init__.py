@@ -14,17 +14,10 @@ import sys
 from loguru import logger
 
 from .debug import bash, context, debugger
-from .devices import (
-    get_jax_cpu_device,
-    get_jax_device,
-    get_jax_devices,
-    get_tf_cpu_device,
-    get_tf_device,
-    get_tf_devices,
-    get_torch_cpu_device,
-    get_torch_device,
-    get_torch_devices,
-)
+from .devices import (get_jax_cpu_device, get_jax_device, get_jax_devices,
+                      get_tf_cpu_device, get_tf_device, get_tf_devices,
+                      get_torch_cpu_device, get_torch_device,
+                      get_torch_devices)
 from .environment import RUNNING_IN_CLUSTER, RUNNING_IN_PYTEST
 from .persistent_storage import get_persistent_dir
 from .report import reporter
