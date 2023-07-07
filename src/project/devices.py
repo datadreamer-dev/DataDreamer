@@ -68,7 +68,7 @@ def get_torch_devices():
     if os.environ.get("PROJECT_ACCELERATOR_TYPE", None) == "cuda":
         return [torch.device("cuda", i) for i in range(torch.cuda.device_count())]
     elif os.environ.get("PROJECT_ACCELERATOR_TYPE", None) == "tpu":
-        import torch_xla  # type: ignore
+        import torch_xla
 
         return torch_xla.core.xla_model.get_xla_supported_devices(devkind="TPU")
     else:

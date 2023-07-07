@@ -16,10 +16,11 @@ def _get_callers_locals_and_globals():
             variables.
     """
     frame = inspect.currentframe()
-    try:
-        return frame.f_back.f_back.f_locals, frame.f_back.f_back.f_globals
-    finally:
-        del frame
+    if frame and frame.f_back and frame.f_back.f_back:
+        try:
+            return frame.f_back.f_back.f_locals, frame.f_back.f_back.f_globals
+        finally:
+            del frame
 
 
 def debugger(rank=None, launch_on_rank=0):

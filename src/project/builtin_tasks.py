@@ -1,8 +1,13 @@
 import click
 from loguru import logger
 
-from .serve import (run_cloudflared, run_http_server, run_jupyter, run_ngrok,
-                    sleep_infinity)
+from .serve import (
+    run_cloudflared,
+    run_http_server,
+    run_jupyter,
+    run_ngrok,
+    sleep_infinity,
+)
 
 
 @click.option(

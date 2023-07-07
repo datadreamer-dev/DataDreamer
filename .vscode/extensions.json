@@ -6,6 +6,7 @@
         "ms-python.vscode-pylance",
         "ms-python.black-formatter",
         "ms-python.flake8",
+        "ms-python.mypy-type-checker",
         "visualstudioexptteam.vscodeintellicode",
         "njpwerner.autodocstring",
         "ms-toolsai.jupyter",

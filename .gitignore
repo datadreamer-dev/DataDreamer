@@ -11,4 +11,7 @@ wandb/
 .ipynb_checkpoints
 .coverage
 
+.mypy_cache
+.pytest_cache
+
 datadreamer

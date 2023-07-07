@@ -3,7 +3,7 @@ import os
 from . import project
 
 try:
-    from . import __entry__  # noqa: F401
+    from . import __entry__  # type: ignore[attr-defined] # noqa: F401
 except ImportError:
     pass
 from .__cli__ import _main

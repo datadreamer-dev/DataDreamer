@@ -37,8 +37,8 @@ def kill_port(port):
 
     process = Popen(["lsof", "-i", ":{0}".format(port)], stdout=PIPE, stderr=PIPE)
     stdout, stderr = process.communicate()
-    for process in str(stdout.decode("utf-8")).split("\n")[1:]:
-        data = [x for x in process.split(" ") if x != ""]
+    for p in str(stdout.decode("utf-8")).split("\n")[1:]:
+        data = [x for x in p.split(" ") if x != ""]
         if len(data) <= 1:
             continue
 
@@ -69,12 +69,13 @@ def run_ngrok(port, hostname=None):
         return f"https://{hostname}/"
     else:
         process_output = ""
-        for c in iterdecode(iter(lambda: process.stdout.read(1), b""), "utf8"):
-            process_output += c
-            urls = re.findall(r"(https?://\S+)", process_output)
-            urls = [url for url in urls if "ngrok-free.app" in url]
-            if len(urls) > 0:
-                return urls[0]
+        if process.stdout:
+            for c in iterdecode(iter(lambda: process.stdout.read(1), b""), "utf8"):  # type: ignore[union-attr]
+                process_output += c
+                urls = re.findall(r"(https?://\S+)", process_output)
+                urls = [url for url in urls if "ngrok-free.app" in url]
+                if len(urls) > 0:
+                    return urls[0]
 
 
 def run_cloudflared(port, hostname=None):
@@ -140,12 +141,13 @@ def run_cloudflared(port, hostname=None):
         return f"https://{hostname}/"
     else:
         process_output = ""
-        for c in iterdecode(iter(lambda: process.stdout.read(1), b""), "utf8"):
-            process_output += c
-            urls = re.findall(r"(https?://\S+)", process_output)
-            urls = [url for url in urls if (hostname or "trycloudflare.com") in url]
-            if len(urls) > 0:
-                return urls[0]
+        if process.stdout:
+            for c in iterdecode(iter(lambda: process.stdout.read(1), b""), "utf8"):  # type: ignore[union-attr]
+                process_output += c
+                urls = re.findall(r"(https?://\S+)", process_output)
+                urls = [url for url in urls if (hostname or "trycloudflare.com") in url]
+                if len(urls) > 0:
+                    return urls[0]
 
 
 def run_jupyter(port=None, password=None):

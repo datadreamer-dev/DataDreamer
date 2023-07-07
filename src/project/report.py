@@ -7,6 +7,7 @@ import tempfile
 import time
 from collections import OrderedDict, defaultdict
 from datetime import datetime
+from typing import Any
 
 from loguru import logger
 
@@ -150,7 +151,7 @@ class _Reporter:
             )
         )
         with lock:
-            _data = OrderedDict()
+            _data: OrderedDict[str, Any] = OrderedDict()
             if date_columns:
                 now = datetime.now()
                 _data["date"] = now.strftime("%Y-%-m-%d-%H:%M:%S")
@@ -250,7 +251,8 @@ class _Reporter:
                     artifact.add_dir(src_path)
                 else:
                     artifact.add_file(src_path)
-                self.wandb_run.log_artifact(artifact)
+                if self.wandb_run:
+                    self.wandb_run.log_artifact(artifact)
 
 
 # Instantiate a reporter

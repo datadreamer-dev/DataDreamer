@@ -42,6 +42,12 @@ poetry = "1.4.2"
 addopts = "-v --cov=src"
 filterwarnings = ["ignore::DeprecationWarning:jupyter_client.*:"]
 
+[tool.mypy]
+ignore_missing_imports = true
+check_untyped_defs = true
+warn_return_any = true
+warn_unused_ignores = true
+
 [tool.coverage.run]
 omit = ["src/project/*", "src/tests/*"]
 

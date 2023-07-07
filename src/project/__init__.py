@@ -1,7 +1,7 @@
 """``project`` provides project-wide helpers and utilities useful in machine learning projects.
 
 Attributes:
-    INITIAL_CWD (str): The initial current working directory path.
+    INITIAL_CWD (Optional[str]): The initial current working directory path.
     context (dict): A dictionary to use to store global context.
     RUNNING_IN_PYTEST (bool): Whether or not the project is running in ``pytest``.
     RUNNING_IN_CLUSTER (bool): Whether or not the project is running on a cluster.
@@ -10,21 +10,29 @@ Attributes:
 import json
 import os
 import sys
+from typing import Optional
 
 from loguru import logger
 
 from .debug import bash, context, debugger
-from .devices import (get_jax_cpu_device, get_jax_device, get_jax_devices,
-                      get_tf_cpu_device, get_tf_device, get_tf_devices,
-                      get_torch_cpu_device, get_torch_device,
-                      get_torch_devices)
+from .devices import (
+    get_jax_cpu_device,
+    get_jax_device,
+    get_jax_devices,
+    get_tf_cpu_device,
+    get_tf_device,
+    get_tf_devices,
+    get_torch_cpu_device,
+    get_torch_device,
+    get_torch_devices,
+)
 from .environment import RUNNING_IN_CLUSTER, RUNNING_IN_PYTEST
 from .persistent_storage import get_persistent_dir
 from .report import reporter
 from .serve import run_ngrok
 
 # Initial cwd (defined in __main__.py)
-INITIAL_CWD = None
+INITIAL_CWD: Optional[str] = None
 
 # Make sure CUDA/NVIDIA_VISIBLE_DEVICES is set if it is needed
 if os.environ.get("PROJECT_ACCELERATOR_TYPE", None) == "cuda":
