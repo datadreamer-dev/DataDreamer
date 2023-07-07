@@ -1,5 +1,3 @@
-import sys
-
 from mypy import api
 
 from .. import __version__

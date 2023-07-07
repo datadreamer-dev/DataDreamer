@@ -70,7 +70,7 @@ def run_ngrok(port, hostname=None):
     else:
         process_output = ""
         if process.stdout:
-            for c in iterdecode(iter(lambda: process.stdout.read(1), b""), "utf8"):  # type: ignore[union-attr]
+            for c in iterdecode(iter(lambda: process.stdout.read(1), b""), "utf8"):  # type: ignore[union-attr] # noqa: B950
                 process_output += c
                 urls = re.findall(r"(https?://\S+)", process_output)
                 urls = [url for url in urls if "ngrok-free.app" in url]
@@ -142,7 +142,7 @@ def run_cloudflared(port, hostname=None):
     else:
         process_output = ""
         if process.stdout:
-            for c in iterdecode(iter(lambda: process.stdout.read(1), b""), "utf8"):  # type: ignore[union-attr]
+            for c in iterdecode(iter(lambda: process.stdout.read(1), b""), "utf8"):  # type: ignore[union-attr] # noqa: B950
                 process_output += c
                 urls = re.findall(r"(https?://\S+)", process_output)
                 urls = [url for url in urls if (hostname or "trycloudflare.com") in url]
