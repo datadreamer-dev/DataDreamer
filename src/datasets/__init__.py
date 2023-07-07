@@ -1,3 +1,3 @@
-from .dataset import Dataset
+# from .dataset import Dataset, IterableDataset
 
-__all__ = ["Dataset"]
+# __all__ = ["Dataset", "IterableDataset"]

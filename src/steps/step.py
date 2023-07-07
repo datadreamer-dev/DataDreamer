@@ -1,7 +1,24 @@
 from collections.abc import Generator, Iterable
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Iterator, Optional, TypeGuard, Union
 
 from datasets import Dataset, IterableDataset
+
+
+def _is_list_or_tuple_type(v) -> TypeGuard[Union[list[str], tuple[str, ...]]]:
+    return isinstance(v, list) or isinstance(v, tuple)
+
+
+def _is_dataset_type(v) -> TypeGuard[Union[Dataset, IterableDataset]]:
+    return isinstance(v, Dataset) or isinstance(v, IterableDataset)
+
+
+def _iterable_or_generator_to_iterable(
+    v: Union[Iterable[Any], Callable[[], Generator[Any, None, None]]]
+) -> Iterator[Any]:
+    if callable(v):
+        return v()
+    else:
+        return iter(v)
 
 
 class Step:
@@ -18,14 +35,16 @@ class Step:
     ):
         self._name: str = name
         self.__running: bool = False
-        self.__progress: float = None
+        self.__progress: Optional[float] = None
         self.input = input
-        self.__output: Union[Dataset, IterableDataset] = None
+        self.__output: Optional[Union[Dataset, IterableDataset]] = None
         if isinstance(outputs, list) and len(outputs) == 0:
             raise ValueError("The step must name its outputs")
-        self.output_names: tuple[str, ...] = (
-            tuple(outputs) if isinstance(outputs, list) else (outputs,)
-        )
+        self.output_names: tuple[str, ...]
+        if isinstance(outputs, list) or isinstance(outputs, tuple):
+            self.output_names = tuple(outputs)
+        else:
+            self.output_names = (outputs,)
 
     @property
     def progress(self) -> Optional[float]:
@@ -69,27 +88,26 @@ class Step:
         value: Union[
             Dataset,
             IterableDataset,
-            dict[str, Iterable[Any]],
+            dict[str, Union[Iterable[Any], Callable[[], Generator[Any, None, None]]]],
             list[Any],
-            tuple[Iterable[Any], ...],
+            tuple[Union[Iterable[Any], Callable[[], Generator[Any, None, None]]], ...],
             Callable[
                 [],
                 Generator[
-                    dict[str, Iterable[Any], list[Any], tuple[Any, ...]], None, None
+                    dict[str, Union[Iterable[Any], list[Any], tuple[Any, ...]]],
+                    None,
+                    None,
                 ],
             ],
         ],
     ):
         # Create a Dataset if given a list or tuple of Datasets
         # or create an IterableDataset if given a list or tuple of IterableDatasets
-        if type(value) in [list, tuple] and all(
-            [isinstance(d, Dataset) for d in value]
-        ):
-            value = Dataset.zip(*value)
-        elif type(value) in [list, tuple] and all(
-            [isinstance(d, Dataset) or isinstance(d, IterableDataset) for d in value]
-        ):
-            value = Dataset.izip(*value)
+        if _is_list_or_tuple_type(value):
+            if all([isinstance(d, Dataset) for d in value]):
+                value = Dataset.zip(*value)
+            elif all([_is_dataset_type(d) for d in value]):
+                value = Dataset.izip(*value)
 
         # Create a Dataset/generator function if given a dict
         if isinstance(value, dict) and set(self.output_names) == set(value.keys()):
@@ -97,7 +115,7 @@ class Step:
                 # One of the values of the dictionary is a generator function,
                 # create a generator function of dicts
                 iters = [
-                    (value[k]() if callable(value[k]) else iter(value[k]))
+                    _iterable_or_generator_to_iterable(value[k])
                     for k in self.output_names
                 ]
                 rows = zip(*iters)
@@ -144,7 +162,7 @@ class Step:
 
         # Create a generator function if given a tuple with a generator function
         if isinstance(value, tuple) and any([callable(v) for v in value]):
-            iters = [(v() if callable(v) else iter(v)) for v in value]
+            iters = [_iterable_or_generator_to_iterable(v) for v in value]
             rows = zip(*iters)
 
             def to_dict_generator_wrapper():
@@ -154,9 +172,9 @@ class Step:
             value = to_dict_generator_wrapper
 
         # If given a Dataset with the wrong number of
-        if (isinstance(value, Dataset) or isinstance(value, IterableDataset)) and set(
-            value.column_names
-        ) != set(self.output_names):
+        if _is_dataset_type(value) and set(value.column_names) != set(
+            self.output_names
+        ):
             raise AttributeError(
                 f"Expected {self.output_names} columns instead of {value.column_names}."
             )
@@ -167,7 +185,7 @@ class Step:
             try:
                 first_row = next(value())
                 if isinstance(first_row, dict) and set(self.output_names) != set(
-                    value.keys()
+                    first_row.keys()
                 ):
                     raise AttributeError(
                         f"Expected {self.output_names} dict keys from generator"
@@ -191,7 +209,7 @@ class Step:
             # If so, convert the generator to an IterableDataset
             value = IterableDataset.from_generator(value)
 
-        if isinstance(value, Dataset) or isinstance(value, IterableDataset):
+        if _is_dataset_type(value):
             self.__output = value
         elif isinstance(value, tuple):
             self.__output = Dataset.from_dict(
