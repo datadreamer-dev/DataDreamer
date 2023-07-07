@@ -1,9 +1,6 @@
 """``hello_world`` is an example command-line task."""
-from tkinter import E
-import click
-from loguru import logger
 import guidance
-from ...project import debugger
+from loguru import logger
 
 
 def hello_world(ctx):
@@ -12,28 +9,28 @@ def hello_world(ctx):
     guidance.llm = gpt2
 
     program = guidance(
-        """My cell phone number is {{gen "completion" pattern="[0-9\\-\\(\\)\\. ]+" stop=" " save_stop_text=True temperature=0.7}}"""
+        """My cell phone number is {{gen "completion" pattern="[0-9\\-\\(\\)\\. ]+" stop=" " save_stop_text=True temperature=0.7}}"""  # noqa: B950
     )
     executed_program = program()
     logger.info(executed_program)
     logger.info(executed_program.variables())
 
     program = guidance(
-        """My cell phone number is {{gen "completion" pattern="[0-9\\-\\(\\)\\. ]+" stop=" " save_stop_text=True temperature=0.65}}"""
+        """My cell phone number is {{gen "completion" pattern="[0-9\\-\\(\\)\\. ]+" stop=" " save_stop_text=True temperature=0.65}}"""  # noqa: B950
     )
     executed_program = program()
     logger.info(executed_program)
     logger.info(executed_program.variables())
 
     program = guidance(
-        """My cell phone number is {{gen "completion" pattern="[0-9\\-\\(\\)\\. ]+" stop=" " save_stop_text=True temperature=0.4}}"""
+        """My cell phone number is {{gen "completion" pattern="[0-9\\-\\(\\)\\. ]+" stop=" " save_stop_text=True temperature=0.4}}"""  # noqa: B950
     )
     executed_program = program()
     logger.info(executed_program)
     logger.info(executed_program.variables())
 
     program = guidance(
-        """My cell phone number is {{gen "completion" pattern="[0-9\\-\\(\\)\\. ]+" stop=" " save_stop_text=True temperature=0.8}}"""
+        """My cell phone number is {{gen "completion" pattern="[0-9\\-\\(\\)\\. ]+" stop=" " save_stop_text=True temperature=0.8}}"""  # noqa: B950
     )
     executed_program = program()
     logger.info(executed_program)

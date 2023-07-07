@@ -1,3 +1,6 @@
+# type: ignore
+# flake8: noqa
+
 en_data = HFDataset("en_c4").select({"en_text": "text"}).limit(100)
 es_data = HFDataset("es_c4").select({"es_text": "text"}).limit(100)
 
