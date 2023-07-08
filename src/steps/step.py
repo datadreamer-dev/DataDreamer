@@ -1,6 +1,6 @@
 from collections.abc import Generator, Iterable
 from functools import partial
-from typing import Any, Callable, Iterator, Optional, TypeGuard, Union
+from typing import Any, Callable, Iterator, Optional, TypeAlias, TypeGuard, Union
 
 from datasets import Dataset, IterableDataset
 from datasets.features.features import Features
@@ -12,7 +12,11 @@ def _is_list_or_tuple_type(v) -> TypeGuard[Union[list, tuple]]:
     return isinstance(v, list) or isinstance(v, tuple)
 
 
-def _is_dataset_type(v) -> TypeGuard[Union[Dataset, IterableDataset]]:
+def _is_dataset_type(v, is_lazy) -> TypeGuard[Union[Dataset, IterableDataset]]:
+    if not is_lazy and isinstance(v, IterableDataset):
+        raise AttributeError(
+            "You must use LazyRows if you want to output an IterableDataset."
+        )
     return isinstance(v, Dataset) or isinstance(v, IterableDataset)
 
 
@@ -23,6 +27,64 @@ def _iterable_or_generator_to_iterable(
         return v()
     else:
         return iter(v)
+
+
+LazyStepOutput: TypeAlias = Union[
+    IterableDataset,
+    dict[str, Union[Iterable[Any], Callable[[], Generator[Any, None, None]]]],
+    list[Any],
+    tuple[Union[Iterable[Any], Callable[[], Generator[Any, None, None]]], ...],
+    Callable[
+        [],
+        Generator[
+            dict[str, Union[Iterable[Any], list[Any], tuple[Any, ...]]],
+            None,
+            None,
+        ],
+    ],
+]
+
+LazyBatchStepOutput: TypeAlias = Union[
+    dict[str, Union[Iterable[Any], Callable[[], Generator[Any, None, None]]]],
+    list[Any],
+    tuple[Union[Iterable[Any], Callable[[], Generator[Any, None, None]]], ...],
+    Callable[
+        [],
+        Generator[
+            dict[str, Union[Iterable[Any], list[Any], tuple[Any, ...]]],
+            None,
+            None,
+        ],
+    ],
+]
+
+StepOutput: TypeAlias = Union[
+    Dataset, dict[str, Iterable[Any]], list[Any], tuple[Iterable[Any], ...]
+]
+
+
+class LazyRows:
+    def __init__(
+        self, value: LazyStepOutput, total_num_rows: Optional[int] = None
+    ) -> None:
+        self.__value: LazyStepOutput = value
+        self.total_num_rows: Optional[int] = total_num_rows
+
+    @property
+    def value(self) -> LazyStepOutput:
+        return self.__value
+
+
+class LazyRowBatches:
+    def __init__(
+        self, value: LazyBatchStepOutput, total_num_rows: Optional[int] = None
+    ) -> None:
+        self.__value: LazyBatchStepOutput = value
+        self.total_num_rows: Optional[int] = total_num_rows
+
+    @property
+    def value(self) -> LazyBatchStepOutput:
+        return self.__value
 
 
 class Step:
@@ -83,40 +145,44 @@ class Step:
 
     def _set_output(  # noqa: C901
         self,
-        value: Union[
-            Dataset,
-            IterableDataset,
-            dict[str, Union[Iterable[Any], Callable[[], Generator[Any, None, None]]]],
-            list[Any],
-            tuple[Union[Iterable[Any], Callable[[], Generator[Any, None, None]]], ...],
-            Callable[
-                [],
-                Generator[
-                    dict[str, Union[Iterable[Any], list[Any], tuple[Any, ...]]],
-                    None,
-                    None,
-                ],
-            ],
-        ],
+        value: Union[StepOutput, LazyRows, LazyRowBatches],
     ):
         # Set progress to 0.0
         self.progress = 0.0
 
+        # Unpack LazyRows and LazyRowsBatches
+        _value: Union[StepOutput, LazyStepOutput]
+        is_lazy = False
+        total_num_rows = None
+        _value_is_batched = False
+        if isinstance(value, LazyRows):
+            _value = value.value
+            is_lazy = True
+            total_num_rows = value.total_num_rows
+        elif isinstance(value, LazyRowBatches):
+            _value = value.value
+            is_lazy = True
+            total_num_rows = value.total_num_rows
+            _value_is_batched = True
+        else:
+            _value = value
+        del value
+
         # Create a Dataset if given a list or tuple of Datasets
         # or create an IterableDataset if given a list or tuple of IterableDatasets
-        if _is_list_or_tuple_type(value):
-            if all(isinstance(d, Dataset) for d in value):
-                value = dataset_zip(*value)
-            elif all(_is_dataset_type(d) for d in value):
-                value = iterable_dataset_zip(*value)
+        if _is_list_or_tuple_type(_value):
+            if all(isinstance(d, Dataset) for d in _value):
+                _value = dataset_zip(*_value)
+            elif all(_is_dataset_type(d, is_lazy) for d in _value):
+                _value = iterable_dataset_zip(*_value)
 
         # Create a Dataset/generator function if given a dict
-        if isinstance(value, dict) and set(self.output_names) == set(value.keys()):
-            if any([callable(v) for v in value.values()]):
+        if isinstance(_value, dict) and set(self.output_names) == set(_value.keys()):
+            if is_lazy and any([callable(v) for v in _value.values()]):
                 # One of the values of the dictionary is a generator function,
                 # create a generator function of dicts
                 iters = [
-                    _iterable_or_generator_to_iterable(value[k])
+                    _iterable_or_generator_to_iterable(_value[k])
                     for k in self.output_names
                 ]
                 rows = zip(*iters)
@@ -125,74 +191,74 @@ class Step:
                     for row in rows:
                         yield {k: v for k, v in zip(output_names, row)}
 
-                value = partial(to_dict_generator_wrapper, rows, self.output_names)
+                _value = partial(to_dict_generator_wrapper, rows, self.output_names)
             else:
-                value = Dataset.from_dict({k: value[k] for k in self.output_names})
-        elif isinstance(value, dict):
+                _value = Dataset.from_dict({k: _value[k] for k in self.output_names})
+        elif isinstance(_value, dict):
             raise AttributeError(
-                f"Expected {self.output_names} dict keys instead of {list(value.keys())}."
+                f"Expected {self.output_names} dict keys instead of {list(_value.keys())}."
             )
 
         # If given a single list when more than one output force it into a tuple
         if (
-            isinstance(value, list)
+            isinstance(_value, list)
             and len(self.output_names) > 1
-            and len(value) == len(self.output_names)
-            and [isinstance(v, Iterable) for v in value]
+            and len(_value) == len(self.output_names)
+            and [isinstance(v, Iterable) for v in _value]
         ):
-            value = tuple(value)
+            _value = tuple(_value)
         elif (
-            isinstance(value, list)
+            isinstance(_value, list)
             and len(self.output_names) > 1
-            and _is_list_or_tuple_type(value[0])
-            and len(value[0]) == len(self.output_names)
+            and _is_list_or_tuple_type(_value[0])
+            and len(_value[0]) == len(self.output_names)
         ):
-            value = tuple(zip(*value))
+            _value = tuple(zip(*_value))
 
         # If given a single list
-        if isinstance(value, list) and len(self.output_names) > 1:
+        if isinstance(_value, list) and len(self.output_names) > 1:
             raise AttributeError(
                 f"Expected {len(self.output_names)} outputs ({self.output_names})"
             )
 
         # If given a tuple with the wrong number of elements
-        if isinstance(value, tuple) and len(self.output_names) != len(value):
+        if isinstance(_value, tuple) and len(self.output_names) != len(_value):
             raise AttributeError(
                 f"Expected {len(self.output_names)} outputs ({self.output_names})"
             )
 
         # Create a generator function if given a tuple with a generator function
-        if isinstance(value, tuple) and any([callable(v) for v in value]):
-            iters = [_iterable_or_generator_to_iterable(v) for v in value]
+        if isinstance(_value, tuple) and is_lazy and any([callable(v) for v in _value]):
+            iters = [_iterable_or_generator_to_iterable(v) for v in _value]
             rows = zip(*iters)
 
             def to_dict_generator_wrapper(rows, output_names):
                 for row in rows:
                     yield {k: v for k, v in zip(output_names, row)}
 
-            value = partial(to_dict_generator_wrapper, rows, self.output_names)
+            _value = partial(to_dict_generator_wrapper, rows, self.output_names)
 
         # If given a Dataset with the wrong number of
-        if _is_dataset_type(value) and set(get_column_names(value)) != set(
+        if _is_dataset_type(_value, is_lazy) and set(get_column_names(_value)) != set(
             self.output_names
         ):
             raise AttributeError(
-                f"Expected {self.output_names} columns instead of {get_column_names(value)}."
+                f"Expected {self.output_names} columns instead of {get_column_names(_value)}."
             )
 
-        # If IterableDataset with no columns convert to a generator function
-        if isinstance(value, IterableDataset) and value.column_names is None:
+        # If IterableDataset convert to a generator function
+        if is_lazy and isinstance(_value, IterableDataset):
 
-            def to_dict_generator_wrapper(value, output_names):
-                return iter(value)
+            def to_dict_generator_wrapper(_value, output_names):
+                return iter(_value)
 
-            value = partial(to_dict_generator_wrapper, value, self.output_names)
+            _value = partial(to_dict_generator_wrapper, _value, self.output_names)
 
         # Create an IterableDataset if given a generator function of dicts
-        if callable(value):
+        if is_lazy and callable(_value):
             # Make sure the generator returns a dict and the keys are correct
             try:
-                first_row = next(value())
+                first_row = next(_value())
                 if isinstance(first_row, dict) and set(self.output_names) != set(
                     first_row.keys()
                 ):
@@ -207,11 +273,13 @@ class Step:
                             " ({self.output_names}) from generator function"
                         )
 
-                    def to_dict_generator_wrapper(value, output_names):
-                        for row in value():
+                    def to_dict_generator_wrapper(_value, output_names):
+                        for row in _value():
                             yield {k: v for k, v in zip(output_names, row)}
 
-                    value = partial(to_dict_generator_wrapper, value, self.output_names)
+                    _value = partial(
+                        to_dict_generator_wrapper, _value, self.output_names
+                    )
             except StopIteration:
                 pass
 
@@ -219,26 +287,30 @@ class Step:
             features = Features([(n, None) for n in self.output_names])
 
             # Wrap the generator so that we can set progress = 1.0 when complete
-            def generator_wrapper(value):
-                total_row_count = None
-                for i, row in enumerate(value()):
+            def generator_wrapper(_value, total_num_rows):
+                for i, row in enumerate(_value()):
                     yield row
-                    if total_row_count is not None:
-                        self.progress = (i + 1) / total_row_count
+                    if total_num_rows is not None:
+                        self.progress = (i + 1) / total_num_rows
                 self.progress = 1.0
 
-            value = partial(generator_wrapper, value)
-            value = IterableDataset.from_generator(value, features=features)
+            _value = partial(generator_wrapper, _value, total_num_rows)
+            _value = IterableDataset.from_generator(_value, features=features)
 
-        if _is_dataset_type(value):
-            self.__output = value
-            if isinstance(value, Dataset):
+        if _is_dataset_type(_value, is_lazy):
+            self.__output = _value
+            if isinstance(_value, Dataset):
                 self.progress = 1.0
-        elif isinstance(value, tuple):
+        elif isinstance(_value, tuple):
             self.__output = Dataset.from_dict(
-                {k: v for k, v in zip(self.output_names, value)}
+                {k: v for k, v in zip(self.output_names, _value)}
             )
             self.progress = 1.0
-        elif isinstance(value, list):
-            self.__output = Dataset.from_dict({self.output_names[0]: value})
+        elif isinstance(_value, list):
+            self.__output = Dataset.from_dict({self.output_names[0]: _value})
             self.progress = 1.0
+        elif len(self.output_names) == 1:
+            self.__output = Dataset.from_dict({self.output_names[0]: [_value]})
+            self.progress = 1.0
+        else:
+            raise AttributeError(f"Invalid output type: {type(_value)}")
