@@ -5,10 +5,10 @@ from typing import Any, Callable, Iterator, Optional, TypeGuard, Union
 from datasets import Dataset, IterableDataset
 from datasets.features.features import Features
 
-from ..datasets.utils import dataset_zip, iterable_dataset_zip
+from ..datasets.utils import dataset_zip, get_column_names, iterable_dataset_zip
 
 
-def _is_list_or_tuple_type(v) -> TypeGuard[Union[list[str], tuple[str, ...]]]:
+def _is_list_or_tuple_type(v) -> TypeGuard[Union[list, tuple]]:
     return isinstance(v, list) or isinstance(v, tuple)
 
 
@@ -38,11 +38,10 @@ class Step:
         outputs: Union[str, list[str], tuple[str, ...]],
     ):
         self._name: str = name
-        self.__running: bool = False
         self.__progress: Optional[float] = None
         self.input = input
         self.__output: Optional[Union[Dataset, IterableDataset]] = None
-        if isinstance(outputs, list) and len(outputs) == 0:
+        if _is_list_or_tuple_type(outputs) and len(outputs) == 0:
             raise ValueError("The step must name its outputs")
         self.output_names: tuple[str, ...]
         if isinstance(outputs, list) or isinstance(outputs, tuple):
@@ -56,9 +55,9 @@ class Step:
 
     @progress.setter
     def progress(self, value: float):
-        if value < 1.0:
-            self.__running = True
-        self.__progress = max(min(value, 1.0), 0.0)
+        if isinstance(self.__output, Dataset):
+            value = 1.0
+        self.__progress = max(min(value, 1.0), self.__progress or 0.0)
 
     def __get_progress_string(self):
         if self.__progress is not None:
@@ -70,11 +69,7 @@ class Step:
     @property
     def output(self) -> Union[Dataset, IterableDataset]:
         if self.__output is None:
-            if self.__running and self.__progress is None:
-                raise AttributeError(
-                    "Step is still running. Output is not available yet."
-                )
-            elif self.__progress is None:
+            if self.__progress is None:
                 raise AttributeError("Step has not been run. Output is not available.")
             else:
                 raise AttributeError(
@@ -104,6 +99,9 @@ class Step:
             ],
         ],
     ):
+        # Set progress to 0.0
+        self.progress = 0.0
+
         # Create a Dataset if given a list or tuple of Datasets
         # or create an IterableDataset if given a list or tuple of IterableDatasets
         if _is_list_or_tuple_type(value):
@@ -146,7 +144,7 @@ class Step:
         elif (
             isinstance(value, list)
             and len(self.output_names) > 1
-            and type(value[0]) in [list, tuple]
+            and _is_list_or_tuple_type(value[0])
             and len(value[0]) == len(self.output_names)
         ):
             value = tuple(zip(*value))
@@ -175,12 +173,20 @@ class Step:
             value = partial(to_dict_generator_wrapper, rows, self.output_names)
 
         # If given a Dataset with the wrong number of
-        if _is_dataset_type(value) and set(value.column_names) != set(
+        if _is_dataset_type(value) and set(get_column_names(value)) != set(
             self.output_names
         ):
             raise AttributeError(
-                f"Expected {self.output_names} columns instead of {value.column_names}."
+                f"Expected {self.output_names} columns instead of {get_column_names(value)}."
             )
+
+        # If IterableDataset with no columns convert to a generator function
+        if isinstance(value, IterableDataset) and value.column_names is None:
+
+            def to_dict_generator_wrapper(value, output_names):
+                return iter(value)
+
+            value = partial(to_dict_generator_wrapper, value, self.output_names)
 
         # Create an IterableDataset if given a generator function of dicts
         if callable(value):
@@ -194,7 +200,7 @@ class Step:
                         f"Expected {self.output_names} dict keys from generator"
                         f" function instead of {list(first_row.keys())}."
                     )
-                elif type(first_row) in [list, tuple]:
+                elif _is_list_or_tuple_type(first_row):
                     if len(first_row) != len(self.output_names):
                         raise AttributeError(
                             f"Expected {len(self.output_names)} outputs"
@@ -211,15 +217,28 @@ class Step:
 
             # If so, convert the generator to an IterableDataset
             features = Features([(n, None) for n in self.output_names])
+
+            # Wrap the generator so that we can set progress = 1.0 when complete
+            def generator_wrapper(value):
+                total_row_count = None
+                for i, row in enumerate(value()):
+                    yield row
+                    if total_row_count is not None:
+                        self.progress = (i + 1) / total_row_count
+                self.progress = 1.0
+
+            value = partial(generator_wrapper, value)
             value = IterableDataset.from_generator(value, features=features)
 
         if _is_dataset_type(value):
             self.__output = value
+            if isinstance(value, Dataset):
+                self.progress = 1.0
         elif isinstance(value, tuple):
             self.__output = Dataset.from_dict(
                 {k: v for k, v in zip(self.output_names, value)}
             )
+            self.progress = 1.0
         elif isinstance(value, list):
             self.__output = Dataset.from_dict({self.output_names[0]: value})
-        self.__progress = 1.0
-        self.__running = False
+            self.progress = 1.0
