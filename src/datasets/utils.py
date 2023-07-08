@@ -18,9 +18,9 @@ def get_column_names(dataset: Union[Dataset, IterableDataset]) -> list[str]:
         return list(first_row.keys())
 
 
-def dataset_zip(datasets: Dataset) -> Dataset:
+def dataset_zip(*datasets: Dataset) -> Dataset:
     if len(datasets) == 0:
-        assert ValueError("You must provide at least one dataset to zip.")
+        raise ValueError("You must provide at least one dataset to zip.")
     dataset_dicts: list[dict[str, list[Any]]] = [
         {n: list(d[n]) for n in d.column_names} for d in datasets
     ]
@@ -33,13 +33,10 @@ def dataset_zip(datasets: Dataset) -> Dataset:
 
 def iterable_dataset_zip(*datasets: Union[Dataset, IterableDataset]) -> IterableDataset:
     if len(datasets) == 0:
-        assert ValueError("You must provide at least one dataset to zip.")
-    iters: list[Iterator[dict[str, Any]]] = [iter(d) for d in datasets]
-    column_names: list[str] = list(
-        chain.from_iterable([get_column_names(d) for d in datasets])
-    )
+        raise ValueError("You must provide at least one dataset to zip.")
 
-    def merged_generator(iters):
+    def merged_generator(datasets):
+        iters: list[Iterator[dict[str, Any]]] = [iter(d) for d in datasets]
         for row_dicts in zip(*iters):
             row = {}
             for d in row_dicts:
@@ -47,7 +44,10 @@ def iterable_dataset_zip(*datasets: Union[Dataset, IterableDataset]) -> Iterable
                     row[k] = v
             yield row
 
+    column_names: list[str] = list(
+        chain.from_iterable([get_column_names(d) for d in datasets])
+    )
     features = Features([(n, None) for n in column_names])
     return IterableDataset.from_generator(
-        partial(merged_generator, iters), features=features
+        partial(merged_generator, datasets), features=features
     )
