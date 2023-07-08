@@ -1,7 +1,11 @@
 from collections.abc import Generator, Iterable
+from functools import partial
 from typing import Any, Callable, Iterator, Optional, TypeGuard, Union
 
 from datasets import Dataset, IterableDataset
+from datasets.features.features import Features
+
+from ..datasets.utils import dataset_zip, iterable_dataset_zip
 
 
 def _is_list_or_tuple_type(v) -> TypeGuard[Union[list[str], tuple[str, ...]]]:
@@ -80,10 +84,9 @@ class Step:
         else:
             return self.__output
 
-    # Generator function of batches
+    # TODO: Generator function of batches
 
-    @output.setter
-    def output(  # noqa: C901
+    def _set_output(  # noqa: C901
         self,
         value: Union[
             Dataset,
@@ -104,10 +107,10 @@ class Step:
         # Create a Dataset if given a list or tuple of Datasets
         # or create an IterableDataset if given a list or tuple of IterableDatasets
         if _is_list_or_tuple_type(value):
-            if all([isinstance(d, Dataset) for d in value]):
-                value = Dataset.zip(*value)
-            elif all([_is_dataset_type(d) for d in value]):
-                value = Dataset.izip(*value)
+            if all(isinstance(d, Dataset) for d in value):
+                value = dataset_zip(*value)
+            elif all(_is_dataset_type(d) for d in value):
+                value = iterable_dataset_zip(*value)
 
         # Create a Dataset/generator function if given a dict
         if isinstance(value, dict) and set(self.output_names) == set(value.keys()):
@@ -120,11 +123,11 @@ class Step:
                 ]
                 rows = zip(*iters)
 
-                def to_dict_generator_wrapper():
+                def to_dict_generator_wrapper(rows, output_names):
                     for row in rows:
-                        yield {k: v for k, v in zip(self.output_names, row)}
+                        yield {k: v for k, v in zip(output_names, row)}
 
-                value = to_dict_generator_wrapper
+                value = partial(to_dict_generator_wrapper, rows, self.output_names)
             else:
                 value = Dataset.from_dict({k: value[k] for k in self.output_names})
         elif isinstance(value, dict):
@@ -165,11 +168,11 @@ class Step:
             iters = [_iterable_or_generator_to_iterable(v) for v in value]
             rows = zip(*iters)
 
-            def to_dict_generator_wrapper():
+            def to_dict_generator_wrapper(rows, output_names):
                 for row in rows:
-                    yield {k: v for k, v in zip(self.output_names, row)}
+                    yield {k: v for k, v in zip(output_names, row)}
 
-            value = to_dict_generator_wrapper
+            value = partial(to_dict_generator_wrapper, rows, self.output_names)
 
         # If given a Dataset with the wrong number of
         if _is_dataset_type(value) and set(value.column_names) != set(
@@ -198,16 +201,17 @@ class Step:
                             " ({self.output_names}) from generator function"
                         )
 
-                    def to_dict_generator_wrapper():
+                    def to_dict_generator_wrapper(value, output_names):
                         for row in value():
-                            yield {k: v for k, v in zip(self.output_names, row)}
+                            yield {k: v for k, v in zip(output_names, row)}
 
-                    value = to_dict_generator_wrapper
+                    value = partial(to_dict_generator_wrapper, value, self.output_names)
             except StopIteration:
                 pass
 
             # If so, convert the generator to an IterableDataset
-            value = IterableDataset.from_generator(value)
+            features = Features([(n, None) for n in self.output_names])
+            value = IterableDataset.from_generator(value, features=features)
 
         if _is_dataset_type(value):
             self.__output = value
