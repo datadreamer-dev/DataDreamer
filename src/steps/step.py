@@ -226,17 +226,17 @@ class Step:
         if (
             isinstance(_value, list)
             and len(self.output_names) > 1
-            and len(_value) == len(self.output_names)
-            and [isinstance(v, Iterable) for v in _value]
-        ):
-            _value = tuple(_value)
-        elif (
-            isinstance(_value, list)
-            and len(self.output_names) > 1
             and _is_list_or_tuple_type(_value[0])
             and len(_value[0]) == len(self.output_names)
         ):
             _value = tuple(zip(*_value))
+        elif (
+            isinstance(_value, list)
+            and len(self.output_names) > 1
+            and len(_value) == len(self.output_names)
+            and [isinstance(v, Iterable) for v in _value]
+        ):
+            _value = tuple(_value)
 
         # If given a single list
         if isinstance(_value, list) and len(self.output_names) > 1:
