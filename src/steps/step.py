@@ -21,7 +21,7 @@ def _is_dataset_type(v, is_lazy) -> TypeGuard[Union[Dataset, IterableDataset]]:
     return isinstance(v, Dataset) or isinstance(v, IterableDataset)
 
 
-def _iterable_or_generator_to_iterable(
+def _iterable_or_generator_func_to_iterator(
     v: Union[Iterable[Any], Callable[[], Generator[Any, None, None]]]
 ) -> Iterator[Any]:
     if callable(v):
@@ -205,17 +205,16 @@ class Step:
             if is_lazy and any([callable(v) for v in _value.values()]):
                 # One of the values of the dictionary is a generator function,
                 # create a generator function of dicts
-                iters = [
-                    _iterable_or_generator_to_iterable(_value[k])
-                    for k in self.output_names
-                ]
-                rows = zip(*iters)
-
-                def to_dict_generator_wrapper(rows, output_names):
+                def to_dict_generator_wrapper(_value, output_names):
+                    iters = [
+                        _iterable_or_generator_func_to_iterator(_value[k])
+                        for k in output_names
+                    ]
+                    rows = zip(*iters)
                     for row in rows:
                         yield {k: v for k, v in zip(output_names, row)}
 
-                _value = partial(to_dict_generator_wrapper, rows, self.output_names)
+                _value = partial(to_dict_generator_wrapper, _value, self.output_names)
             else:
                 _value = Dataset.from_dict({k: _value[k] for k in self.output_names})
         elif isinstance(_value, dict):
@@ -253,14 +252,14 @@ class Step:
 
         # Create a generator function if given a tuple with a generator function
         if isinstance(_value, tuple) and is_lazy and any([callable(v) for v in _value]):
-            iters = [_iterable_or_generator_to_iterable(v) for v in _value]
-            rows = zip(*iters)
 
-            def to_dict_generator_wrapper(rows, output_names):
+            def to_dict_generator_wrapper(_value, output_names):
+                iters = [_iterable_or_generator_func_to_iterator(v) for v in _value]
+                rows = zip(*iters)
                 for row in rows:
                     yield {k: v for k, v in zip(output_names, row)}
 
-            _value = partial(to_dict_generator_wrapper, rows, self.output_names)
+            _value = partial(to_dict_generator_wrapper, _value, self.output_names)
 
         # If given a Dataset with the wrong number of
         if _is_dataset_type(_value, is_lazy) and set(get_column_names(_value)) != set(
@@ -291,15 +290,25 @@ class Step:
                         f" function instead of {list(first_row.keys())}."
                     )
                 elif _is_list_or_tuple_type(first_row):
-                    if len(first_row) != len(self.output_names):
+                    if len(self.output_names) > 1 and len(first_row) == len(
+                        self.output_names
+                    ):
+
+                        def to_dict_generator_wrapper(_value, output_names):
+                            for row in _value():
+                                yield {k: v for k, v in zip(output_names, row)}
+
+                    elif len(self.output_names) == 1:
+
+                        def to_dict_generator_wrapper(_value, output_names):
+                            for v in _value():
+                                yield {output_names[0]: v}
+
+                    else:
                         raise AttributeError(
                             f"Expected {len(self.output_names)} outputs"
-                            " ({self.output_names}) from generator function"
+                            f" ({self.output_names}) from generator function"
                         )
-
-                    def to_dict_generator_wrapper(_value, output_names):
-                        for row in _value():
-                            yield {k: v for k, v in zip(output_names, row)}
 
                     _value = partial(
                         to_dict_generator_wrapper, _value, self.output_names
