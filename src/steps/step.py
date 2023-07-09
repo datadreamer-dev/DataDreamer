@@ -22,12 +22,24 @@ def _is_dataset_type(v, is_lazy) -> TypeGuard[Union[Dataset, IterableDataset]]:
 
 
 def _iterable_or_generator_func_to_iterator(
-    v: Union[Iterable[Any], Callable[[], Generator[Any, None, None]]]
+    v: Union[Iterable[Any], Callable[[], Generator[Any, None, None]]],
+    _value_is_batched: bool = False,
 ) -> Iterator[Any]:
+    iterator: Iterator[Any]
     if callable(v):
-        return v()
+        iterator = v()
     else:
-        return iter(v)
+        iterator = iter(v)
+    if _value_is_batched:
+
+        def unbatch(iterator: Any) -> Generator[Any, None, None]:
+            for batch in iterator:
+                for v in batch:
+                    yield v
+
+        return partial(unbatch, iterator)()
+    else:
+        return iterator
 
 
 LazyStepOutput: TypeAlias = Union[
@@ -187,7 +199,8 @@ class Step:
             _value = value.value
             is_lazy = True
             total_num_rows = value.total_num_rows
-            _value_is_batched = True
+            if not _is_dataset_type(_value, is_lazy):
+                _value_is_batched = True
         else:
             _value = value
         del value
@@ -205,16 +218,24 @@ class Step:
             if is_lazy and any([callable(v) for v in _value.values()]):
                 # One of the values of the dictionary is a generator function,
                 # create a generator function of dicts
-                def to_dict_generator_wrapper(_value, output_names):
+                def to_dict_generator_wrapper(_value, output_names, _value_is_batched):
                     iters = [
-                        _iterable_or_generator_func_to_iterator(_value[k])
+                        _iterable_or_generator_func_to_iterator(
+                            _value[k], _value_is_batched
+                        )
                         for k in output_names
                     ]
                     rows = zip(*iters)
                     for row in rows:
                         yield {k: v for k, v in zip(output_names, row)}
 
-                _value = partial(to_dict_generator_wrapper, _value, self.output_names)
+                _value = partial(
+                    to_dict_generator_wrapper,
+                    _value,
+                    self.output_names,
+                    _value_is_batched,
+                )
+                _value_is_batched = False
             else:
                 _value = Dataset.from_dict({k: _value[k] for k in self.output_names})
         elif isinstance(_value, dict):
@@ -260,13 +281,19 @@ class Step:
         # Create a generator function if given a tuple with a generator function
         if isinstance(_value, tuple) and is_lazy and any([callable(v) for v in _value]):
 
-            def to_dict_generator_wrapper(_value, output_names):
-                iters = [_iterable_or_generator_func_to_iterator(v) for v in _value]
+            def to_dict_generator_wrapper(_value, output_names, _value_is_batched):
+                iters = [
+                    _iterable_or_generator_func_to_iterator(v, _value_is_batched)
+                    for v in _value
+                ]
                 rows = zip(*iters)
                 for row in rows:
                     yield {k: v for k, v in zip(output_names, row)}
 
-            _value = partial(to_dict_generator_wrapper, _value, self.output_names)
+            _value = partial(
+                to_dict_generator_wrapper, _value, self.output_names, _value_is_batched
+            )
+            _value_is_batched = False
 
         # If given a Dataset with the wrong number of
         if _is_dataset_type(_value, is_lazy) and set(get_column_names(_value)) != set(
@@ -279,16 +306,20 @@ class Step:
         # If IterableDataset convert to a generator function
         if is_lazy and isinstance(_value, IterableDataset):
 
-            def to_dict_generator_wrapper(_value, output_names):
+            def to_dict_generator_wrapper(_value, output_names, _value_is_batched):
                 return iter(_value)
 
-            _value = partial(to_dict_generator_wrapper, _value, self.output_names)
+            _value = partial(
+                to_dict_generator_wrapper, _value, self.output_names, _value_is_batched
+            )
 
         # Create an IterableDataset if given a generator function of dicts
         if is_lazy and callable(_value):
             # Make sure the generator returns a dict and the keys are correct
             try:
-                first_row = next(_value())
+                first_row = next(
+                    _iterable_or_generator_func_to_iterator(_value, _value_is_batched)
+                )
                 if isinstance(first_row, dict) and set(self.output_names) != set(
                     first_row.keys()
                 ):
@@ -301,14 +332,22 @@ class Step:
                         self.output_names
                     ):
 
-                        def to_dict_generator_wrapper(_value, output_names):
-                            for row in _value():
+                        def to_dict_generator_wrapper(
+                            _value, output_names, _value_is_batched
+                        ):
+                            for row in _iterable_or_generator_func_to_iterator(
+                                _value, _value_is_batched
+                            ):
                                 yield {k: v for k, v in zip(output_names, row)}
 
                     elif len(self.output_names) == 1:
 
-                        def to_dict_generator_wrapper(_value, output_names):
-                            for v in _value():
+                        def to_dict_generator_wrapper(
+                            _value, output_names, _value_is_batched
+                        ):
+                            for v in _iterable_or_generator_func_to_iterator(
+                                _value, _value_is_batched
+                            ):
                                 yield {output_names[0]: v}
 
                     else:
@@ -318,8 +357,12 @@ class Step:
                         )
 
                     _value = partial(
-                        to_dict_generator_wrapper, _value, self.output_names
+                        to_dict_generator_wrapper,
+                        _value,
+                        self.output_names,
+                        _value_is_batched,
                     )
+                    _value_is_batched = False
             except StopIteration:
                 pass
 
@@ -327,14 +370,19 @@ class Step:
             features = Features([(n, None) for n in self.output_names])
 
             # Wrap the generator so that we can set progress = 1.0 when complete
-            def generator_wrapper(_value, total_num_rows):
-                for i, row in enumerate(_value()):
+            def generator_wrapper(_value, total_num_rows, _value_is_batched):
+                for i, row in enumerate(
+                    _iterable_or_generator_func_to_iterator(_value, _value_is_batched)
+                ):
                     if total_num_rows is not None:
                         self.progress = (i + 1) / total_num_rows
                     yield row
                 self.progress = 1.0
 
-            _value = partial(generator_wrapper, _value, total_num_rows)
+            _value = partial(
+                generator_wrapper, _value, total_num_rows, _value_is_batched
+            )
+            _value_is_batched = False
             _value = IterableDataset.from_generator(_value, features=features)
 
         if _is_dataset_type(_value, is_lazy):

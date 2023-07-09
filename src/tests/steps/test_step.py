@@ -1,6 +1,6 @@
 from datasets import Dataset, IterableDataset
 
-from ...steps import LazyRows, Step
+from ...steps import LazyRowBatches, LazyRows, Step
 
 
 class TestProgress:
@@ -96,6 +96,18 @@ class TestProgress:
             yield {"out1": "c"}
 
         step._set_output(LazyRows(dataset_dict_generator, total_num_rows=3))
+        assert set(step.output.column_names) == set(["out1"])
+        assert isinstance(step.output, IterableDataset)
+        next(iter(step.output))
+        assert step.progress == 1.0 / 3.0
+
+    def test_auto_progress_batched(self):
+        step = Step("my-step", None, "out1")
+
+        def dataset_dict_generator():
+            yield [{"out1": "a"}, {"out1": "b"}, {"out1": "c"}]
+
+        step._set_output(LazyRowBatches(dataset_dict_generator, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1"])
         assert isinstance(step.output, IterableDataset)
         next(iter(step.output))
