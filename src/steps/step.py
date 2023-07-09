@@ -237,6 +237,13 @@ class Step:
             and [isinstance(v, Iterable) for v in _value]
         ):
             _value = tuple(_value)
+        elif (
+            isinstance(_value, list)
+            and len(self.output_names) == 1
+            and len(_value) == len(self.output_names)
+            and callable(_value[0])
+        ):
+            _value = tuple(_value)
 
         # If given a single list
         if isinstance(_value, list) and len(self.output_names) > 1:
