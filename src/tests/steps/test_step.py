@@ -87,6 +87,20 @@ class TestProgress:
         step.progress = 0.5
         assert step.progress == 1.0
 
+    def test_auto_progress(self):
+        step = Step("my-step", None, "out1")
+
+        def dataset_dict_generator():
+            yield {"out1": "a"}
+            yield {"out1": "b"}
+            yield {"out1": "c"}
+
+        step._set_output(LazyRows(dataset_dict_generator, total_num_rows=3))
+        assert set(step.output.column_names) == set(["out1"])
+        assert isinstance(step.output, IterableDataset)
+        next(iter(step.output))
+        assert step.progress == 1.0 / 3.0
+
 
 class TestSingleOutput:
     def test_output_single(self):

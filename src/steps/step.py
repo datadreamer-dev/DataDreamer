@@ -1,3 +1,4 @@
+import warnings
 from collections.abc import Generator, Iterable
 from functools import partial
 from typing import Any, Callable, Iterator, Optional, TypeAlias, TypeGuard, Union
@@ -65,10 +66,21 @@ StepOutput: TypeAlias = Union[
 
 class LazyRows:
     def __init__(
-        self, value: LazyStepOutput, total_num_rows: Optional[int] = None
+        self,
+        value: LazyStepOutput,
+        total_num_rows: Optional[int] = None,
+        auto_progress: bool = True,
     ) -> None:
         self.__value: LazyStepOutput = value
         self.total_num_rows: Optional[int] = total_num_rows
+        if total_num_rows is None and auto_progress:
+            warnings.warn(
+                "You did not specify `total_num_rows`, so we cannot"
+                " automatically update the progress % for this step. Either"
+                " specify LazyRows(..., total_num_rows=#) or, to disable"
+                " this warning, specify LazyRows(.., auto_progress = False)",
+                stacklevel=2,
+            )
 
     @property
     def value(self) -> LazyStepOutput:
@@ -77,10 +89,22 @@ class LazyRows:
 
 class LazyRowBatches:
     def __init__(
-        self, value: LazyBatchStepOutput, total_num_rows: Optional[int] = None
+        self,
+        value: LazyBatchStepOutput,
+        total_num_rows: Optional[int] = None,
+        auto_progress: bool = True,
     ) -> None:
         self.__value: LazyBatchStepOutput = value
         self.total_num_rows: Optional[int] = total_num_rows
+        if total_num_rows is None and auto_progress:
+            warnings.warn(
+                "You did not specify `total_num_rows`, so we cannot"
+                " automatically update the progress % for this step. Either"
+                " specify LazyRowBatches(..., total_num_rows=#) or, to"
+                " disable this warning, specify LazyRowBatches(..,"
+                " auto_progress = False)",
+                stacklevel=2,
+            )
 
     @property
     def value(self) -> LazyBatchStepOutput:
@@ -289,9 +313,9 @@ class Step:
             # Wrap the generator so that we can set progress = 1.0 when complete
             def generator_wrapper(_value, total_num_rows):
                 for i, row in enumerate(_value()):
-                    yield row
                     if total_num_rows is not None:
                         self.progress = (i + 1) / total_num_rows
+                    yield row
                 self.progress = 1.0
 
             _value = partial(generator_wrapper, _value, total_num_rows)
