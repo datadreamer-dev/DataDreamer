@@ -23,7 +23,8 @@ def _is_dataset_type(v, is_lazy) -> TypeGuard[Union[Dataset, IterableDataset]]:
 
 def _iterable_or_generator_func_to_iterator(
     v: Union[Iterable[Any], Callable[[], Generator[Any, None, None]]],
-    _value_is_batched: bool = False,
+    _value_is_batched: bool,
+    output_names: tuple[str, ...],
 ) -> Iterator[Any]:
     iterator: Iterator[Any]
     if callable(v):
@@ -32,20 +33,34 @@ def _iterable_or_generator_func_to_iterator(
         iterator = iter(v)
     if _value_is_batched:
 
-        def unbatch(iterator: Any) -> Generator[Any, None, None]:
+        def _unbatch(iterator: Any) -> Generator[Any, None, None]:
             for batch in iterator:
                 if isinstance(batch, dict):
                     keys = list(batch.keys())
                     value_batch = [batch[k] for k in keys]
                     for values in zip(*value_batch):
                         yield {k: v for k, v in zip(keys, values)}
+                elif isinstance(batch, tuple) and len(output_names) != len(batch):
+                    raise AttributeError(
+                        f"Expected {len(output_names)} outputs ({output_names})"
+                    )
+                elif isinstance(batch, tuple):
+                    for row in zip(*batch):
+                        yield {k: v for k, v in zip(output_names, row)}
                 else:
                     for v in batch:
                         yield v
 
-        return partial(unbatch, iterator)()
+        return partial(_unbatch, iterator)()
     else:
         return iterator
+
+
+def _untuple(v: Any, output_names: tuple[str, ...]) -> Any:
+    if isinstance(v, tuple) and len(v) == 1 and len(v) == len(output_names):
+        return v[0]
+    else:
+        return v
 
 
 LazyStepOutput: TypeAlias = Union[
@@ -227,7 +242,9 @@ class Step:
                 def to_dict_generator_wrapper(_value, output_names, _value_is_batched):
                     iters = [
                         _iterable_or_generator_func_to_iterator(
-                            _value[k], _value_is_batched
+                            _value[k],
+                            _value_is_batched,
+                            output_names,
                         )
                         for k in output_names
                     ]
@@ -289,7 +306,9 @@ class Step:
 
             def to_dict_generator_wrapper(_value, output_names, _value_is_batched):
                 iters = [
-                    _iterable_or_generator_func_to_iterator(v, _value_is_batched)
+                    _iterable_or_generator_func_to_iterator(
+                        v, _value_is_batched, output_names
+                    )
                     for v in _value
                 ]
                 rows = zip(*iters)
@@ -324,7 +343,9 @@ class Step:
             # Make sure the generator returns a dict and the keys are correct
             try:
                 first_row = next(
-                    _iterable_or_generator_func_to_iterator(_value, _value_is_batched)
+                    _iterable_or_generator_func_to_iterator(
+                        _value, _value_is_batched, self.output_names
+                    )
                 )
                 if isinstance(first_row, dict) and set(self.output_names) != set(
                     first_row.keys()
@@ -342,7 +363,7 @@ class Step:
                             _value, output_names, _value_is_batched
                         ):
                             for row in _iterable_or_generator_func_to_iterator(
-                                _value, _value_is_batched
+                                _value, _value_is_batched, output_names
                             ):
                                 yield {k: v for k, v in zip(output_names, row)}
 
@@ -352,9 +373,9 @@ class Step:
                             _value, output_names, _value_is_batched
                         ):
                             for v in _iterable_or_generator_func_to_iterator(
-                                _value, _value_is_batched
+                                _value, _value_is_batched, output_names
                             ):
-                                yield {output_names[0]: v}
+                                yield {output_names[0]: _untuple(v, output_names)}
 
                     else:
                         raise AttributeError(
@@ -376,9 +397,13 @@ class Step:
             features = Features([(n, None) for n in self.output_names])
 
             # Wrap the generator so that we can set progress = 1.0 when complete
-            def generator_wrapper(_value, total_num_rows, _value_is_batched):
+            def generator_wrapper(
+                _value, total_num_rows, output_names, _value_is_batched
+            ):
                 for i, row in enumerate(
-                    _iterable_or_generator_func_to_iterator(_value, _value_is_batched)
+                    _iterable_or_generator_func_to_iterator(
+                        _value, _value_is_batched, output_names
+                    )
                 ):
                     if total_num_rows is not None:
                         self.progress = (i + 1) / total_num_rows
@@ -386,7 +411,11 @@ class Step:
                 self.progress = 1.0
 
             _value = partial(
-                generator_wrapper, _value, total_num_rows, _value_is_batched
+                generator_wrapper,
+                _value,
+                total_num_rows,
+                self.output_names,
+                _value_is_batched,
             )
             _value_is_batched = False
             _value = IterableDataset.from_generator(_value, features=features)
@@ -401,7 +430,9 @@ class Step:
             )
             self.progress = 1.0
         elif isinstance(_value, list):
-            self.__output = Dataset.from_dict({self.output_names[0]: _value})
+            self.__output = Dataset.from_dict(
+                {self.output_names[0]: [_untuple(v, self.output_names) for v in _value]}
+            )
             self.progress = 1.0
         elif len(self.output_names) == 1:
             self.__output = Dataset.from_dict({self.output_names[0]: [_value]})

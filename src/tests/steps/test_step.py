@@ -138,9 +138,9 @@ class TestSingleOutput:
         step._set_output([("a",), ("b",), ("c",)])
         assert set(step.output.column_names) == set(["out1"])
         assert len(step.output["out1"]) == 3
-        assert step.output["out1"][0] == ["a"]
+        assert step.output["out1"][0] == "a"
         assert set(step.output[0].keys()) == set(step.output.column_names)
-        assert step.output[0]["out1"] == ["a"]
+        assert step.output[0]["out1"] == "a"
 
     def test_output_list_of_list_row(self):
         step = Step("my-step", None, "out1")
@@ -308,7 +308,37 @@ class TestSingleOutput:
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)
-        assert first_row["out1"] == ("a",)
+        assert first_row["out1"] == "a"
+
+    def test_output_generator_function_of_tuple_batched_row(self):
+        step = Step("my-step", None, "out1")
+
+        def dataset_dict_generator():
+            yield [("a",), ("b",)]
+            yield [("c",)]
+
+        step._set_output(LazyRowBatches(dataset_dict_generator, total_num_rows=3))
+        assert set(step.output.column_names) == set(["out1"])
+        assert isinstance(step.output, IterableDataset)
+        assert len(list(step.output)) == 3
+        first_row = next(iter(step.output))
+        assert set(first_row.keys()) == set(step.output.column_names)
+        assert first_row["out1"] == "a"
+
+    def test_output_generator_function_of_tuple_batched_column(self):
+        step = Step("my-step", None, "out1")
+
+        def dataset_dict_generator():
+            yield (["a", "b"],)
+            yield (["c"],)
+
+        step._set_output(LazyRowBatches(dataset_dict_generator, total_num_rows=3))
+        assert set(step.output.column_names) == set(["out1"])
+        assert isinstance(step.output, IterableDataset)
+        assert len(list(step.output)) == 3
+        first_row = next(iter(step.output))
+        assert set(first_row.keys()) == set(step.output.column_names)
+        assert first_row["out1"] == "a"
 
     def test_output_generator_function_of_list_row(self):
         step = Step("my-step", None, "out1")
