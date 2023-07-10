@@ -9,14 +9,18 @@ from datasets.features.features import Features
 from ..datasets.utils import dataset_zip, get_column_names, iterable_dataset_zip
 
 
+def _is_iterable(v: Any) -> bool:
+    return isinstance(v, Iterable) and not isinstance(v, (str, bytes))
+
+
 def _is_list_or_tuple_type(v) -> TypeGuard[Union[list, tuple]]:
-    return isinstance(v, list) or isinstance(v, tuple)
+    return isinstance(v, (list, tuple))
 
 
 def _is_dataset_type(v, is_lazy) -> TypeGuard[Union[Dataset, IterableDataset]]:
     if not is_lazy and isinstance(v, IterableDataset):
         raise AttributeError(
-            "You must use LazyRows if you want to output an IterableDataset."
+            "You must use LazyRows() if you want to output an IterableDataset."
         )
     return isinstance(v, Dataset) or isinstance(v, IterableDataset)
 
@@ -42,7 +46,7 @@ def _iterable_or_generator_func_to_iterator(
                         yield {k: v for k, v in zip(keys, values)}
                 elif isinstance(batch, tuple) and len(output_names) != len(batch):
                     raise AttributeError(
-                        f"Expected {len(output_names)} outputs ({output_names})"
+                        f"Expected {len(output_names)} outputs {output_names}"
                     )
                 elif isinstance(batch, tuple):
                     for row in zip(*batch):
@@ -259,11 +263,13 @@ class Step:
                     _value_is_batched,
                 )
                 _value_is_batched = False
+            elif all([not _is_iterable(v) for v in _value.values()]):
+                _value = Dataset.from_dict({k: [_value[k]] for k in self.output_names})
             else:
                 _value = Dataset.from_dict({k: _value[k] for k in self.output_names})
         elif isinstance(_value, dict):
             raise AttributeError(
-                f"Expected {self.output_names} dict keys instead of {list(_value.keys())}."
+                f"Expected {self.output_names} as dict keys instead of {tuple(_value.keys())}."
             )
 
         # If given a single list when more than one output force it into a tuple
@@ -278,7 +284,7 @@ class Step:
             isinstance(_value, list)
             and len(self.output_names) > 1
             and len(_value) == len(self.output_names)
-            and [isinstance(v, Iterable) for v in _value]
+            and [_is_iterable(v) for v in _value]
         ):
             _value = tuple(_value)
         elif (
@@ -292,13 +298,13 @@ class Step:
         # If given a single list
         if isinstance(_value, list) and len(self.output_names) > 1:
             raise AttributeError(
-                f"Expected {len(self.output_names)} outputs ({self.output_names})"
+                f"Expected {len(self.output_names)} outputs {self.output_names}"
             )
 
         # If given a tuple with the wrong number of elements
         if isinstance(_value, tuple) and len(self.output_names) != len(_value):
             raise AttributeError(
-                f"Expected {len(self.output_names)} outputs ({self.output_names})"
+                f"Expected {len(self.output_names)} outputs {self.output_names}"
             )
 
         # Create a generator function if given a tuple with a generator function
@@ -325,7 +331,8 @@ class Step:
             self.output_names
         ):
             raise AttributeError(
-                f"Expected {self.output_names} columns instead of {get_column_names(_value)}."
+                f"Expected {len(self.output_names)} columns {self.output_names}"
+                f" instead of {tuple(get_column_names(_value))}."
             )
 
         # If IterableDataset convert to a generator function
@@ -352,7 +359,7 @@ class Step:
                 ):
                     raise AttributeError(
                         f"Expected {self.output_names} dict keys from generator"
-                        f" function instead of {list(first_row.keys())}."
+                        f" function instead of {tuple(first_row.keys())}."
                     )
                 elif _is_list_or_tuple_type(first_row):
                     if len(self.output_names) > 1 and len(first_row) == len(
@@ -380,7 +387,7 @@ class Step:
                     else:
                         raise AttributeError(
                             f"Expected {len(self.output_names)} outputs"
-                            f" ({self.output_names}) from generator function"
+                            f" {self.output_names} from generator function"
                         )
 
                     _value = partial(

@@ -1,6 +1,119 @@
+import pytest
+
 from datasets import Dataset, IterableDataset
 
 from ...steps import LazyRowBatches, LazyRows, Step
+
+
+class TestErrors:
+    def test_no_outputs_named(self):
+        with pytest.raises(ValueError):
+            Step("my-step", None, [])
+
+    def test_access_output_before_step_is_run(self):
+        step = Step("my-step", None, "out1")
+        with pytest.raises(AttributeError):
+            step.output
+
+    def test_access_output_while_step_is_running(self):
+        step = Step("my-step", None, "out1")
+        step.progress = 0.565
+        assert step.progress == 0.565
+        with pytest.raises(AttributeError):
+            step.output
+
+    def test_output_invalid_type(self):
+        step = Step("my-step", None, "out1")
+        with pytest.raises(AttributeError):
+            step._set_output({"out2": 5})
+        with pytest.raises(AttributeError):
+            step._set_output({"out2": "a"})
+
+        def dataset_dict_generator():
+            yield {"out1": "a"}
+            yield {"out1": "b"}
+            yield {"out1": "c"}
+
+        iterable_dataset = IterableDataset.from_generator(dataset_dict_generator)
+        with pytest.raises(AttributeError):
+            step._set_output(iterable_dataset)
+
+    def test_output_dict_with_wrong_keys(self):
+        step = Step("my-step", None, "out1")
+        with pytest.raises(AttributeError):
+            step._set_output({"out2": ["a", "b", "c"]})
+
+    def test_output_list_with_wrong_number_of_outputs(self):
+        step = Step("my-step", None, ["out1", "out2", "out3", "out4"])
+        with pytest.raises(AttributeError):
+            step._set_output([("a", 1), ("b", 2), ("c", 3)])
+
+    def test_output_tuple_with_wrong_number_of_outputs(self):
+        step = Step("my-step", None, ["out1"])
+        with pytest.raises(AttributeError):
+            step._set_output((["a", "b", "c"], [1, 2, 3]))
+
+    def test_output_dataset_with_wrong_number_of_columns(self):
+        step = Step("my-step", None, "out1")
+        assert step.progress is None
+        dataset_dict = {"out1": ["a", "b", "c"], "out2": [1, 2, 3]}
+        dataset = Dataset.from_dict(dataset_dict)
+        with pytest.raises(AttributeError):
+            step._set_output(dataset)
+
+        def dataset_dict_generator():
+            yield {"out1": "a", "out2": 1}
+            yield {"out1": "b", "out2": 2}
+            yield {"out1": "c", "out2": 3}
+
+        iterable_dataset = IterableDataset.from_generator(dataset_dict_generator)
+        with pytest.raises(AttributeError):
+            step._set_output(LazyRows(iterable_dataset, total_num_rows=3))
+
+    def test_output_generator_function_of_dict_with_wrong_keys(self):
+        step = Step("my-step", None, "out1")
+
+        def dataset_dict_generator():
+            yield {"out2": "a"}
+            yield {"out2": "b"}
+            yield {"out2": "c"}
+
+        with pytest.raises(AttributeError):
+            step._set_output(LazyRows(dataset_dict_generator, total_num_rows=3))
+
+    def test_output_generator_function_of_list_with_wrong_number_of_outputs(self):
+        step = Step("my-step", None, ["out1", "out2"])
+
+        def dataset_dict_generator():
+            yield ["a"]
+            yield ["b"]
+            yield ["c"]
+
+        with pytest.raises(AttributeError):
+            step._set_output(LazyRows(dataset_dict_generator, total_num_rows=3))
+
+    def test_output_generator_function_of_tuple_with_wrong_number_of_outputs(self):
+        step = Step("my-step", None, ["out1", "out2"])
+
+        def dataset_dict_generator():
+            yield ["a"]
+            yield ["b"]
+            yield ["c"]
+
+        with pytest.raises(AttributeError):
+            step._set_output(LazyRows(dataset_dict_generator, total_num_rows=3))
+
+    def test_output_generator_function_of_tuple_batched_column_with_wrong_number_of_outputs(
+        self,
+    ):
+        step = Step("my-step", None, ["out1", "out2"])
+
+        def dataset_dict_generator():
+            yield (["a", "b"],)
+            yield (["c"],)
+
+        with pytest.raises(AttributeError):
+            step._set_output(LazyRowBatches(dataset_dict_generator, total_num_rows=3))
 
 
 class TestProgress:
@@ -118,6 +231,33 @@ class TestSingleOutput:
     def test_output_single(self):
         step = Step("my-step", None, "out1")
         step._set_output("a")
+        assert set(step.output.column_names) == set(["out1"])
+        assert len(step.output["out1"]) == 1
+        assert step.output["out1"][0] == "a"
+        assert set(step.output[0].keys()) == set(step.output.column_names)
+        assert step.output[0]["out1"] == "a"
+
+    def test_output_single_list(self):
+        step = Step("my-step", None, "out1")
+        step._set_output(["a"])
+        assert set(step.output.column_names) == set(["out1"])
+        assert len(step.output["out1"]) == 1
+        assert step.output["out1"][0] == "a"
+        assert set(step.output[0].keys()) == set(step.output.column_names)
+        assert step.output[0]["out1"] == "a"
+
+    def test_output_single_tuple(self):
+        step = Step("my-step", None, "out1")
+        step._set_output(("a",))
+        assert set(step.output.column_names) == set(["out1"])
+        assert len(step.output["out1"]) == 1
+        assert step.output["out1"][0] == "a"
+        assert set(step.output[0].keys()) == set(step.output.column_names)
+        assert step.output[0]["out1"] == "a"
+
+    def test_output_single_dict(self):
+        step = Step("my-step", None, "out1")
+        step._set_output({"out1": "a"})
         assert set(step.output.column_names) == set(["out1"])
         assert len(step.output["out1"]) == 1
         assert step.output["out1"][0] == "a"
@@ -480,3 +620,32 @@ class TestSingleOutput:
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)
         assert first_row["out1"] == "a"
+
+
+class TestMultipleOutput:
+    def test_output_single_list(self):
+        step = Step("my-step", None, ["out1", "out2"])
+        step._set_output(["a", "1"])
+        assert set(step.output.column_names) == set(["out1", "out2"])
+        assert len(step.output["out1"]) == 1
+        assert step.output["out1"][0] == "a"
+        assert set(step.output[0].keys()) == set(step.output.column_names)
+        assert step.output[0]["out1"] == "a"
+
+    def test_output_single_tuple(self):
+        step = Step("my-step", None, ["out1", "out2"])
+        step._set_output(("a", "1"))
+        assert set(step.output.column_names) == set(["out1", "out2"])
+        assert len(step.output["out1"]) == 1
+        assert step.output["out1"][0] == "a"
+        assert set(step.output[0].keys()) == set(step.output.column_names)
+        assert step.output[0]["out1"] == "a"
+
+    def test_output_single_dict(self):
+        step = Step("my-step", None, ["out1", "out2"])
+        step._set_output({"out1": "a", "out2": 1})
+        assert set(step.output.column_names) == set(["out1", "out2"])
+        assert len(step.output["out1"]) == 1
+        assert step.output["out1"][0] == "a"
+        assert set(step.output[0].keys()) == set(step.output.column_names)
+        assert step.output[0]["out1"] == "a"
