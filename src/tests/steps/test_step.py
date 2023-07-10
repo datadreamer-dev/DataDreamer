@@ -171,7 +171,7 @@ class TestSingleOutput:
 
     def test_output_tuple_of_iterator(self):
         step = Step("my-step", None, "out1")
-        step._set_output(LazyRows((range(3),), total_num_rows=3))
+        step._set_output((range(3),))
         assert set(step.output.column_names) == set(["out1"])
         assert len(step.output["out1"]) == 3
         assert step.output["out1"][0] == 0
@@ -189,7 +189,7 @@ class TestSingleOutput:
 
     def test_output_dict_of_iterator(self):
         step = Step("my-step", None, "out1")
-        step._set_output(LazyRows({"out1": range(3)}, total_num_rows=3))
+        step._set_output({"out1": range(3)})
         assert set(step.output.column_names) == set(["out1"])
         assert len(step.output["out1"]) == 3
         assert step.output["out1"][0] == 0
@@ -217,6 +217,23 @@ class TestSingleOutput:
 
         iterable_dataset = IterableDataset.from_generator(dataset_dict_generator)
         step._set_output(LazyRows(iterable_dataset, total_num_rows=3))
+        assert set(step.output.column_names) == set(["out1"])
+        assert isinstance(step.output, IterableDataset)
+        assert len(list(step.output)) == 3
+        first_row = next(iter(step.output))
+        assert set(first_row.keys()) == set(step.output.column_names)
+        assert first_row["out1"] == "a"
+
+    def test_output_iterable_dataset_batched(self):
+        step = Step("my-step", None, "out1")
+
+        def dataset_dict_generator():
+            yield {"out1": "a"}
+            yield {"out1": "b"}
+            yield {"out1": "c"}
+
+        iterable_dataset = IterableDataset.from_generator(dataset_dict_generator)
+        step._set_output(LazyRowBatches(iterable_dataset, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1"])
         assert isinstance(step.output, IterableDataset)
         assert len(list(step.output)) == 3
@@ -255,6 +272,21 @@ class TestSingleOutput:
             yield {"out1": "c"}
 
         step._set_output(LazyRows(dataset_dict_generator, total_num_rows=3))
+        assert set(step.output.column_names) == set(["out1"])
+        assert isinstance(step.output, IterableDataset)
+        assert len(list(step.output)) == 3
+        first_row = next(iter(step.output))
+        assert set(first_row.keys()) == set(step.output.column_names)
+        assert first_row["out1"] == "a"
+
+    def test_output_generator_function_of_dict_batched(self):
+        step = Step("my-step", None, "out1")
+
+        def dataset_dict_generator():
+            yield {"out1": ["a", "b"]}
+            yield {"out1": ["c"]}
+
+        step._set_output(LazyRowBatches(dataset_dict_generator, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1"])
         assert isinstance(step.output, IterableDataset)
         assert len(list(step.output)) == 3
@@ -310,6 +342,23 @@ class TestSingleOutput:
         assert set(first_row.keys()) == set(step.output.column_names)
         assert first_row["out1"] == "a"
 
+    def test_output_dict_of_generator_function_batched(self):
+        step = Step("my-step", None, "out1")
+
+        def dataset_dict_generator():
+            yield ["a", "b"]
+            yield "c"
+
+        step._set_output(
+            LazyRowBatches({"out1": dataset_dict_generator}, total_num_rows=3)
+        )
+        assert set(step.output.column_names) == set(["out1"])
+        assert isinstance(step.output, IterableDataset)
+        assert len(list(step.output)) == 3
+        first_row = next(iter(step.output))
+        assert set(first_row.keys()) == set(step.output.column_names)
+        assert first_row["out1"] == "a"
+
     def test_output_list_of_generator_function(self):
         step = Step("my-step", None, "out1")
 
@@ -326,6 +375,21 @@ class TestSingleOutput:
         assert set(first_row.keys()) == set(step.output.column_names)
         assert first_row["out1"] == "a"
 
+    def test_output_list_of_generator_function_batched(self):
+        step = Step("my-step", None, "out1")
+
+        def dataset_dict_generator():
+            yield ["a", "b"]
+            yield "c"
+
+        step._set_output(LazyRowBatches([dataset_dict_generator], total_num_rows=3))
+        assert set(step.output.column_names) == set(["out1"])
+        assert isinstance(step.output, IterableDataset)
+        assert len(list(step.output)) == 3
+        first_row = next(iter(step.output))
+        assert set(first_row.keys()) == set(step.output.column_names)
+        assert first_row["out1"] == "a"
+
     def test_output_tuple_of_generator_function(self):
         step = Step("my-step", None, "out1")
 
@@ -335,6 +399,21 @@ class TestSingleOutput:
             yield "c"
 
         step._set_output(LazyRows((dataset_dict_generator,), total_num_rows=3))
+        assert set(step.output.column_names) == set(["out1"])
+        assert isinstance(step.output, IterableDataset)
+        assert len(list(step.output)) == 3
+        first_row = next(iter(step.output))
+        assert set(first_row.keys()) == set(step.output.column_names)
+        assert first_row["out1"] == "a"
+
+    def test_output_tuple_of_generator_function_batched(self):
+        step = Step("my-step", None, "out1")
+
+        def dataset_dict_generator():
+            yield ["a", "b"]
+            yield "c"
+
+        step._set_output(LazyRowBatches((dataset_dict_generator,), total_num_rows=3))
         assert set(step.output.column_names) == set(["out1"])
         assert isinstance(step.output, IterableDataset)
         assert len(list(step.output)) == 3

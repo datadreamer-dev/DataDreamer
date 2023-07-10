@@ -34,8 +34,14 @@ def _iterable_or_generator_func_to_iterator(
 
         def unbatch(iterator: Any) -> Generator[Any, None, None]:
             for batch in iterator:
-                for v in batch:
-                    yield v
+                if isinstance(batch, dict):
+                    keys = list(batch.keys())
+                    value_batch = [batch[k] for k in keys]
+                    for values in zip(*value_batch):
+                        yield {k: v for k, v in zip(keys, values)}
+                else:
+                    for v in batch:
+                        yield v
 
         return partial(unbatch, iterator)()
     else:
