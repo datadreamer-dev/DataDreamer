@@ -1,12 +1,14 @@
 import warnings
 from collections.abc import Generator, Iterable
 from functools import partial
-from typing import Any, Callable, Iterator, Optional, TypeAlias, TypeGuard, Union
+from typing import (Any, Callable, Iterator, Optional, TypeAlias, TypeGuard,
+                    Union)
 
 from datasets import Dataset, IterableDataset
 from datasets.features.features import Features
 
-from ..datasets.utils import dataset_zip, get_column_names, iterable_dataset_zip
+from ..datasets.utils import (dataset_zip, get_column_names,
+                              iterable_dataset_zip)
 
 
 def _is_iterable(v: Any) -> bool:
@@ -53,7 +55,10 @@ def _iterable_or_generator_func_to_iterator(
                         yield {k: v for k, v in zip(output_names, row)}
                 else:
                     for v in batch:
-                        yield v
+                        if _is_iterable(v) and not _is_list_or_tuple_type(v):
+                            yield list(v)
+                        else:
+                            yield v
 
         return partial(_unbatch, iterator)()
     else:
