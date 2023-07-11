@@ -1,18 +1,16 @@
 import warnings
-from collections.abc import Generator, Iterable
+from collections.abc import Generator, Iterable, Mapping, Sized
 from functools import partial
-from typing import (Any, Callable, Iterator, Optional, TypeAlias, TypeGuard,
-                    Union)
+from typing import Any, Callable, Iterator, Optional, TypeAlias, TypeGuard, Union
 
 from datasets import Dataset, IterableDataset
 from datasets.features.features import Features
 
-from ..datasets.utils import (dataset_zip, get_column_names,
-                              iterable_dataset_zip)
+from ..datasets.utils import dataset_zip, get_column_names, iterable_dataset_zip
 
 
 def _is_iterable(v: Any) -> bool:
-    return isinstance(v, Iterable) and not isinstance(v, (str, bytes))
+    return isinstance(v, Iterable) and not isinstance(v, (str, bytes, Mapping))
 
 
 def _is_list_or_tuple_type(v) -> TypeGuard[Union[list, tuple]]:
@@ -25,6 +23,13 @@ def _is_dataset_type(v, is_lazy) -> TypeGuard[Union[Dataset, IterableDataset]]:
             "You must use LazyRows() if you want to output an IterableDataset."
         )
     return isinstance(v, Dataset) or isinstance(v, IterableDataset)
+
+
+def _normalize(v: Any) -> Any:
+    if _is_iterable(v) and not isinstance(v, Sized):
+        return list(v)
+    else:
+        return v
 
 
 def _iterable_or_generator_func_to_iterator(
@@ -45,20 +50,17 @@ def _iterable_or_generator_func_to_iterator(
                     keys = list(batch.keys())
                     value_batch = [batch[k] for k in keys]
                     for values in zip(*value_batch):
-                        yield {k: v for k, v in zip(keys, values)}
+                        yield {k: _normalize(v) for k, v in zip(keys, values)}
                 elif isinstance(batch, tuple) and len(output_names) != len(batch):
                     raise AttributeError(
                         f"Expected {len(output_names)} outputs {output_names}"
                     )
                 elif isinstance(batch, tuple):
                     for row in zip(*batch):
-                        yield {k: v for k, v in zip(output_names, row)}
+                        yield {k: _normalize(v) for k, v in zip(output_names, row)}
                 else:
                     for v in batch:
-                        if _is_iterable(v) and not _is_list_or_tuple_type(v):
-                            yield list(v)
-                        else:
-                            yield v
+                        yield v
 
         return partial(_unbatch, iterator)()
     else:
@@ -259,7 +261,7 @@ class Step:
                     ]
                     rows = zip(*iters)
                     for row in rows:
-                        yield {k: v for k, v in zip(output_names, row)}
+                        yield {k: _normalize(v) for k, v in zip(output_names, row)}
 
                 _value = partial(
                     to_dict_generator_wrapper,
@@ -324,7 +326,7 @@ class Step:
                 ]
                 rows = zip(*iters)
                 for row in rows:
-                    yield {k: v for k, v in zip(output_names, row)}
+                    yield {k: _normalize(v) for k, v in zip(output_names, row)}
 
             _value = partial(
                 to_dict_generator_wrapper, _value, self.output_names, _value_is_batched
@@ -359,6 +361,8 @@ class Step:
                         _value, _value_is_batched, self.output_names
                     )
                 )
+                if _is_iterable(first_row) and not isinstance(first_row, Sized):
+                    first_row = list(first_row)
                 if isinstance(first_row, dict) and set(self.output_names) != set(
                     first_row.keys()
                 ):
@@ -377,7 +381,9 @@ class Step:
                             for row in _iterable_or_generator_func_to_iterator(
                                 _value, _value_is_batched, output_names
                             ):
-                                yield {k: v for k, v in zip(output_names, row)}
+                                yield {
+                                    k: _normalize(v) for k, v in zip(output_names, row)
+                                }
 
                     elif len(self.output_names) == 1:
 
@@ -387,7 +393,11 @@ class Step:
                             for v in _iterable_or_generator_func_to_iterator(
                                 _value, _value_is_batched, output_names
                             ):
-                                yield {output_names[0]: _untuple(v, output_names)}
+                                yield {
+                                    output_names[0]: _normalize(
+                                        _untuple(v, output_names)
+                                    )
+                                }
 
                     else:
                         raise AttributeError(
@@ -438,16 +448,22 @@ class Step:
                 self.progress = 1.0
         elif isinstance(_value, tuple):
             self.__output = Dataset.from_dict(
-                {k: v for k, v in zip(self.output_names, _value)}
+                {k: _normalize(v) for k, v in zip(self.output_names, _value)}
             )
             self.progress = 1.0
         elif isinstance(_value, list):
             self.__output = Dataset.from_dict(
-                {self.output_names[0]: [_untuple(v, self.output_names) for v in _value]}
+                {
+                    self.output_names[0]: [
+                        _normalize(_untuple(v, self.output_names)) for v in _value
+                    ]
+                }
             )
             self.progress = 1.0
         elif len(self.output_names) == 1:
-            self.__output = Dataset.from_dict({self.output_names[0]: [_value]})
+            self.__output = Dataset.from_dict(
+                {self.output_names[0]: [_normalize(_value)]}
+            )
             self.progress = 1.0
         else:
             raise AttributeError(f"Invalid output type: {type(_value)}")
