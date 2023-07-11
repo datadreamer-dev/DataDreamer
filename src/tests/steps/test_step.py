@@ -771,3 +771,77 @@ class TestMultipleOutput:
         assert step.output["out1"][0] == "a"
         assert set(step.output[0].keys()) == set(step.output.column_names)
         assert step.output[0]["out1"] == "a"
+
+    def test_output_list_of_tuple(self):
+        step = Step("my-step", None, ["out1", "out2"])
+        step._set_output([("a", 1), ("b", 2), ("c", 3)])
+        assert set(step.output.column_names) == set(["out1", "out2"])
+        assert len(step.output["out1"]) == 3
+        assert step.output["out1"][0] == "a"
+        assert set(step.output[0].keys()) == set(step.output.column_names)
+        assert step.output[0]["out1"] == "a"
+
+    def test_output_list_of_list_row(self):
+        step = Step("my-step", None, ["out1", "out2"])
+        step._set_output([["a", 1], ["b", 2], ["c", 3]])
+        assert set(step.output.column_names) == set(["out1", "out2"])
+        assert len(step.output["out1"]) == 3
+        assert step.output["out1"][0] == "a"
+        assert set(step.output[0].keys()) == set(step.output.column_names)
+        assert step.output[0]["out1"] == "a"
+
+    def test_output_list_of_list_column(self):
+        step = Step("my-step", None, ["out1", "out2"])
+        step._set_output([["a", "b", "c"], [1, 2, 3]])
+        assert set(step.output.column_names) == set(["out1", "out2"])
+        assert len(step.output["out1"]) == 3
+        assert step.output["out1"][0] == "a"
+        assert set(step.output[0].keys()) == set(step.output.column_names)
+        assert step.output[0]["out1"] == "a"
+
+    def test_output_tuple_of_list(self):
+        step = Step("my-step", None, ["out1", "out2"])
+        step._set_output((["a", "b", "c"], [1, 2, 3]))
+        assert set(step.output.column_names) == set(["out1", "out2"])
+        assert len(step.output["out1"]) == 3
+        assert step.output["out1"][0] == "a"
+        assert set(step.output[0].keys()) == set(step.output.column_names)
+        assert step.output[0]["out1"] == "a"
+
+    def test_output_tuple_of_iterator(self):
+        step = Step("my-step", None, ["out1", "out2"])
+        step._set_output((range(3), ["a", "b", "c"]))
+        assert set(step.output.column_names) == set(["out1", "out2"])
+        assert len(step.output["out1"]) == 3
+        assert step.output["out1"][0] == 0
+        assert set(step.output[0].keys()) == set(step.output.column_names)
+        assert step.output[0]["out1"] == 0
+
+    def test_output_dict_of_list(self):
+        step = Step("my-step", None, ["out1", "out2"])
+        step._set_output({"out1": ["a", "b", "c"], "out2": [1, 2, 3]})
+        assert set(step.output.column_names) == set(["out1", "out2"])
+        assert len(step.output["out1"]) == 3
+        assert step.output["out1"][0] == "a"
+        assert set(step.output[0].keys()) == set(step.output.column_names)
+        assert step.output[0]["out1"] == "a"
+
+    def test_output_dict_of_iterator(self):
+        step = Step("my-step", None, ["out1", "out2"])
+        step._set_output({"out1": range(3), "out2": ["a", "b", "c"]})
+        assert set(step.output.column_names) == set(["out1", "out2"])
+        assert len(step.output["out1"]) == 3
+        assert step.output["out1"][0] == 0
+        assert set(step.output[0].keys()) == set(step.output.column_names)
+        assert step.output[0]["out1"] == 0
+
+    def test_output_dataset(self):
+        step = Step("my-step", None, ["out1", "out2"])
+        dataset_dict = {"out1": ["a", "b", "c"], "out2": [1, 2, 3]}
+        dataset = Dataset.from_dict(dataset_dict)
+        step._set_output(dataset)
+        assert set(step.output.column_names) == set(["out1", "out2"])
+        assert len(step.output["out1"]) == 3
+        assert step.output["out1"][0] == "a"
+        assert set(step.output[0].keys()) == set(step.output.column_names)
+        assert step.output[0]["out1"] == "a"
