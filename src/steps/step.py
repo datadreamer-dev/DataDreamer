@@ -172,7 +172,7 @@ class Step:
         self.input = input
         self.__output: Optional[Union[Dataset, IterableDataset]] = None
         if _is_list_or_tuple_type(outputs) and len(outputs) == 0:
-            raise ValueError("The step must name its outputs")
+            raise ValueError("The step must name its outputs.")
         self.output_names: tuple[str, ...]
         if isinstance(outputs, list) or isinstance(outputs, tuple):
             self.output_names = tuple(outputs)
@@ -244,6 +244,13 @@ class Step:
                 _value = dataset_zip(*_value)
             elif all(_is_dataset_type(d, is_lazy) for d in _value):
                 _value = iterable_dataset_zip(*_value)
+            elif any(_is_dataset_type(d, True) for d in _value) and len(_value) <= len(
+                self.output_names
+            ):
+                raise AttributeError(
+                    f"Invalid output type: all elements in {_value} must be of type"
+                    " Dataset or IterableDataset if one element is."
+                )
 
         # Create a Dataset/generator function if given a dict
         if isinstance(_value, dict) and set(self.output_names) == set(_value.keys()):
@@ -305,13 +312,13 @@ class Step:
         # If given a single list
         if isinstance(_value, list) and len(self.output_names) > 1:
             raise AttributeError(
-                f"Expected {len(self.output_names)} outputs {self.output_names}"
+                f"Expected {len(self.output_names)} outputs {self.output_names}."
             )
 
         # If given a tuple with the wrong number of elements
         if isinstance(_value, tuple) and len(self.output_names) != len(_value):
             raise AttributeError(
-                f"Expected {len(self.output_names)} outputs {self.output_names}"
+                f"Expected {len(self.output_names)} outputs {self.output_names}."
             )
 
         # Create a generator function if given a tuple with a generator function
@@ -402,7 +409,7 @@ class Step:
                     else:
                         raise AttributeError(
                             f"Expected {len(self.output_names)} outputs"
-                            f" {self.output_names} from generator function"
+                            f" {self.output_names} from generator function."
                         )
 
                     _value = partial(
@@ -466,4 +473,4 @@ class Step:
             )
             self.progress = 1.0
         else:
-            raise AttributeError(f"Invalid output type: {type(_value)}")
+            raise AttributeError(f"Invalid output type: {type(_value)}.")

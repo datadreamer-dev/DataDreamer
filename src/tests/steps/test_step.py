@@ -23,11 +23,11 @@ class TestErrors:
             step.output
 
     def test_output_invalid_type(self):
-        step = Step("my-step", None, "out1")
+        step_single = Step("my-step", None, "out1")
         with pytest.raises(AttributeError):
-            step._set_output({"out2": 5})
+            step_single._set_output({"out2": 5})
         with pytest.raises(AttributeError):
-            step._set_output({"out2": "a"})
+            step_single._set_output({"out2": "a"})
 
         def dataset_dict_generator():
             yield {"out1": "a"}
@@ -36,7 +36,13 @@ class TestErrors:
 
         iterable_dataset = IterableDataset.from_generator(dataset_dict_generator)
         with pytest.raises(AttributeError):
-            step._set_output(iterable_dataset)
+            step_single._set_output(iterable_dataset)
+
+        step_multiple = Step("my-step", None, ["out1", "out2"])
+        with pytest.raises(AttributeError):
+            step_multiple._set_output(
+                LazyRows([iterable_dataset, [1, 2, 3]], total_num_rows=3)
+            )
 
     def test_output_dict_with_wrong_keys(self):
         step = Step("my-step", None, "out1")
