@@ -1,12 +1,14 @@
 import warnings
 from collections.abc import Generator, Iterable, Mapping, Sized
 from functools import partial
-from typing import Any, Callable, Iterator, Optional, TypeAlias, TypeGuard, Union
+from typing import (Any, Callable, Iterator, Optional, TypeAlias, TypeGuard,
+                    Union)
 
 from datasets import Dataset, IterableDataset
 from datasets.features.features import Features
 
-from ..datasets.utils import dataset_zip, get_column_names, iterable_dataset_zip
+from ..datasets.utils import (dataset_zip, get_column_names,
+                              iterable_dataset_zip)
 
 
 def _is_iterable(v: Any) -> bool:
@@ -46,6 +48,7 @@ def _iterable_or_generator_func_to_iterator(
 
         def _unbatch(iterator: Any) -> Generator[Any, None, None]:
             for batch in iterator:
+                # Unbatch depending on type
                 if isinstance(batch, dict):
                     keys = list(batch.keys())
                     value_batch = [batch[k] for k in keys]
@@ -454,9 +457,14 @@ class Step:
             if isinstance(_value, Dataset):
                 self.progress = 1.0
         elif isinstance(_value, tuple):
-            self.__output = Dataset.from_dict(
-                {k: _normalize(v) for k, v in zip(self.output_names, _value)}
-            )
+            if all([not _is_iterable(v) for v in _value]):
+                self.__output = Dataset.from_dict(
+                    {k: [_normalize(v)] for k, v in zip(self.output_names, _value)}
+                )
+            else:
+                self.__output = Dataset.from_dict(
+                    {k: _normalize(v) for k, v in zip(self.output_names, _value)}
+                )
             self.progress = 1.0
         elif isinstance(_value, list):
             self.__output = Dataset.from_dict(
