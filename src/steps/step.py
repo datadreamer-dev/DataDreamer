@@ -1,14 +1,12 @@
 import warnings
 from collections.abc import Generator, Iterable, Mapping, Sized
 from functools import partial
-from typing import (Any, Callable, Iterator, Optional, TypeAlias, TypeGuard,
-                    Union)
+from typing import Any, Callable, Iterator, Optional, TypeAlias, TypeGuard, Union
 
 from datasets import Dataset, IterableDataset
 from datasets.features.features import Features
 
-from ..datasets.utils import (dataset_zip, get_column_names,
-                              iterable_dataset_zip)
+from ..datasets.utils import dataset_zip, get_column_names, iterable_dataset_zip
 
 
 def _is_iterable(v: Any) -> bool:
@@ -34,7 +32,7 @@ def _normalize(v: Any) -> Any:
         return v
 
 
-def _iterable_or_generator_func_to_iterator(
+def _iterable_or_generator_func_to_iterator(  # noqa: C901
     v: Union[Iterable[Any], Callable[[], Generator[Any, None, None]]],
     _value_is_batched: bool,
     output_names: tuple[str, ...],
@@ -61,6 +59,19 @@ def _iterable_or_generator_func_to_iterator(
                 elif isinstance(batch, tuple):
                     for row in zip(*batch):
                         yield {k: _normalize(v) for k, v in zip(output_names, row)}
+                elif (
+                    isinstance(batch, list)
+                    and len(batch) == len(output_names)
+                    and len(batch) > 0
+                    and (
+                        not _is_list_or_tuple_type(batch[0])
+                        or len(batch[0]) != len(output_names)
+                    )
+                    and all([_is_iterable(c) for c in batch])
+                ):
+                    for v in zip(*batch):
+                        print("Yield:", v)
+                        yield v
                 else:
                     for v in batch:
                         yield v
@@ -107,7 +118,7 @@ LazyBatchStepOutput: TypeAlias = Union[
 ]
 
 StepOutput: TypeAlias = Union[
-    Dataset, dict[str, Iterable[Any]], list[Any], tuple[Iterable[Any], ...]
+    None, Dataset, dict[str, Iterable[Any]], list[Any], tuple[Iterable[Any], ...]
 ]
 
 
@@ -212,8 +223,6 @@ class Step:
         else:
             return self.__output
 
-    # TODO: Generator function of batches
-
     def _set_output(  # noqa: C901
         self,
         value: Union[StepOutput, LazyRows, LazyRowBatches],
@@ -240,9 +249,13 @@ class Step:
             _value = value
         del value
 
+        # If given None, convert to an empty list
+        if _value is None:
+            _value = []
+
         # Create a Dataset if given a list or tuple of Datasets
         # or create an IterableDataset if given a list or tuple of IterableDatasets
-        if _is_list_or_tuple_type(_value):
+        if _is_list_or_tuple_type(_value) and len(_value) > 0:
             if all(isinstance(d, Dataset) for d in _value):
                 _value = dataset_zip(*_value)
             elif all(_is_dataset_type(d, is_lazy) for d in _value):
