@@ -248,8 +248,7 @@ class TestProgress:
         next(iter(step.output))
         assert step.progress == 1.0 / 3.0
 
-
-class TestSingleOutput:
+class TestEmptyOutput():
     def test_output_single_empty(self):
         step = Step("my-step", None, "out1")
         step._set_output(None)
@@ -257,6 +256,76 @@ class TestSingleOutput:
         assert len(step.output["out1"]) == 0
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
 
+    def test_output_list_empty(self):
+        step = Step("my-step", None, "out1")
+        step._set_output([])
+        assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
+        assert len(step.output["out1"]) == 0
+        assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
+
+    def test_output_tuple_of_list_empty(self):
+        step = Step("my-step", None, "out1")
+        step._set_output(([],))
+        assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
+        assert len(step.output["out1"]) == 0
+        assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
+
+    def test_output_dict_of_list_empty(self):
+        step = Step("my-step", None, "out1")
+        step._set_output({"out1": []})
+        assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
+        assert len(step.output["out1"]) == 0
+        assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
+
+    def test_output_generator_function_empty(self):
+        step = Step("my-step", None, "out1")
+
+        def empty_generator():
+            return iter(())
+
+        step._set_output(LazyRows(empty_generator, total_num_rows=3))
+        assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
+        assert len(list(step.output)) == 0
+        assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
+
+    def test_output_generator_function_of_tuple_batched_column_empty(self):
+        step = Step("my-step", None, ["out1", "out2"])
+
+        def dataset_generator():
+            yield ([], [])
+            yield ([], [])
+
+        step._set_output(LazyRowBatches(dataset_generator, total_num_rows=3))
+        assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
+        assert len(list(step.output)) == 0
+        assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
+
+    def test_output_generator_function_of_dict_batched_empty(self):
+        step = Step("my-step", None, "out1")
+
+        def dataset_generator():
+            yield {"out1": []}
+            yield {"out1": []}
+
+        step._set_output(LazyRowBatches(dataset_generator, total_num_rows=3))
+        assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
+        assert len(list(step.output)) == 0
+        assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
+
+    def test_output_generator_function_of_tuple_batched_row_empty(self):
+        step = Step("my-step", None, ["out1", "out2"])
+
+        def dataset_generator():
+            yield []
+            yield []
+
+        step._set_output(LazyRowBatches(dataset_generator, total_num_rows=3))
+        assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
+        assert len(list(step.output)) == 0
+        assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
+
+
+class TestSingleOutput:
     def test_output_single(self):
         step = Step("my-step", None, "out1")
         step._set_output("a")  # type: ignore[arg-type]
@@ -292,13 +361,6 @@ class TestSingleOutput:
         assert step.output["out1"][0] == "a"
         assert set(step.output[0].keys()) == set(step.output.column_names)  # type: ignore[arg-type]
         assert step.output[0]["out1"] == "a"
-
-    def test_output_list_empty(self):
-        step = Step("my-step", None, "out1")
-        step._set_output([])
-        assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-        assert len(step.output["out1"]) == 0
-        assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
 
     def test_output_list(self):
         step = Step("my-step", None, "out1")
@@ -336,13 +398,6 @@ class TestSingleOutput:
         assert set(step.output[0].keys()) == set(step.output.column_names)  # type: ignore[arg-type]
         assert step.output[0]["out1"] == ["a", "b", "c"]
 
-    def test_output_tuple_of_list_empty(self):
-        step = Step("my-step", None, "out1")
-        step._set_output(([],))
-        assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-        assert len(step.output["out1"]) == 0
-        assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-
     def test_output_tuple_of_list(self):
         step = Step("my-step", None, "out1")
         step._set_output((["a", "b", "c"],))
@@ -360,13 +415,6 @@ class TestSingleOutput:
         assert step.output["out1"][0] == 0
         assert set(step.output[0].keys()) == set(step.output.column_names)  # type: ignore[arg-type]
         assert step.output[0]["out1"] == 0
-
-    def test_output_dict_of_list_empty(self):
-        step = Step("my-step", None, "out1")
-        step._set_output({"out1": []})
-        assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-        assert len(step.output["out1"]) == 0
-        assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
 
     def test_output_dict_of_list(self):
         step = Step("my-step", None, "out1")
@@ -453,17 +501,6 @@ class TestSingleOutput:
         assert set(step.output[0].keys()) == set(step.output.column_names)  # type: ignore[arg-type]
         assert step.output[0]["out1"] == "a"
 
-    def test_output_generator_function_empty(self):
-        step = Step("my-step", None, "out1")
-
-        def empty_generator():
-            return iter(())
-
-        step._set_output(LazyRows(empty_generator, total_num_rows=3))
-        assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-        assert len(list(step.output)) == 0
-        assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-
     def test_output_generator_function_of_dict(self):
         step = Step("my-step", None, "out1")
 
@@ -480,17 +517,6 @@ class TestSingleOutput:
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
         assert first_row["out1"] == "a"
 
-    def test_output_generator_function_of_dict_batched_empty(self):
-        step = Step("my-step", None, "out1")
-
-        def dataset_generator():
-            yield {"out1": []}
-            yield {"out1": []}
-
-        step._set_output(LazyRowBatches(dataset_generator, total_num_rows=3))
-        assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-        assert len(list(step.output)) == 0
-        assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
 
     def test_output_generator_function_of_dict_batched(self):
         step = Step("my-step", None, "out1")
@@ -1051,30 +1077,6 @@ class TestMultipleOutput:
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
         assert [row["out1"] for row in list(step.output)] == ["a", "b", "c"]
         assert [row["out2"] for row in list(step.output)] == [1, 2, 3]
-
-    def test_output_generator_function_of_tuple_batched_row_empty(self):
-        step = Step("my-step", None, ["out1", "out2"])
-
-        def dataset_generator():
-            yield []
-            yield []
-
-        step._set_output(LazyRowBatches(dataset_generator, total_num_rows=3))
-        assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
-        assert len(list(step.output)) == 0
-        assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
-
-    def test_output_generator_function_of_tuple_batched_column_empty(self):
-        step = Step("my-step", None, ["out1", "out2"])
-
-        def dataset_generator():
-            yield ([], [])
-            yield ([], [])
-
-        step._set_output(LazyRowBatches(dataset_generator, total_num_rows=3))
-        assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
-        assert len(list(step.output)) == 0
-        assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
 
     def test_output_generator_function_of_tuple_batched_row(self):
         step = Step("my-step", None, ["out1", "out2"])
