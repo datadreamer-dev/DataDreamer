@@ -36,7 +36,7 @@ class TestErrors:
 
         iterable_dataset = IterableDataset.from_generator(dataset_generator)
         with pytest.raises(AttributeError):
-            step_single._set_output(iterable_dataset)
+            step_single._set_output(iterable_dataset)  # type: ignore[arg-type]
 
         step_multiple = Step("my-step", None, ["out1", "out2"])
         with pytest.raises(AttributeError):
@@ -176,7 +176,7 @@ class TestProgress:
     def test_progress_after_output_single(self):
         step = Step("my-step", None, "out1")
         assert step.progress is None
-        step._set_output("a")
+        step._set_output("a")  # type: ignore[arg-type]
         assert step.progress == 1.0
 
     def test_progress_after_output_list(self):
@@ -259,7 +259,7 @@ class TestSingleOutput:
 
     def test_output_single(self):
         step = Step("my-step", None, "out1")
-        step._set_output("a")
+        step._set_output("a")  # type: ignore[arg-type]
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
         assert len(step.output["out1"]) == 1
         assert step.output["out1"][0] == "a"
@@ -423,7 +423,7 @@ class TestSingleOutput:
             yield {"out1": "c"}
 
         iterable_dataset = IterableDataset.from_generator(dataset_generator)
-        step._set_output(LazyRowBatches(iterable_dataset, total_num_rows=3))
+        step._set_output(LazyRowBatches(iterable_dataset, total_num_rows=3))  # type: ignore[arg-type]
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
         assert isinstance(step.output, IterableDataset)
         assert len(list(step.output)) == 3
@@ -953,7 +953,7 @@ class TestMultipleOutput:
             yield {"out1": "c", "out2": 3}
 
         iterable_dataset = IterableDataset.from_generator(dataset_generator)
-        step._set_output(LazyRowBatches(iterable_dataset, total_num_rows=3))
+        step._set_output(LazyRowBatches(iterable_dataset, total_num_rows=3))  # type: ignore[arg-type]
         assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
         assert isinstance(step.output, IterableDataset)
         assert len(list(step.output)) == 3

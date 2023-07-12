@@ -1,13 +1,13 @@
 from functools import partial
 from itertools import chain
-from typing import Any, Iterator, Optional, Union, cast
+from typing import Any, Iterator, cast
 
 from datasets import Dataset, IterableDataset
 from datasets.features.features import Features
 
 
-def get_column_names(dataset: Union[Dataset, IterableDataset]) -> list[str]:
-    column_names = cast(Optional[list[str]], dataset.column_names)
+def get_column_names(dataset: Dataset | IterableDataset) -> list[str]:
+    column_names = cast(None | list[str], dataset.column_names)
     if column_names:
         return column_names
     else:
@@ -31,7 +31,7 @@ def dataset_zip(*datasets: Dataset) -> Dataset:
     return Dataset.from_dict(merged_dataset)
 
 
-def iterable_dataset_zip(*datasets: Union[Dataset, IterableDataset]) -> IterableDataset:
+def iterable_dataset_zip(*datasets: Dataset | IterableDataset) -> IterableDataset:
     if len(datasets) == 0:
         raise ValueError("You must provide at least one dataset to zip.")
 

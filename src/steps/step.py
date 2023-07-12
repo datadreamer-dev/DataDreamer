@@ -1,7 +1,7 @@
 import warnings
 from collections.abc import Generator, Iterable, Mapping, Sized
 from functools import partial
-from typing import Any, Callable, Iterator, Optional, TypeAlias, TypeGuard, Union
+from typing import Any, Callable, Iterator, TypeAlias, TypeGuard
 
 from datasets import Dataset, IterableDataset
 from datasets.features.features import Features
@@ -13,11 +13,11 @@ def _is_iterable(v: Any) -> bool:
     return isinstance(v, Iterable) and not isinstance(v, (str, bytes, Mapping))
 
 
-def _is_list_or_tuple_type(v) -> TypeGuard[Union[list, tuple]]:
+def _is_list_or_tuple_type(v) -> TypeGuard[list | tuple]:
     return isinstance(v, (list, tuple))
 
 
-def _is_dataset_type(v, is_lazy) -> TypeGuard[Union[Dataset, IterableDataset]]:
+def _is_dataset_type(v, is_lazy) -> TypeGuard[Dataset | IterableDataset]:
     if not is_lazy and isinstance(v, IterableDataset):
         raise AttributeError(
             "You must use LazyRows() if you want to output an IterableDataset."
@@ -33,7 +33,7 @@ def _normalize(v: Any) -> Any:
 
 
 def _iterable_or_generator_func_to_iterator(  # noqa: C901
-    v: Union[Iterable[Any], Callable[[], Generator[Any, None, None]]],
+    v: Iterable[Any] | Callable[[], Generator[Any, None, None]],
     _value_is_batched: bool,
     output_names: tuple[str, ...],
 ) -> Iterator[Any]:
@@ -88,49 +88,47 @@ def _untuple(v: Any, output_names: tuple[str, ...]) -> Any:
         return v
 
 
-LazyStepOutput: TypeAlias = Union[
-    IterableDataset,
-    dict[str, Union[Iterable[Any], Callable[[], Generator[Any, None, None]]]],
-    list[Any],
-    tuple[Union[Iterable[Any], Callable[[], Generator[Any, None, None]]], ...],
-    Callable[
+LazyStepOutput: TypeAlias = (
+    IterableDataset
+    | dict[str, Any]
+    | list[Any]
+    | tuple[Any, ...]
+    | Callable[
         [],
         Generator[
-            dict[str, Union[Iterable[Any], list[Any], tuple[Any, ...]]],
+            dict[str, Iterable[Any] | list[Any] | tuple[Any, ...]],
             None,
             None,
         ],
-    ],
-]
+    ]
+)
 
-LazyBatchStepOutput: TypeAlias = Union[
-    dict[str, Union[Iterable[Any], Callable[[], Generator[Any, None, None]]]],
-    list[Any],
-    tuple[Union[Iterable[Any], Callable[[], Generator[Any, None, None]]], ...],
-    Callable[
+LazyBatchStepOutput: TypeAlias = (
+    dict[str, Any]
+    | list[Any]
+    | tuple[Any, ...]
+    | Callable[
         [],
         Generator[
-            dict[str, Union[Iterable[Any], list[Any], tuple[Any, ...]]],
+            dict[str, Iterable[Any] | list[Any] | tuple[Any, ...]],
             None,
             None,
         ],
-    ],
-]
+    ]
+)
 
-StepOutput: TypeAlias = Union[
-    None, Dataset, dict[str, Iterable[Any]], list[Any], tuple[Iterable[Any], ...]
-]
+StepOutput: TypeAlias = None | Dataset | dict[str, Any] | list[Any] | tuple[Any, ...]
 
 
 class LazyRows:
     def __init__(
         self,
         value: LazyStepOutput,
-        total_num_rows: Optional[int] = None,
+        total_num_rows: None | int = None,
         auto_progress: bool = True,
     ) -> None:
         self.__value: LazyStepOutput = value
-        self.total_num_rows: Optional[int] = total_num_rows
+        self.total_num_rows: None | int = total_num_rows
         if total_num_rows is None and auto_progress:
             warnings.warn(
                 "You did not specify `total_num_rows`, so we cannot"
@@ -149,11 +147,11 @@ class LazyRowBatches:
     def __init__(
         self,
         value: LazyBatchStepOutput,
-        total_num_rows: Optional[int] = None,
+        total_num_rows: None | int = None,
         auto_progress: bool = True,
     ) -> None:
         self.__value: LazyBatchStepOutput = value
-        self.total_num_rows: Optional[int] = total_num_rows
+        self.total_num_rows: None | int = total_num_rows
         if total_num_rows is None and auto_progress:
             warnings.warn(
                 "You did not specify `total_num_rows`, so we cannot"
@@ -173,18 +171,13 @@ class Step:
     def __init__(
         self,
         name: str,
-        input: Optional[
-            Union[
-                Dataset,
-                IterableDataset,
-            ]
-        ],
-        outputs: Union[str, list[str], tuple[str, ...]],
+        input: None | Dataset | IterableDataset,
+        outputs: str | list[str] | tuple[str, ...],
     ):
         self._name: str = name
-        self.__progress: Optional[float] = None
+        self.__progress: None | float = None
         self.input = input
-        self.__output: Optional[Union[Dataset, IterableDataset]] = None
+        self.__output: None | Dataset | IterableDataset = None
         if _is_list_or_tuple_type(outputs) and len(outputs) == 0:
             raise ValueError("The step must name its outputs.")
         self.output_names: tuple[str, ...]
@@ -194,7 +187,7 @@ class Step:
             self.output_names = (outputs,)
 
     @property
-    def progress(self) -> Optional[float]:
+    def progress(self) -> None | float:
         return self.__progress
 
     @progress.setter
@@ -211,7 +204,7 @@ class Step:
             return "0%"
 
     @property
-    def output(self) -> Union[Dataset, IterableDataset]:
+    def output(self) -> Dataset | IterableDataset:
         if self.__output is None:
             if self.__progress is None:
                 raise AttributeError("Step has not been run. Output is not available.")
@@ -225,13 +218,13 @@ class Step:
 
     def _set_output(  # noqa: C901
         self,
-        value: Union[StepOutput, LazyRows, LazyRowBatches],
+        value: StepOutput | LazyRows | LazyRowBatches,
     ):
         # Set progress to 0.0
         self.progress = 0.0
 
         # Unpack LazyRows and LazyRowsBatches
-        _value: Union[StepOutput, LazyStepOutput]
+        _value: StepOutput | LazyStepOutput
         is_lazy = False
         total_num_rows = None
         _value_is_batched = False
