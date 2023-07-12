@@ -12,7 +12,7 @@ class TestPackage:
         assert RUNNING_IN_PYTEST
 
     def test_mypy(self):
-        result = api.run(["src/", "--sqlite-cache"])
+        result = api.run(["src/", "--sqlite-cache", "--explicit-package-bases"])
         if result[0]:
             print("\nType checking report:\n")
             print(result[0])

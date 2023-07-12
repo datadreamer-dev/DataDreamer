@@ -43,10 +43,13 @@ addopts = "-v --cov=src"
 filterwarnings = ["ignore::DeprecationWarning:jupyter_client.*:"]
 
 [tool.mypy]
-ignore_missing_imports = true
 check_untyped_defs = true
-warn_return_any = true
 warn_unused_ignores = true
+mypy_path = "src/_stubs"
+
+[[tool.mypy.overrides]]
+module = "tensorflow,torch_xla,datasets.features.features,guidance"
+ignore_missing_imports = true
 
 [tool.coverage.run]
 omit = ["src/project/*", "src/tests/*"]

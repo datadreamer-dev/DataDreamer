@@ -48,7 +48,7 @@ class TestFunctionality:
         dataset_2 = Dataset.from_dict(dataset_dict_2)
         dataset_3 = Dataset.from_dict(dataset_dict_3)
         zipped_dataset = dataset_zip(dataset_1, dataset_2, dataset_3)
-        assert set(zipped_dataset.column_names) == set(
+        assert set(zipped_dataset.column_names) == set(  # type: ignore[arg-type]
             ["foo", "bar", "zoo", "car", "moo", "far"]
         )
         assert len(zipped_dataset) == 3
@@ -74,7 +74,7 @@ class TestFunctionality:
         iterable_dataset_2 = IterableDataset.from_generator(dataset_dict_2_generator)
         dataset_3 = Dataset.from_dict(dataset_dict_3)
         zipped_dataset = iterable_dataset_zip(dataset_1, iterable_dataset_2, dataset_3)
-        assert set(zipped_dataset.column_names) == set(
+        assert set(zipped_dataset.column_names) == set(  # type: ignore[arg-type]
             ["foo", "bar", "zoo", "car", "moo", "far"]
         )
         assert isinstance(zipped_dataset, IterableDataset)

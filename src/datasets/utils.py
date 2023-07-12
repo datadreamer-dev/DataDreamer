@@ -22,7 +22,7 @@ def dataset_zip(*datasets: Dataset) -> Dataset:
     if len(datasets) == 0:
         raise ValueError("You must provide at least one dataset to zip.")
     dataset_dicts: list[dict[str, list[Any]]] = [
-        {n: list(d[n]) for n in d.column_names} for d in datasets
+        {n: list(d[n]) for n in get_column_names(d)} for d in datasets
     ]
     merged_dataset: dict[str, list[Any]] = {}
     for d in dataset_dicts:
