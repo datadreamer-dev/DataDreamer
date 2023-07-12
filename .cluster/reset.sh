@@ -39,4 +39,5 @@ rm -rf ../.cluster/output/named || true
     for x in *; do readlink -f ../dated/*/data/* | grep -q "$x" || rm -rf "$x"; done
 )
 rm -rf ../.cluster/*/.last_job || true
-rm -rf ../.venv || truepwd
+rm -rf ../.venv/*/* || true
+rm -rf ../.venv/ || true

@@ -29,8 +29,11 @@ fi
 
 # Reset all data
 rm -rf ../.cluster/.lock
+rm -rf ../.cluster/output/*/* || true
 rm -rf ../.cluster/output/ || true
 rm ../.cluster/output 2>/dev/null || true
 rm -rf ../.cluster/*/.last_job || true
-rm -rf ../.venv || true
-rm -rf ../.venv_dev || true
+rm -rf ../.venv/*/* || true
+rm -rf ../.venv/ || true
+rm -rf ../.venv_dev/*/* || true
+rm -rf ../.venv_dev/ || true
