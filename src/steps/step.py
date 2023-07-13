@@ -1,12 +1,15 @@
 import warnings
 from collections.abc import Generator, Iterable, Mapping, Sized
 from functools import partial
-from typing import Any, Callable, Iterator, TypeAlias, TypeGuard
+from typing import Any, Callable, Iterator, Type, TypeAlias, TypeGuard
+
+from pyarrow.lib import ArrowInvalid, ArrowTypeError
 
 from datasets import Dataset, IterableDataset
 from datasets.features.features import Features
 
 from ..datasets.utils import dataset_zip, get_column_names, iterable_dataset_zip
+from ..errors import StepOutputTypeError
 
 
 def _is_iterable(v: Any) -> bool:
@@ -32,6 +35,13 @@ def _normalize(v: Any) -> Any:
         return v
 
 
+def _catch_type_error(action: Callable, *args, **kwargs):
+    try:
+        return action(*args, **kwargs)
+    except (ArrowInvalid, ArrowTypeError) as e:
+        raise StepOutputTypeError(str(e))
+
+
 def _iterable_or_generator_func_to_iterator(  # noqa: C901
     v: Iterable[Any] | Callable[[], Generator[Any, None, None]],
     _value_is_batched: bool,
@@ -45,6 +55,7 @@ def _iterable_or_generator_func_to_iterator(  # noqa: C901
     if _value_is_batched:
 
         def _unbatch(iterator: Any) -> Generator[Any, None, None]:
+            column_state = False
             for batch in iterator:
                 # Unbatch depending on type
                 if isinstance(batch, dict):
@@ -66,11 +77,12 @@ def _iterable_or_generator_func_to_iterator(  # noqa: C901
                     and (
                         not _is_list_or_tuple_type(batch[0])
                         or len(batch[0]) != len(output_names)
+                        or column_state
                     )
                     and all([_is_iterable(c) for c in batch])
                 ):
+                    column_state = True
                     for v in zip(*batch):
-                        print("Yield:", v)
                         yield v
                 else:
                     for v in batch:
@@ -287,9 +299,13 @@ class Step:
                 )
                 _value_is_batched = False
             elif all([not _is_iterable(v) for v in _value.values()]):
-                _value = Dataset.from_dict({k: [_value[k]] for k in self.output_names})
+                _value = _catch_type_error(
+                    Dataset.from_dict, {k: [_value[k]] for k in self.output_names}
+                )
             else:
-                _value = Dataset.from_dict({k: _value[k] for k in self.output_names})
+                _value = _catch_type_error(
+                    Dataset.from_dict, {k: _value[k] for k in self.output_names}
+                )
         elif isinstance(_value, dict):
             raise AttributeError(
                 f"Expected {self.output_names} as dict keys instead of {tuple(_value.keys())}."
@@ -409,6 +425,12 @@ class Step:
                             for v in _iterable_or_generator_func_to_iterator(
                                 _value, _value_is_batched, output_names
                             ):
+                                print(
+                                    "ROW:",
+                                    v,
+                                    _untuple(v, output_names),
+                                    _normalize(_untuple(v, output_names)),
+                                )
                                 yield {
                                     output_names[0]: _normalize(
                                         _untuple(v, output_names)
@@ -440,14 +462,32 @@ class Step:
                 _value_is_batched,
                 auto_progress,
             ):
+                column_types: dict[str, Type] = {}
                 for i, row in enumerate(
                     _iterable_or_generator_func_to_iterator(
                         _value, _value_is_batched, output_names
                     )
                 ):
+                    # Update and check types
+                    for k, v in row.items():
+                        prev_type = column_types.get(k, None)
+                        new_type = type(v)
+                        if new_type is not None:
+                            if prev_type is None:
+                                column_types[k] = new_type
+                            elif new_type != prev_type:
+                                raise StepOutputTypeError(
+                                    f"Expected {prev_type} got {new_type}"
+                                )
+
+                    # Update progress
                     if total_num_rows is not None and auto_progress:
                         self.progress = (i + 1) / total_num_rows
+
+                    # Yield a row
                     yield row
+
+                # Update progress
                 if auto_progress:
                     self.progress = 1.0
 
@@ -469,10 +509,14 @@ class Step:
             )
             _value_is_batched = False
             try:
-                features = Dataset.from_list([next(_value_preview())]).info.features
+                features = _catch_type_error(
+                    Dataset.from_list, [next(_value_preview())]
+                ).info.features
             except StopIteration:
                 features = Features([(n, None) for n in self.output_names])
-            _value = IterableDataset.from_generator(_value, features=features)
+            _value = _catch_type_error(
+                IterableDataset.from_generator, _value, features=features
+            )
 
         if _is_dataset_type(_value, is_lazy):
             self.__output = _value
@@ -480,26 +524,29 @@ class Step:
                 self.progress = 1.0
         elif isinstance(_value, tuple):
             if all([not _is_iterable(v) for v in _value]):
-                self.__output = Dataset.from_dict(
-                    {k: [_normalize(v)] for k, v in zip(self.output_names, _value)}
+                self.__output = _catch_type_error(
+                    Dataset.from_dict,
+                    {k: [_normalize(v)] for k, v in zip(self.output_names, _value)},
                 )
             else:
-                self.__output = Dataset.from_dict(
-                    {k: _normalize(v) for k, v in zip(self.output_names, _value)}
+                self.__output = _catch_type_error(
+                    Dataset.from_dict,
+                    {k: _normalize(v) for k, v in zip(self.output_names, _value)},
                 )
             self.progress = 1.0
         elif isinstance(_value, list):
-            self.__output = Dataset.from_dict(
+            self.__output = _catch_type_error(
+                Dataset.from_dict,
                 {
                     self.output_names[0]: [
                         _normalize(_untuple(v, self.output_names)) for v in _value
                     ]
-                }
+                },
             )
             self.progress = 1.0
         elif len(self.output_names) == 1:
-            self.__output = Dataset.from_dict(
-                {self.output_names[0]: [_normalize(_value)]}
+            self.__output = _catch_type_error(
+                Dataset.from_dict, {self.output_names[0]: [_normalize(_value)]}
             )
             self.progress = 1.0
         else:
