@@ -1159,8 +1159,8 @@ class TestMultipleOutput:
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
-        assert [row["out1"] for row in list(step.output)] == ["a", 1, "c"]
-        assert [row["out2"] for row in list(step.output)] == ["b", 2, 3]
+        assert [row["out1"] for row in list(step.output)] == ["a", "1", "c"]
+        assert [row["out2"] for row in list(step.output)] == ["b", "2", "3"]
 
     def test_output_generator_function_of_list_row_batched_column(self):
         step = Step("my-step", None, ["out1", "out2"])
@@ -1349,6 +1349,28 @@ class TestTypes:
             " 'out6': Value(dtype='null', id=None)}"
         )
 
+    def test_iterable_dataset_features(self):
+        step = Step("my-step", None, ["out1"])
+
+        def dataset_generator():
+            yield {"out1": {"foo": [5]}}
+
+        step._set_output(LazyRows(dataset_generator, total_num_rows=3))
+        assert isinstance(step.output, IterableDataset)
+        assert str(step.output.info.features) == (
+            "{'out1': {'foo': Sequence(feature=Value(dtype='int64', id=None), length=-1, id=None)}}"  # noqa: B950
+        )
+
+    def test_iterable_dataset_features_empty(self):
+        step = Step("my-step", None, ["out1"])
+
+        def empty_generator():
+            return iter(())
+
+        step._set_output(LazyRows(empty_generator, total_num_rows=3))
+        assert isinstance(step.output, IterableDataset)
+        assert str(step.output.info.features) == ("{'out1': None}")
+
     def test_func_type(self):
         step = Step("my-step", None, "out1")
         with pytest.raises(ArrowInvalid):
@@ -1423,3 +1445,30 @@ class TestTypes:
         step = Step("my-step", None, "out1")
         with pytest.raises(ArrowInvalid):
             step._set_output({"out1": [5, [5]]})
+
+    def test_iterable_dataset_int_and_str(self):
+        step = Step("my-step", None, ["out1"])
+
+        def dataset_generator():
+            yield {"out1": [5, "a"]}
+
+        with pytest.raises(ArrowInvalid):
+            step._set_output(LazyRows(dataset_generator, total_num_rows=3))
+
+    def test_iterable_dataset_str_and_int(self):
+        step = Step("my-step", None, ["out1"])
+
+        def dataset_generator():
+            yield {"out1": ["a", 5]}
+
+        with pytest.raises(ArrowTypeError):
+            step._set_output(LazyRows(dataset_generator, total_num_rows=3))
+
+    def test_iterable_dataset_dict_and_non_dict(self):
+        step = Step("my-step", None, ["out1"])
+
+        def dataset_generator():
+            yield {"out1": [5, {"foo": 5}]}
+
+        with pytest.raises(ArrowInvalid):
+            step._set_output(LazyRows(dataset_generator, total_num_rows=3))

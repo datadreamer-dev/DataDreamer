@@ -431,31 +431,47 @@ class Step:
             except StopIteration:
                 pass
 
-            # If so, convert the generator to an IterableDataset
-            features = Features([(n, None) for n in self.output_names])
-
-            # Wrap the generator so that we can set progress = 1.0 when complete
+            # If so, convert the generator to an IterableDataset) but first,
+            # wrap the generator so that we can set progress = 1.0 when complete
             def generator_wrapper(
-                _value, total_num_rows, output_names, _value_is_batched
+                _value,
+                total_num_rows,
+                output_names,
+                _value_is_batched,
+                auto_progress,
             ):
                 for i, row in enumerate(
                     _iterable_or_generator_func_to_iterator(
                         _value, _value_is_batched, output_names
                     )
                 ):
-                    if total_num_rows is not None:
+                    if total_num_rows is not None and auto_progress:
                         self.progress = (i + 1) / total_num_rows
                     yield row
-                self.progress = 1.0
+                if auto_progress:
+                    self.progress = 1.0
 
+            _value_preview = partial(
+                generator_wrapper,
+                _value,
+                total_num_rows,
+                self.output_names,
+                _value_is_batched,
+                False,
+            )
             _value = partial(
                 generator_wrapper,
                 _value,
                 total_num_rows,
                 self.output_names,
                 _value_is_batched,
+                True,
             )
             _value_is_batched = False
+            try:
+                features = Dataset.from_list([next(_value_preview())]).info.features
+            except StopIteration:
+                features = Features([(n, None) for n in self.output_names])
             _value = IterableDataset.from_generator(_value, features=features)
 
         if _is_dataset_type(_value, is_lazy):
