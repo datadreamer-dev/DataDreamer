@@ -1425,7 +1425,7 @@ class TestTypes:
         assert step.output["out1"][0] == {"foo": 5, "bar": None}
         assert step.output["out1"][1] == {"foo": 5, "bar": 5}
 
-    def test_dict_and_non_dict(self):
+    def test_non_dict_and(self):
         step = Step("my-step", None, "out1")
         with pytest.raises(ArrowInvalid):
             step._set_output({"out1": [5, {"foo": 5}]})
@@ -1441,6 +1441,16 @@ class TestTypes:
         assert step.output["out1"][0] == [5]
         assert step.output["out1"][1] == [1, 2]
 
+    def test_list_with_int_and_str(self):
+        step = Step("my-step", None, "out1")
+        with pytest.raises(ArrowInvalid):
+            step._set_output({"out1": [[5, "a"]]})
+
+    def test_list_with_str_and_int(self):
+        step = Step("my-step", None, "out1")
+        with pytest.raises(ArrowTypeError):
+            step._set_output({"out1": [["a", 5]]})
+
     def test_list_and_non_list(self):
         step = Step("my-step", None, "out1")
         with pytest.raises(ArrowInvalid):
@@ -1450,25 +1460,31 @@ class TestTypes:
         step = Step("my-step", None, ["out1"])
 
         def dataset_generator():
-            yield {"out1": [5, "a"]}
+            yield {"out1": 5}
+            yield {"out1": "a"}
 
-        with pytest.raises(ArrowInvalid):
-            step._set_output(LazyRows(dataset_generator, total_num_rows=3))
+        step._set_output(LazyRows(dataset_generator, total_num_rows=3))
+        with pytest.raises(ValueError):
+            assert [row["out1"] for row in list(step.output)] == [5, "a"]
 
     def test_iterable_dataset_str_and_int(self):
         step = Step("my-step", None, ["out1"])
 
         def dataset_generator():
-            yield {"out1": ["a", 5]}
+            yield {"out1": "a"}
+            yield {"out1": 5}
 
-        with pytest.raises(ArrowTypeError):
-            step._set_output(LazyRows(dataset_generator, total_num_rows=3))
+        step._set_output(LazyRows(dataset_generator, total_num_rows=3))
+        assert [row["out1"] for row in list(step.output)] == ["a", "5"]
 
-    def test_iterable_dataset_dict_and_non_dict(self):
+    def test_iterable_dataset_non_dict_and(self):
         step = Step("my-step", None, ["out1"])
 
         def dataset_generator():
-            yield {"out1": [5, {"foo": 5}]}
+            yield {"out1": 5}
+            yield {"out1": {"foo": 5}}
 
-        with pytest.raises(ArrowInvalid):
-            step._set_output(LazyRows(dataset_generator, total_num_rows=3))
+        step._set_output(LazyRows(dataset_generator, total_num_rows=3))
+
+        with pytest.raises(TypeError):
+            assert [row["out1"] for row in list(step.output)] == [5, {"foo": 5}]
