@@ -48,7 +48,7 @@ warn_unused_ignores = true
 mypy_path = "src/_stubs"
 
 [[tool.mypy.overrides]]
-module = "tensorflow,torch_xla,datasets.features.features,guidance"
+module = "tensorflow,torch_xla,datasets.features.features,pyarrow.lib,guidance"
 ignore_missing_imports = true
 
 [tool.coverage.run]

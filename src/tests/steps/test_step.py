@@ -1,4 +1,7 @@
+from datetime import datetime
+
 import pytest
+from pyarrow.lib import ArrowInvalid, ArrowTypeError
 
 from datasets import Dataset, IterableDataset
 
@@ -248,7 +251,8 @@ class TestProgress:
         next(iter(step.output))
         assert step.progress == 1.0 / 3.0
 
-class TestEmptyOutput():
+
+class TestEmptyOutput:
     def test_output_single_empty(self):
         step = Step("my-step", None, "out1")
         step._set_output(None)
@@ -516,7 +520,6 @@ class TestSingleOutput:
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
         assert first_row["out1"] == "a"
-
 
     def test_output_generator_function_of_dict_batched(self):
         step = Step("my-step", None, "out1")
@@ -1316,3 +1319,102 @@ class TestMultipleOutput:
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
         assert [row["out1"] for row in list(step.output)] == ["a", "b", "c"]
         assert [row["out2"] for row in list(step.output)] == [1, 2, 3]
+
+
+class TestTypes:
+    def test_types(self):
+        from datetime import datetime
+
+        step = Step("my-step", None, ["out1", "out2", "out3", "out4", "out5", "out6"])
+        step._set_output(
+            {
+                "out1": [{"a": "foo"}],
+                "out2": [set(["a"])],
+                "out3": [("a",)],
+                "out4": [["a"]],
+                "out5": [datetime.now()],
+                "out6": [None],
+            }
+        )
+        assert set(step.output.column_names) == set(  # type: ignore[arg-type]
+            ["out1", "out2", "out3", "out4", "out5", "out6"]
+        )
+        assert len(step.output["out1"]) == 1
+        assert str(step.output.info.features) == (
+            "{'out1': {'a': Value(dtype='string', id=None)},"
+            " 'out2': Sequence(feature=Value(dtype='string', id=None), length=-1, id=None),"
+            " 'out3': Sequence(feature=Value(dtype='string', id=None), length=-1, id=None),"
+            " 'out4': Sequence(feature=Value(dtype='string', id=None), length=-1, id=None),"
+            " 'out5': Value(dtype='timestamp[us]', id=None),"
+            " 'out6': Value(dtype='null', id=None)}"
+        )
+
+    def test_func_type(self):
+        step = Step("my-step", None, "out1")
+        with pytest.raises(ArrowInvalid):
+            step._set_output({"out1": [lambda x: x]})
+
+    def test_dict_with_no_keys(self):
+        step = Step("my-step", None, "out1")
+        step._set_output({"out1": [{}]})
+        assert step.output["out1"][0] == {}
+
+    def test_int_and_none(self):
+        step = Step("my-step", None, "out1")
+        step._set_output({"out1": [5, None]})
+        assert step.output["out1"][0] == 5
+        assert step.output["out1"][1] is None
+
+    def test_int_and_float(self):
+        step = Step("my-step", None, "out1")
+        step._set_output({"out1": [5, 0.5]})
+        assert step.output["out1"][0] == 5
+        assert step.output["out1"][1] == 0.5
+
+    def test_int_and_str(self):
+        step = Step("my-step", None, "out1")
+        with pytest.raises(ArrowInvalid):
+            step._set_output({"out1": [5, "a"]})
+
+    def test_str_and_int(self):
+        step = Step("my-step", None, "out1")
+        with pytest.raises(ArrowTypeError):
+            step._set_output({"out1": ["a", 5]})
+
+    def test_str_and_datetime(self):
+        step = Step("my-step", None, "out1")
+        with pytest.raises(ArrowTypeError):
+            step._set_output({"out1": ["a", datetime.now()]})
+
+    def test_dict_and_none(self):
+        step = Step("my-step", None, "out1")
+        step._set_output({"out1": [None, {"foo": 5}]})
+        assert step.output["out1"][0] is None
+        assert step.output["out1"][1] == {"foo": 5}
+
+    def test_dict_with_different_keys(self):
+        step = Step("my-step", None, "out1")
+        step._set_output({"out1": [{"foo": 5}, {"foo": 5, "bar": 5}]})
+        assert step.output["out1"][0] == {"foo": 5, "bar": None}
+        assert step.output["out1"][1] == {"foo": 5, "bar": 5}
+
+    def test_dict_and_non_dict(self):
+        step = Step("my-step", None, "out1")
+        with pytest.raises(ArrowInvalid):
+            step._set_output({"out1": [5, {"foo": 5}]})
+
+    def test_list_with_no_elements(self):
+        step = Step("my-step", None, "out1")
+        step._set_output({"out1": [[]]})
+        assert step.output["out1"][0] == []
+
+    def test_list_with_different_lengths(self):
+        step = Step("my-step", None, "out1")
+        step._set_output({"out1": [[5], [1, 2]]})
+        assert step.output["out1"][0] == [5]
+        assert step.output["out1"][1] == [1, 2]
+
+    def test_list_and_non_list(self):
+        step = Step("my-step", None, "out1")
+        with pytest.raises(ArrowInvalid):
+            step._set_output({"out1": [5, [5]]})
