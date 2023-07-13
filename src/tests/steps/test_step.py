@@ -1386,6 +1386,11 @@ class TestTypes:
         with pytest.raises(ArrowTypeError):
             step._set_output({"out1": ["a", datetime.now()]})
 
+    def test_str_and_func(self):
+        step = Step("my-step", None, "out1")
+        with pytest.raises(ArrowTypeError):
+            step._set_output({"out1": ["a", lambda x: x]})
+
     def test_dict_and_none(self):
         step = Step("my-step", None, "out1")
         step._set_output({"out1": [None, {"foo": 5}]})
