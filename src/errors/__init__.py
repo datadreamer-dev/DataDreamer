@@ -1,3 +1,3 @@
-from .steps.step import StepOutputTypeError
+from .steps.step import StepOutputError, StepOutputTypeError
 
-__all__ = ["StepOutputTypeError"]
+__all__ = ["StepOutputError", "StepOutputTypeError"]

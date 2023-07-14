@@ -1,4 +1,8 @@
-class StepOutputTypeError(TypeError):
+class StepOutputError(Exception):
+    pass
+
+
+class StepOutputTypeError(TypeError, StepOutputError):
     def __init__(self, message):
         if message:
             super().__init__(

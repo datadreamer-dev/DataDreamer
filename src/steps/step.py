@@ -1,7 +1,7 @@
 import warnings
-from collections.abc import Generator, Iterable, Mapping, Sized
+from collections.abc import Generator, Iterable, Iterator, Mapping, Sized
 from functools import partial
-from typing import Any, Callable, Iterator, Type, TypeAlias, TypeGuard
+from typing import Any, Callable, Type, TypeAlias, TypeGuard
 
 from pyarrow.lib import ArrowInvalid, ArrowTypeError
 
@@ -10,7 +10,7 @@ from datasets.features.features import Features
 from datasets.iterable_dataset import _apply_feature_types_on_example
 
 from ..datasets.utils import dataset_zip, get_column_names, iterable_dataset_zip
-from ..errors import StepOutputTypeError
+from ..errors import StepOutputError, StepOutputTypeError
 
 _CATCH_TYPE_ERRORS_KEY = "__DataDreamer__catch_type_error__"
 
@@ -25,7 +25,7 @@ def _is_list_or_tuple_type(v) -> TypeGuard[list | tuple]:
 
 def _is_dataset_type(v, is_lazy) -> TypeGuard[Dataset | IterableDataset]:
     if not is_lazy and isinstance(v, IterableDataset):
-        raise AttributeError(
+        raise StepOutputError(
             "You must use LazyRows() if you want to output an IterableDataset."
         )
     return isinstance(v, Dataset) or isinstance(v, IterableDataset)
@@ -80,7 +80,7 @@ def _iterable_or_generator_func_to_iterator(  # noqa: C901
                     for values in zip(*value_batch):
                         yield {k: _normalize(v) for k, v in zip(keys, values)}
                 elif isinstance(batch, tuple) and len(output_names) != len(batch):
-                    raise AttributeError(
+                    raise StepOutputError(
                         f"Expected {len(output_names)} outputs {output_names}"
                     )
                 elif isinstance(batch, tuple):
@@ -102,6 +102,12 @@ def _iterable_or_generator_func_to_iterator(  # noqa: C901
                         yield v
                 else:
                     for v in batch:
+                        print("HERE:", v)
+                        if isinstance(v, dict) and set(output_names) != set(v.keys()):
+                            raise StepOutputError(
+                                f"Expected {output_names} as dict keys instead of"
+                                f" {tuple(v.keys())}."
+                            )
                         yield v
 
         return partial(_unbatch, iterator)()
@@ -120,6 +126,7 @@ LazyStepOutput: TypeAlias = (
     IterableDataset
     | dict[str, Any]
     | list[Any]
+    | Iterator[Any]
     | tuple[Any, ...]
     | Callable[
         [],
@@ -134,6 +141,7 @@ LazyStepOutput: TypeAlias = (
 LazyBatchStepOutput: TypeAlias = (
     dict[str, Any]
     | list[Any]
+    | Iterator[Any]
     | tuple[Any, ...]
     | Callable[
         [],
@@ -145,7 +153,9 @@ LazyBatchStepOutput: TypeAlias = (
     ]
 )
 
-StepOutput: TypeAlias = None | Dataset | dict[str, Any] | list[Any] | tuple[Any, ...]
+StepOutput: TypeAlias = (
+    None | Dataset | dict[str, Any] | list[Any] | Iterator[Any] | tuple[Any, ...]
+)
 
 
 class LazyRows:
@@ -235,9 +245,9 @@ class Step:
     def output(self) -> Dataset | IterableDataset:
         if self.__output is None:
             if self.__progress is None:
-                raise AttributeError("Step has not been run. Output is not available.")
+                raise StepOutputError("Step has not been run. Output is not available.")
             else:
-                raise AttributeError(
+                raise StepOutputError(
                     f"Step is still running ({self.__get_progress_string()})."
                     " Output is not available yet."
                 )
@@ -274,6 +284,10 @@ class Step:
         if _value is None:
             _value = []
 
+        # If given Iterator, convert to a list
+        if isinstance(_value, Iterator):
+            _value = list(_value)
+
         # Create a Dataset if given a list or tuple of Datasets
         # or create an IterableDataset if given a list or tuple of IterableDatasets
         if _is_list_or_tuple_type(_value) and len(_value) > 0:
@@ -284,10 +298,25 @@ class Step:
             elif any(_is_dataset_type(d, True) for d in _value) and len(_value) <= len(
                 self.output_names
             ):
-                raise AttributeError(
+                raise StepOutputError(
                     f"Invalid output type: all elements in {_value} must be of type"
                     " Dataset or IterableDataset if one element is."
                 )
+
+        # Create a Dataset if given a list or tuple of dicts
+        if _is_list_or_tuple_type(_value) and len(_value) > 0:
+            if (
+                isinstance(_value[0], dict)
+                and len(set(_value[0].keys()).intersection(set(self.output_names))) > 0
+                and all((isinstance(_v, dict) for _v in _value))
+            ):
+                for _v in _value:
+                    if set(self.output_names) != set(_v.keys()):
+                        raise StepOutputError(
+                            f"Expected {self.output_names} as dict keys instead of"
+                            f" {tuple(_v.keys())}."
+                        )
+                _value = _catch_type_error(Dataset.from_list, list(_value))
 
         # Create a Dataset/generator function if given a dict
         if isinstance(_value, dict) and set(self.output_names) == set(_value.keys()):
@@ -323,7 +352,7 @@ class Step:
                     Dataset.from_dict, {k: _value[k] for k in self.output_names}
                 )
         elif isinstance(_value, dict):
-            raise AttributeError(
+            raise StepOutputError(
                 f"Expected {self.output_names} as dict keys instead of {tuple(_value.keys())}."
             )
 
@@ -352,13 +381,13 @@ class Step:
 
         # If given a single list
         if isinstance(_value, list) and len(self.output_names) > 1:
-            raise AttributeError(
+            raise StepOutputError(
                 f"Expected {len(self.output_names)} outputs {self.output_names}."
             )
 
         # If given a tuple with the wrong number of elements
         if isinstance(_value, tuple) and len(self.output_names) != len(_value):
-            raise AttributeError(
+            raise StepOutputError(
                 f"Expected {len(self.output_names)} outputs {self.output_names}."
             )
 
@@ -385,7 +414,7 @@ class Step:
         if _is_dataset_type(_value, is_lazy) and set(get_column_names(_value)) != set(
             self.output_names
         ):
-            raise AttributeError(
+            raise StepOutputError(
                 f"Expected {len(self.output_names)} columns {self.output_names}"
                 f" instead of {tuple(get_column_names(_value))}."
             )
@@ -414,7 +443,7 @@ class Step:
                 if isinstance(first_row, dict) and set(self.output_names) != set(
                     first_row.keys()
                 ):
-                    raise AttributeError(
+                    raise StepOutputError(
                         f"Expected {self.output_names} dict keys from generator"
                         f" function instead of {tuple(first_row.keys())}."
                     )
@@ -448,7 +477,7 @@ class Step:
                                 }
 
                     else:
-                        raise AttributeError(
+                        raise StepOutputError(
                             f"Expected {len(self.output_names)} outputs"
                             f" {self.output_names} from generator function."
                         )
@@ -565,4 +594,4 @@ class Step:
             )
             self.progress = 1.0
         else:
-            raise AttributeError(f"Invalid output type: {type(_value)}.")
+            raise StepOutputError(f"Invalid output type: {type(_value)}.")
