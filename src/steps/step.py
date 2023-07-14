@@ -9,7 +9,8 @@ from datasets import Dataset, IterableDataset, iterable_dataset
 from datasets.features.features import Features
 from datasets.iterable_dataset import _apply_feature_types_on_example
 
-from ..datasets.utils import dataset_zip, get_column_names, iterable_dataset_zip
+from ..datasets.utils import (dataset_zip, get_column_names,
+                              iterable_dataset_zip)
 from ..errors import StepOutputError, StepOutputTypeError
 
 _CATCH_TYPE_ERRORS_KEY = "__DataDreamer__catch_type_error__"
@@ -102,7 +103,6 @@ def _iterable_or_generator_func_to_iterator(  # noqa: C901
                         yield v
                 else:
                     for v in batch:
-                        print("HERE:", v)
                         if isinstance(v, dict) and set(output_names) != set(v.keys()):
                             raise StepOutputError(
                                 f"Expected {output_names} as dict keys instead of"
