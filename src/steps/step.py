@@ -5,11 +5,14 @@ from typing import Any, Callable, Iterator, Type, TypeAlias, TypeGuard
 
 from pyarrow.lib import ArrowInvalid, ArrowTypeError
 
-from datasets import Dataset, IterableDataset
+from datasets import Dataset, IterableDataset, iterable_dataset
 from datasets.features.features import Features
+from datasets.iterable_dataset import _apply_feature_types_on_example
 
 from ..datasets.utils import dataset_zip, get_column_names, iterable_dataset_zip
 from ..errors import StepOutputTypeError
+
+_CATCH_TYPE_ERRORS_KEY = "__DataDreamer__catch_type_error__"
 
 
 def _is_iterable(v: Any) -> bool:
@@ -35,11 +38,24 @@ def _normalize(v: Any) -> Any:
         return v
 
 
-def _catch_type_error(action: Callable, *args, **kwargs):
+def _catch_type_error(
+    action: Callable[..., Dataset | IterableDataset], *args, **kwargs
+) -> Dataset | IterableDataset:
     try:
         return action(*args, **kwargs)
     except (ArrowInvalid, ArrowTypeError) as e:
         raise StepOutputTypeError(str(e))
+
+
+def _catch_type_error_apply_feature_types_on_example(example, *args, **kwargs):
+    if type(example) is dict and _CATCH_TYPE_ERRORS_KEY in example:
+        del example[_CATCH_TYPE_ERRORS_KEY]
+        try:
+            return _apply_feature_types_on_example(example, *args, **kwargs)
+        except (ArrowInvalid, ArrowTypeError, ValueError, TypeError) as e:
+            raise StepOutputTypeError(str(e))
+    else:
+        return _apply_feature_types_on_example(example, *args, **kwargs)
 
 
 def _iterable_or_generator_func_to_iterator(  # noqa: C901
@@ -425,12 +441,6 @@ class Step:
                             for v in _iterable_or_generator_func_to_iterator(
                                 _value, _value_is_batched, output_names
                             ):
-                                print(
-                                    "ROW:",
-                                    v,
-                                    _untuple(v, output_names),
-                                    _normalize(_untuple(v, output_names)),
-                                )
                                 yield {
                                     output_names[0]: _normalize(
                                         _untuple(v, output_names)
@@ -460,7 +470,7 @@ class Step:
                 total_num_rows,
                 output_names,
                 _value_is_batched,
-                auto_progress,
+                not_preview,
             ):
                 column_types: dict[str, Type] = {}
                 for i, row in enumerate(
@@ -481,14 +491,16 @@ class Step:
                                 )
 
                     # Update progress
-                    if total_num_rows is not None and auto_progress:
+                    if total_num_rows is not None and not_preview:
                         self.progress = (i + 1) / total_num_rows
 
                     # Yield a row
+                    if not_preview and type(row) is dict:
+                        row[_CATCH_TYPE_ERRORS_KEY] = True
                     yield row
 
                 # Update progress
-                if auto_progress:
+                if not_preview:
                     self.progress = 1.0
 
             _value_preview = partial(
@@ -516,6 +528,9 @@ class Step:
                 features = Features([(n, None) for n in self.output_names])
             _value = _catch_type_error(
                 IterableDataset.from_generator, _value, features=features
+            )
+            iterable_dataset._apply_feature_types_on_example = (
+                _catch_type_error_apply_feature_types_on_example
             )
 
         if _is_dataset_type(_value, is_lazy):
