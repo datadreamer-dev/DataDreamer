@@ -7,11 +7,15 @@ class StepOutputTypeError(TypeError, StepOutputError):
         if message:
             super().__init__(
                 "Error processing dataset, make sure all values for each output of the"
-                " dataset are of the same Python type/shape."
+                " dataset are of the same Python type/shape. If you need more"
+                " flexibility you can pickle your data using the .pickle() method on"
+                " a Step object. Data will automatically be un-pickled when read."
                 f" Detailed error: {message.replace('struct', 'dict')}"
             )
         else:
             super().__init__(
                 "Error processing dataset, make sure all values for each output of the"
-                " dataset are of the same Python type/shape."
+                " dataset are of the same Python type/shape. If you need more"
+                " flexibility you can pickle your data using the .pickle() method on"
+                " a Step object. Data will automatically be un-pickled when read."
             )
