@@ -5,6 +5,7 @@ import pytest
 from datasets import Dataset, IterableDataset
 
 from ...errors import StepOutputError, StepOutputTypeError
+from ...pickling.pickle import _pickle
 from ...steps import LazyRowBatches, LazyRows, Step
 
 
@@ -155,6 +156,10 @@ class TestErrors:
 
         with pytest.warns(UserWarning):
             LazyRowBatches(dataset_batch_generator)
+
+    def test_pickle_warning(self):
+        with pytest.warns(UserWarning):
+            _pickle(5)
 
 
 class TestProgress:
@@ -1452,6 +1457,28 @@ class TestTypes:
         step = Step("my-step", None, "out1")
         with pytest.raises(StepOutputTypeError):
             step._set_output({"out1": [lambda x: x]})
+
+    def test_pickle(self):
+        step = Step("my-step", None, ["out1", "out2", "out3", "out4"])
+        datetime_now = datetime.now()
+        step._set_output(
+            {
+                "out1": [step.pickle(lambda x: x)],
+                "out2": [step.pickle(set("a"))],
+                "out3": [b"foo"],
+                "out4": [datetime_now],
+            }
+        )
+        assert step.output["out1"][0].__code__.co_code == (lambda x: x).__code__.co_code
+        assert step.output["out2"][0] == set("a")
+        assert step.output["out3"][0] == b"foo"
+        assert step.output["out4"][0] == datetime_now
+        assert str(step.output.info.features) == (
+            "{'out1': Value(dtype='binary', id=None),"
+            " 'out2': Value(dtype='binary', id=None),"
+            " 'out3': Value(dtype='binary', id=None),"
+            " 'out4': Value(dtype='timestamp[us]', id=None)}"
+        )
 
     def test_dict_with_no_keys(self):
         step = Step("my-step", None, "out1")

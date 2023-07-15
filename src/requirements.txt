@@ -25,6 +25,7 @@ peft==0.2.0
 optimum==1.7.3
 bitsandbytes==0.38.1
 wandb==0.14.2
+dill==0.3.6
 taskflow==5.2.0
 guidance==0.0.61
 SQLAlchemy==2.0.15

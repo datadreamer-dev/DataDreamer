@@ -9,9 +9,11 @@ from datasets import Dataset, IterableDataset, iterable_dataset
 from datasets.features.features import Features
 from datasets.iterable_dataset import _apply_feature_types_on_example
 
-from ..datasets.utils import (dataset_zip, get_column_names,
-                              iterable_dataset_zip)
+from ..datasets.utils import dataset_zip, get_column_names, iterable_dataset_zip
 from ..errors import StepOutputError, StepOutputTypeError
+from ..pickling import unpickle as _unpickle
+from ..pickling import unpickle_transform
+from ..pickling.pickle import _INTERNAL_PICKLE_KEY, _pickle
 
 _CATCH_TYPE_ERRORS_KEY = "__DataDreamer__catch_type_error__"
 
@@ -216,6 +218,7 @@ class Step:
         self.__progress: None | float = None
         self.input = input
         self.__output: None | Dataset | IterableDataset = None
+        self.__pickled: bool = False
         if _is_list_or_tuple_type(outputs) and len(outputs) == 0:
             raise ValueError("The step must name its outputs.")
         self.output_names: tuple[str, ...]
@@ -223,6 +226,14 @@ class Step:
             self.output_names = tuple(outputs)
         else:
             self.output_names = (outputs,)
+
+    def pickle(self, value: Any, *args: Any, **kwargs: Any) -> bytes:
+        self.__pickled = True
+        kwargs[_INTERNAL_PICKLE_KEY] = True
+        return _pickle(value, *args, **kwargs)
+
+    def unpickle(self, value: bytes) -> Any:
+        return _unpickle(value)
 
     @property
     def progress(self) -> None | float:
@@ -563,6 +574,12 @@ class Step:
             )
 
         if _is_dataset_type(_value, is_lazy):
+            if _value.info and _value.info.features:
+                features = _value.info.features
+            else:
+                features = Features()
+            if self.__pickled:
+                _value.set_transform(partial(unpickle_transform, features=features))
             self.__output = _value
             if isinstance(_value, Dataset):
                 self.progress = 1.0
