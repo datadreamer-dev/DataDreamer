@@ -1,5 +1,7 @@
 from typing import Any
 
+from pandas import DataFrame
+
 from datasets import Dataset, IterableDataset
 
 from ..errors import StepOutputError
@@ -82,6 +84,17 @@ class Step:
             pickled=self.__pickled,
             value=value,
         )
+
+    def head(self, n=5, shuffle=False, seed=None, buffer_size=1000) -> DataFrame:
+        if isinstance(self.output, Dataset):
+            iterable_dataset = self.output.to_iterable_dataset()
+        else:
+            iterable_dataset = self.output
+        if shuffle:
+            iterable_dataset = iterable_dataset.shuffle(
+                seed=seed, buffer_size=buffer_size
+            )
+        return DataFrame.from_records(list(iterable_dataset.take(n)))
 
 
 __all__ = ["LazyRowBatches", "LazyRows", "StepOutput"]
