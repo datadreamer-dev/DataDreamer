@@ -2,8 +2,10 @@ from datetime import datetime
 
 import pytest
 
-from datasets import Dataset, IterableDataset
+from datasets import Dataset as HFDataset
+from datasets import IterableDataset as HFIterableDataset
 
+from ...datasets import OutputDataset, OutputIterableDataset
 from ...errors import StepOutputError, StepOutputTypeError
 from ...pickling.pickle import _pickle
 from ...steps import LazyRowBatches, LazyRows, Step
@@ -34,7 +36,7 @@ class TestErrors:
             yield {"out1": "b"}
             yield {"out1": "c"}
 
-        iterable_dataset = IterableDataset.from_generator(dataset_generator)
+        iterable_dataset = HFIterableDataset.from_generator(dataset_generator)
         with pytest.raises(StepOutputError):
             step_single._set_output(iterable_dataset)  # type: ignore[arg-type]
 
@@ -68,7 +70,7 @@ class TestErrors:
         step = Step("my-step", None, "out1")
         assert step.progress is None
         dataset_dict = {"out1": ["a", "b", "c"], "out2": [1, 2, 3]}
-        dataset = Dataset.from_dict(dataset_dict)
+        dataset = HFDataset.from_dict(dataset_dict)
         with pytest.raises(StepOutputError):
             step._set_output(dataset)
 
@@ -77,7 +79,7 @@ class TestErrors:
             yield {"out1": "b", "out2": 2}
             yield {"out1": "c", "out2": 3}
 
-        iterable_dataset = IterableDataset.from_generator(dataset_generator)
+        iterable_dataset = HFIterableDataset.from_generator(dataset_generator)
         with pytest.raises(StepOutputError):
             step._set_output(LazyRows(iterable_dataset, total_num_rows=3))
 
@@ -215,7 +217,7 @@ class TestProgress:
         step = Step("my-step", None, "out1")
         assert step.progress is None
         dataset_dict = {"out1": ["a", "b", "c"]}
-        dataset = Dataset.from_dict(dataset_dict)
+        dataset = HFDataset.from_dict(dataset_dict)
         step._set_output(dataset)
         assert step.progress == 1.0
 
@@ -228,7 +230,7 @@ class TestProgress:
             yield {"out1": "b"}
             yield {"out1": "c"}
 
-        iterable_dataset = IterableDataset.from_generator(dataset_generator)
+        iterable_dataset = HFIterableDataset.from_generator(dataset_generator)
         step._set_output(LazyRows(iterable_dataset, total_num_rows=3))
         assert step.progress == 0.0
 
@@ -236,7 +238,7 @@ class TestProgress:
         step = Step("my-step", None, "out1")
         assert step.progress is None
         dataset_dict = {"out1": ["a", "b", "c"]}
-        dataset = Dataset.from_dict(dataset_dict)
+        dataset = HFDataset.from_dict(dataset_dict)
         step._Step__output = dataset  # type: ignore[attr-defined]
         assert step.progress is None
         step.progress = 0.5
@@ -252,7 +254,7 @@ class TestProgress:
 
         step._set_output(LazyRows(dataset_generator, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         next(iter(step.output))
         assert step.progress == 1.0 / 3.0
 
@@ -264,7 +266,7 @@ class TestProgress:
 
         step._set_output(LazyRowBatches(dataset_generator, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         next(iter(step.output))
         assert step.progress == 1.0 / 3.0
 
@@ -274,6 +276,7 @@ class TestEmptyOutput:
         step = Step("my-step", None, "out1")
         step._set_output(None)
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 0
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
 
@@ -281,6 +284,7 @@ class TestEmptyOutput:
         step = Step("my-step", None, "out1")
         step._set_output([])
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 0
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
 
@@ -288,6 +292,7 @@ class TestEmptyOutput:
         step = Step("my-step", None, "out1")
         step._set_output(map(lambda x: x, []))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 0
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
 
@@ -295,6 +300,7 @@ class TestEmptyOutput:
         step = Step("my-step", None, "out1")
         step._set_output(([],))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 0
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
 
@@ -302,6 +308,7 @@ class TestEmptyOutput:
         step = Step("my-step", None, "out1")
         step._set_output({"out1": []})
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 0
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
 
@@ -358,6 +365,7 @@ class TestSingleOutput:
         step = Step("my-step", None, "out1")
         step._set_output("a")  # type: ignore[arg-type]
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 1
         assert step.output["out1"][0] == "a"
         assert set(step.output[0].keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -367,6 +375,7 @@ class TestSingleOutput:
         step = Step("my-step", None, "out1")
         step._set_output(["a"])
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 1
         assert step.output["out1"][0] == "a"
         assert set(step.output[0].keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -376,6 +385,7 @@ class TestSingleOutput:
         step = Step("my-step", None, "out1")
         step._set_output(("a",))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 1
         assert step.output["out1"][0] == "a"
         assert set(step.output[0].keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -385,6 +395,7 @@ class TestSingleOutput:
         step = Step("my-step", None, "out1")
         step._set_output({"out1": "a"})
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 1
         assert step.output["out1"][0] == "a"
         assert set(step.output[0].keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -394,6 +405,7 @@ class TestSingleOutput:
         step = Step("my-step", None, "out1")
         step._set_output(["a", "b", "c"])
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 3
         assert step.output["out1"][0] == "a"
         assert set(step.output[0].keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -403,6 +415,7 @@ class TestSingleOutput:
         step = Step("my-step", None, "out1")
         step._set_output([{"out1": "a"}, {"out1": "b"}, {"out1": "c"}])
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 3
         assert step.output["out1"][0] == "a"
         assert set(step.output[0].keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -412,6 +425,7 @@ class TestSingleOutput:
         step = Step("my-step", None, "out1")
         step._set_output([{"foo": "a"}, {"foo": "b"}, {"foo": "c"}])
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 3
         assert step.output["out1"][0] == {"foo": "a"}
         assert set(step.output[0].keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -421,6 +435,7 @@ class TestSingleOutput:
         step = Step("my-step", None, "out1")
         step._set_output([("a",), ("b",), ("c",)])
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 3
         assert step.output["out1"][0] == "a"
         assert set(step.output[0].keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -430,6 +445,7 @@ class TestSingleOutput:
         step = Step("my-step", None, "out1")
         step._set_output([["a"], ["b"], ["c"]])
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 3
         assert step.output["out1"][0] == ["a"]
         assert set(step.output[0].keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -439,6 +455,7 @@ class TestSingleOutput:
         step = Step("my-step", None, "out1")
         step._set_output([["a", "b", "c"]])
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 1
         assert step.output["out1"][0] == ["a", "b", "c"]
         assert set(step.output[0].keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -448,6 +465,7 @@ class TestSingleOutput:
         step = Step("my-step", None, "out1")
         step._set_output(map(lambda x: x, ["a", "b", "c"]))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 3
         assert step.output["out1"][0] == "a"
         assert set(step.output[0].keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -457,6 +475,7 @@ class TestSingleOutput:
         step = Step("my-step", None, "out1")
         step._set_output((["a", "b", "c"],))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 3
         assert step.output["out1"][0] == "a"
         assert set(step.output[0].keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -466,6 +485,7 @@ class TestSingleOutput:
         step = Step("my-step", None, "out1")
         step._set_output((range(3),))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 3
         assert step.output["out1"][0] == 0
         assert set(step.output[0].keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -475,6 +495,7 @@ class TestSingleOutput:
         step = Step("my-step", None, "out1")
         step._set_output({"out1": ["a", "b", "c"]})
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 3
         assert step.output["out1"][0] == "a"
         assert set(step.output[0].keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -484,6 +505,7 @@ class TestSingleOutput:
         step = Step("my-step", None, "out1")
         step._set_output({"out1": range(3)})
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 3
         assert step.output["out1"][0] == 0
         assert set(step.output[0].keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -492,9 +514,10 @@ class TestSingleOutput:
     def test_output_dataset(self):
         step = Step("my-step", None, "out1")
         dataset_dict = {"out1": ["a", "b", "c"]}
-        dataset = Dataset.from_dict(dataset_dict)
+        dataset = HFDataset.from_dict(dataset_dict)
         step._set_output(dataset)
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 3
         assert step.output["out1"][0] == "a"
         assert set(step.output[0].keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -508,10 +531,10 @@ class TestSingleOutput:
             yield {"out1": "b"}
             yield {"out1": "c"}
 
-        iterable_dataset = IterableDataset.from_generator(dataset_generator)
+        iterable_dataset = HFIterableDataset.from_generator(dataset_generator)
         step._set_output(LazyRows(iterable_dataset, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -525,10 +548,10 @@ class TestSingleOutput:
             yield {"out1": "b"}
             yield {"out1": "c"}
 
-        iterable_dataset = IterableDataset.from_generator(dataset_generator)
+        iterable_dataset = HFIterableDataset.from_generator(dataset_generator)
         step._set_output(LazyRowBatches(iterable_dataset, total_num_rows=3))  # type: ignore[arg-type]
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -537,9 +560,10 @@ class TestSingleOutput:
     def test_output_list_of_datasets(self):
         step = Step("my-step", None, "out1")
         dataset_dict = {"out1": ["a", "b", "c"]}
-        dataset = Dataset.from_dict(dataset_dict)
+        dataset = HFDataset.from_dict(dataset_dict)
         step._set_output([dataset])
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 3
         assert step.output["out1"][0] == "a"
         assert set(step.output[0].keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -548,9 +572,10 @@ class TestSingleOutput:
     def test_output_tuple_of_datasets(self):
         step = Step("my-step", None, "out1")
         dataset_dict = {"out1": ["a", "b", "c"]}
-        dataset = Dataset.from_dict(dataset_dict)
+        dataset = HFDataset.from_dict(dataset_dict)
         step._set_output((dataset,))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 3
         assert step.output["out1"][0] == "a"
         assert set(step.output[0].keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -566,7 +591,7 @@ class TestSingleOutput:
 
         step._set_output(LazyRows(dataset_generator, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -581,7 +606,7 @@ class TestSingleOutput:
 
         step._set_output(LazyRowBatches(dataset_generator, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -596,7 +621,7 @@ class TestSingleOutput:
 
         step._set_output(LazyRowBatches(dataset_generator, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -611,7 +636,7 @@ class TestSingleOutput:
 
         step._set_output(LazyRowBatches(dataset_generator, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -626,7 +651,7 @@ class TestSingleOutput:
 
         step._set_output(LazyRowBatches(dataset_generator, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -642,7 +667,7 @@ class TestSingleOutput:
 
         step._set_output(LazyRows(dataset_generator, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -657,7 +682,7 @@ class TestSingleOutput:
 
         step._set_output(LazyRowBatches(dataset_generator, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -672,7 +697,7 @@ class TestSingleOutput:
 
         step._set_output(LazyRowBatches(dataset_generator, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -687,7 +712,7 @@ class TestSingleOutput:
 
         step._set_output(LazyRowBatches(dataset_generator, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -702,7 +727,7 @@ class TestSingleOutput:
 
         step._set_output(LazyRowBatches(dataset_generator, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -718,7 +743,7 @@ class TestSingleOutput:
 
         step._set_output(LazyRows(dataset_generator, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -733,7 +758,7 @@ class TestSingleOutput:
 
         step._set_output(LazyRowBatches(dataset_generator, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -748,7 +773,7 @@ class TestSingleOutput:
 
         step._set_output(LazyRowBatches(dataset_generator, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -763,7 +788,7 @@ class TestSingleOutput:
 
         step._set_output(LazyRowBatches(dataset_generator, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -778,7 +803,7 @@ class TestSingleOutput:
 
         step._set_output(LazyRowBatches(dataset_generator, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -794,7 +819,7 @@ class TestSingleOutput:
 
         step._set_output(LazyRows({"out1": dataset_generator}, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -809,7 +834,7 @@ class TestSingleOutput:
 
         step._set_output(LazyRowBatches({"out1": dataset_generator}, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -824,7 +849,7 @@ class TestSingleOutput:
 
         step._set_output(LazyRowBatches({"out1": dataset_generator}, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -840,7 +865,7 @@ class TestSingleOutput:
 
         step._set_output(LazyRows([dataset_generator], total_num_rows=3))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -855,7 +880,7 @@ class TestSingleOutput:
 
         step._set_output(LazyRowBatches([dataset_generator], total_num_rows=3))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -870,7 +895,7 @@ class TestSingleOutput:
 
         step._set_output(LazyRowBatches([dataset_generator], total_num_rows=3))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -886,7 +911,7 @@ class TestSingleOutput:
 
         step._set_output(LazyRows((dataset_generator,), total_num_rows=3))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -901,7 +926,7 @@ class TestSingleOutput:
 
         step._set_output(LazyRowBatches((dataset_generator,), total_num_rows=3))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -916,7 +941,7 @@ class TestSingleOutput:
 
         step._set_output(LazyRowBatches((dataset_generator,), total_num_rows=3))
         assert set(step.output.column_names) == set(["out1"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -928,6 +953,7 @@ class TestMultipleOutput:
         step = Step("my-step", None, ["out1", "out2"])
         step._set_output(["a", 1])
         assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 1
         assert step.output["out1"][0] == "a"
         assert set(step.output[0].keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -938,6 +964,7 @@ class TestMultipleOutput:
         step = Step("my-step", None, ["out1", "out2"])
         step._set_output(("a", 1))
         assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 1
         assert step.output["out1"][0] == "a"
         assert set(step.output[0].keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -948,6 +975,7 @@ class TestMultipleOutput:
         step = Step("my-step", None, ["out1", "out2"])
         step._set_output({"out1": "a", "out2": 1})
         assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 1
         assert step.output["out1"][0] == "a"
         assert set(step.output[0].keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -958,6 +986,7 @@ class TestMultipleOutput:
         step = Step("my-step", None, ["out1", "out2"])
         step._set_output([("a", 1), ("b", 2), ("c", 3)])
         assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 3
         assert step.output["out1"][0] == "a"
         assert set(step.output[0].keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -968,6 +997,7 @@ class TestMultipleOutput:
         step = Step("my-step", None, ["out1", "out2"])
         step._set_output([["a", 1], ["b", 2], ["c", 3]])
         assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 3
         assert step.output["out1"][0] == "a"
         assert set(step.output[0].keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -978,6 +1008,7 @@ class TestMultipleOutput:
         step = Step("my-step", None, ["out1", "out2"])
         step._set_output([["a", "b", "c"], [1, 2, 3]])
         assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 3
         assert step.output["out1"][0] == "a"
         assert set(step.output[0].keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -988,6 +1019,7 @@ class TestMultipleOutput:
         step = Step("my-step", None, ["out1", "out2"])
         step._set_output((["a", "b", "c"], [1, 2, 3]))
         assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 3
         assert step.output["out1"][0] == "a"
         assert set(step.output[0].keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -998,6 +1030,7 @@ class TestMultipleOutput:
         step = Step("my-step", None, ["out1", "out2"])
         step._set_output((range(3), ["a", "b", "c"]))
         assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 3
         assert step.output["out1"][0] == 0
         assert set(step.output[0].keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -1008,6 +1041,7 @@ class TestMultipleOutput:
         step = Step("my-step", None, ["out1", "out2"])
         step._set_output({"out1": ["a", "b", "c"], "out2": [1, 2, 3]})
         assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 3
         assert step.output["out1"][0] == "a"
         assert set(step.output[0].keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -1018,6 +1052,7 @@ class TestMultipleOutput:
         step = Step("my-step", None, ["out1", "out2"])
         step._set_output({"out1": range(3), "out2": ["a", "b", "c"]})
         assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 3
         assert step.output["out1"][0] == 0
         assert set(step.output[0].keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -1027,9 +1062,10 @@ class TestMultipleOutput:
     def test_output_dataset(self):
         step = Step("my-step", None, ["out1", "out2"])
         dataset_dict = {"out1": ["a", "b", "c"], "out2": [1, 2, 3]}
-        dataset = Dataset.from_dict(dataset_dict)
+        dataset = HFDataset.from_dict(dataset_dict)
         step._set_output(dataset)
         assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 3
         assert step.output["out1"][0] == "a"
         assert set(step.output[0].keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -1044,10 +1080,10 @@ class TestMultipleOutput:
             yield {"out1": "b", "out2": 2}
             yield {"out1": "c", "out2": 3}
 
-        iterable_dataset = IterableDataset.from_generator(dataset_generator)
+        iterable_dataset = HFIterableDataset.from_generator(dataset_generator)
         step._set_output(LazyRows(iterable_dataset, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -1062,10 +1098,10 @@ class TestMultipleOutput:
             yield {"out1": "b", "out2": 2}
             yield {"out1": "c", "out2": 3}
 
-        iterable_dataset = IterableDataset.from_generator(dataset_generator)
+        iterable_dataset = HFIterableDataset.from_generator(dataset_generator)
         step._set_output(LazyRowBatches(iterable_dataset, total_num_rows=3))  # type: ignore[arg-type]
         assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -1075,17 +1111,17 @@ class TestMultipleOutput:
     def test_output_list_of_datasets(self):
         step = Step("my-step", None, ["out1", "out2"])
         dataset_dict = {"out1": ["a", "b", "c"]}
-        dataset = Dataset.from_dict(dataset_dict)
+        dataset = HFDataset.from_dict(dataset_dict)
 
         def dataset_generator():
             yield {"out2": 1}
             yield {"out2": 2}
             yield {"out2": 3}
 
-        iterable_dataset = IterableDataset.from_generator(dataset_generator)
+        iterable_dataset = HFIterableDataset.from_generator(dataset_generator)
         step._set_output(LazyRows([dataset, iterable_dataset], total_num_rows=3))
         assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -1095,17 +1131,17 @@ class TestMultipleOutput:
     def test_output_tuple_of_datasets(self):
         step = Step("my-step", None, ["out1", "out2"])
         dataset_dict = {"out1": ["a", "b", "c"]}
-        dataset = Dataset.from_dict(dataset_dict)
+        dataset = HFDataset.from_dict(dataset_dict)
 
         def dataset_generator():
             yield {"out2": 1}
             yield {"out2": 2}
             yield {"out2": 3}
 
-        iterable_dataset = IterableDataset.from_generator(dataset_generator)
+        iterable_dataset = HFIterableDataset.from_generator(dataset_generator)
         step._set_output(LazyRows((dataset, iterable_dataset), total_num_rows=3))
         assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -1122,7 +1158,7 @@ class TestMultipleOutput:
 
         step._set_output(LazyRows(dataset_generator, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -1138,7 +1174,7 @@ class TestMultipleOutput:
 
         step._set_output(LazyRowBatches(dataset_generator, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -1155,7 +1191,7 @@ class TestMultipleOutput:
 
         step._set_output(LazyRows(dataset_generator, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -1171,7 +1207,7 @@ class TestMultipleOutput:
 
         step._set_output(LazyRowBatches(dataset_generator, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -1187,7 +1223,7 @@ class TestMultipleOutput:
 
         step._set_output(LazyRowBatches(dataset_generator, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -1204,7 +1240,7 @@ class TestMultipleOutput:
 
         step._set_output(LazyRows(dataset_generator, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -1220,7 +1256,7 @@ class TestMultipleOutput:
 
         step._set_output(LazyRowBatches(dataset_generator, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -1236,7 +1272,7 @@ class TestMultipleOutput:
 
         step._set_output(LazyRowBatches(dataset_generator, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         with pytest.raises(StepOutputTypeError):
             assert len(list(step.output)) == 3
 
@@ -1249,7 +1285,7 @@ class TestMultipleOutput:
 
         step._set_output(LazyRowBatches(dataset_generator, total_num_rows=4))
         assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 4
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -1265,7 +1301,7 @@ class TestMultipleOutput:
 
         step._set_output(LazyRowBatches(dataset_generator, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -1281,7 +1317,7 @@ class TestMultipleOutput:
 
         step._set_output(LazyRowBatches(dataset_generator, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -1300,7 +1336,7 @@ class TestMultipleOutput:
             LazyRows({"out1": dataset_generator, "out2": [1, 2, 3]}, total_num_rows=3)
         )
         assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -1321,7 +1357,7 @@ class TestMultipleOutput:
             )
         )
         assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -1338,7 +1374,7 @@ class TestMultipleOutput:
 
         step._set_output(LazyRows([dataset_generator, [1, 2, 3]], total_num_rows=3))
         assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -1356,7 +1392,7 @@ class TestMultipleOutput:
             LazyRowBatches([dataset_generator, [[1, 2], [3]]], total_num_rows=3)
         )
         assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -1373,7 +1409,7 @@ class TestMultipleOutput:
 
         step._set_output(LazyRows((dataset_generator, [1, 2, 3]), total_num_rows=3))
         assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -1391,7 +1427,7 @@ class TestMultipleOutput:
             LazyRowBatches((dataset_generator, [[1, 2], [3]]), total_num_rows=3)
         )
         assert set(step.output.column_names) == set(["out1", "out2"])  # type: ignore[arg-type]
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
         first_row = next(iter(step.output))
         assert set(first_row.keys()) == set(step.output.column_names)  # type: ignore[arg-type]
@@ -1417,6 +1453,7 @@ class TestTypes:
         assert set(step.output.column_names) == set(  # type: ignore[arg-type]
             ["out1", "out2", "out3", "out4", "out5", "out6"]
         )
+        assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 1
         assert str(step.output.info.features) == (
             "{'out1': {'a': Value(dtype='string', id=None)},"
@@ -1434,7 +1471,7 @@ class TestTypes:
             yield {"out1": {"foo": [5]}}
 
         step._set_output(LazyRows(dataset_generator, total_num_rows=1))
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert str(step.output.info.features) == (
             "{'out1': {'foo': Sequence(feature=Value(dtype='int64', id=None), length=-1, id=None)}}"  # noqa: B950
         )
@@ -1446,7 +1483,7 @@ class TestTypes:
             return iter(())
 
         step._set_output(LazyRows(empty_generator, total_num_rows=0))
-        assert isinstance(step.output, IterableDataset)
+        assert isinstance(step.output, OutputIterableDataset)
         assert str(step.output.info.features) == ("{'out1': None}")
 
     def test_func(self):

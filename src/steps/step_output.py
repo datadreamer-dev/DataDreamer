@@ -9,6 +9,7 @@ from datasets import Dataset, IterableDataset, iterable_dataset
 from datasets.features.features import Features
 from datasets.iterable_dataset import _apply_feature_types_on_example
 
+from ..datasets import OutputDataset, OutputIterableDataset
 from ..datasets.utils import dataset_zip, get_column_names, iterable_dataset_zip
 from ..errors import StepOutputError, StepOutputTypeError
 from ..pickling import unpickle_transform
@@ -122,7 +123,7 @@ def _untuple(v: Any, output_names: tuple[str, ...]) -> Any:
         return v
 
 
-LazyStepOutput: TypeAlias = (
+LazyStepOutputType: TypeAlias = (
     IterableDataset
     | dict[str, Any]
     | list[Any]
@@ -138,7 +139,7 @@ LazyStepOutput: TypeAlias = (
     ]
 )
 
-LazyBatchStepOutput: TypeAlias = (
+LazyBatchStepOutputType: TypeAlias = (
     dict[str, Any]
     | list[Any]
     | Iterator[Any]
@@ -153,7 +154,7 @@ LazyBatchStepOutput: TypeAlias = (
     ]
 )
 
-StepOutput: TypeAlias = (
+StepOutputType: TypeAlias = (
     None | Dataset | dict[str, Any] | list[Any] | Iterator[Any] | tuple[Any, ...]
 )
 
@@ -161,11 +162,11 @@ StepOutput: TypeAlias = (
 class LazyRows:
     def __init__(
         self,
-        value: LazyStepOutput,
+        value: LazyStepOutputType,
         total_num_rows: None | int = None,
         auto_progress: bool = True,
     ) -> None:
-        self.__value: LazyStepOutput = value
+        self.__value: LazyStepOutputType = value
         self.total_num_rows: None | int = total_num_rows
         if total_num_rows is None and auto_progress:
             warnings.warn(
@@ -177,18 +178,18 @@ class LazyRows:
             )
 
     @property
-    def value(self) -> LazyStepOutput:
+    def value(self) -> LazyStepOutputType:
         return self.__value
 
 
 class LazyRowBatches:
     def __init__(
         self,
-        value: LazyBatchStepOutput,
+        value: LazyBatchStepOutputType,
         total_num_rows: None | int = None,
         auto_progress: bool = True,
     ) -> None:
-        self.__value: LazyBatchStepOutput = value
+        self.__value: LazyBatchStepOutputType = value
         self.total_num_rows: None | int = total_num_rows
         if total_num_rows is None and auto_progress:
             warnings.warn(
@@ -201,7 +202,7 @@ class LazyRowBatches:
             )
 
     @property
-    def value(self) -> LazyBatchStepOutput:
+    def value(self) -> LazyBatchStepOutputType:
         return self.__value
 
 
@@ -209,13 +210,13 @@ def _output_to_dataset(  # noqa: C901
     output_names: tuple[str, ...],
     set_progress: Callable[[float], None],
     pickled: bool,
-    value: StepOutput | LazyRows | LazyRowBatches,
-) -> Dataset | IterableDataset:
+    value: StepOutputType | LazyRows | LazyRowBatches,
+) -> OutputDataset | OutputIterableDataset:
     # Set progress to 0.0
     set_progress(0.0)
 
     # Unpack LazyRows and LazyRowsBatches
-    _value: StepOutput | LazyStepOutput
+    _value: StepOutputType | LazyStepOutputType
     is_lazy = False
     total_num_rows = None
     _value_is_batched = False
@@ -544,7 +545,10 @@ def _output_to_dataset(  # noqa: C901
     else:
         raise StepOutputError(f"Invalid output type: {type(_value)}.")
 
-    return __output
+    if isinstance(__output, IterableDataset):
+        return OutputIterableDataset(__output)
+    else:
+        return OutputDataset(__output)
 
 
-__all__ = ["LazyRowBatches", "LazyRows", "StepOutput", "_output_to_dataset"]
+__all__ = ["LazyRowBatches", "LazyRows", "StepOutputType", "_output_to_dataset"]

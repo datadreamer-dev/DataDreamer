@@ -23,7 +23,7 @@ class TestFunctionality:
                 "out2": ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"],
             }
         )
-        head_df = step.head()
+        head_df = step.output.head()
         assert set(head_df.columns) == set(["out1", "out2"])
         assert len(head_df) == 5
         assert list(head_df["out1"]) == [1, 2, 3, 4, 5]
@@ -45,7 +45,7 @@ class TestFunctionality:
             yield {"out1": 10, "out2": "j"}
 
         step._set_output(LazyRows(dataset_generator, total_num_rows=10))
-        head_df = step.head(n=3, shuffle=True, buffer_size=7, seed=42)
+        head_df = step.output.head(n=3, shuffle=True, buffer_size=7, seed=42)
         assert set(head_df.columns) == set(["out1", "out2"])
         assert len(head_df) == 3
         assert list(head_df["out1"]) == [1, 6, 5]

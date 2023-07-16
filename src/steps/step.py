@@ -1,16 +1,15 @@
 from typing import Any
 
-from pandas import DataFrame
-
 from datasets import Dataset, IterableDataset
 
+from ..datasets import OutputDataset, OutputIterableDataset
 from ..errors import StepOutputError
 from ..pickling import unpickle as _unpickle
 from ..pickling.pickle import _INTERNAL_PICKLE_KEY, _pickle
 from .step_output import (
     LazyRowBatches,
     LazyRows,
-    StepOutput,
+    StepOutputType,
     _is_list_or_tuple_type,
     _output_to_dataset,
 )
@@ -26,7 +25,7 @@ class Step:
         self.name: str = name
         self.__progress: None | float = None
         self.input = input
-        self.__output: None | Dataset | IterableDataset = None
+        self.__output: None | OutputDataset | OutputIterableDataset = None
         self.__pickled: bool = False
         if _is_list_or_tuple_type(outputs) and len(outputs) == 0:
             raise ValueError("The step must name its outputs.")
@@ -62,7 +61,7 @@ class Step:
             return "0%"
 
     @property
-    def output(self) -> Dataset | IterableDataset:
+    def output(self) -> OutputDataset | OutputIterableDataset:
         if self.__output is None:
             if self.__progress is None:
                 raise StepOutputError("Step has not been run. Output is not available.")
@@ -76,7 +75,7 @@ class Step:
 
     def _set_output(  # noqa: C901
         self,
-        value: StepOutput | LazyRows | LazyRowBatches,
+        value: StepOutputType | LazyRows | LazyRowBatches,
     ):
         self.__output = _output_to_dataset(
             output_names=self.output_names,
@@ -85,16 +84,5 @@ class Step:
             value=value,
         )
 
-    def head(self, n=5, shuffle=False, seed=None, buffer_size=1000) -> DataFrame:
-        if isinstance(self.output, Dataset):
-            iterable_dataset = self.output.to_iterable_dataset()
-        else:
-            iterable_dataset = self.output
-        if shuffle:
-            iterable_dataset = iterable_dataset.shuffle(
-                seed=seed, buffer_size=buffer_size
-            )
-        return DataFrame.from_records(list(iterable_dataset.take(n)))
 
-
-__all__ = ["LazyRowBatches", "LazyRows", "StepOutput"]
+__all__ = ["LazyRowBatches", "LazyRows", "StepOutputType"]
