@@ -1,5 +1,7 @@
 from typing import Any
 
+from pandas import DataFrame
+
 from datasets import Dataset, IterableDataset
 
 from ..datasets import OutputDataset, OutputIterableDataset
@@ -82,6 +84,11 @@ class Step:
             set_progress=lambda progress: setattr(self, "progress", progress),
             pickled=self.__pickled,
             value=value,
+        )
+
+    def head(self, n=5, shuffle=False, seed=None, buffer_size=1000) -> DataFrame:
+        return self.output.head(
+            n=n, shuffle=shuffle, seed=seed, buffer_size=buffer_size
         )
 
 

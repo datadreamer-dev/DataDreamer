@@ -1,5 +1,6 @@
 import warnings
 from collections.abc import Generator, Iterable, Iterator, Mapping, Sized
+from copy import deepcopy
 from functools import partial
 from typing import Any, Callable, Type, TypeAlias, TypeGuard
 
@@ -12,7 +13,6 @@ from datasets.iterable_dataset import _apply_feature_types_on_example
 from ..datasets import OutputDataset, OutputIterableDataset
 from ..datasets.utils import dataset_zip, get_column_names, iterable_dataset_zip
 from ..errors import StepOutputError, StepOutputTypeError
-from ..pickling import unpickle_transform
 
 _CATCH_TYPE_ERRORS_KEY = "__DataDreamer__catch_type_error__"
 
@@ -58,6 +58,12 @@ def _catch_type_error_apply_feature_types_on_example(example, *args, **kwargs):
             raise StepOutputTypeError(str(e))
     else:
         return _apply_feature_types_on_example(example, *args, **kwargs)
+
+
+def _monkey_patch_iterable_dataset_apply_feature_types_on_example():
+    iterable_dataset._apply_feature_types_on_example = (
+        _catch_type_error_apply_feature_types_on_example
+    )
 
 
 def _iterable_or_generator_func_to_iterator(  # noqa: C901
@@ -241,6 +247,12 @@ def _output_to_dataset(  # noqa: C901
     # If given Iterator, convert to a list
     if isinstance(_value, Iterator):
         _value = list(_value)
+
+    # If given a Dataset or IterableDataset, make a copy and reset the format
+    if _is_dataset_type(_value, is_lazy):
+        _value = deepcopy(_value)
+        if isinstance(_value, Dataset):
+            _value.reset_format()
 
     # Create a Dataset if given a list or tuple of Datasets
     # or create an IterableDataset if given a list or tuple of IterableDatasets
@@ -502,20 +514,12 @@ def _output_to_dataset(  # noqa: C901
         _value = _catch_type_error(
             IterableDataset.from_generator, _value, features=features
         )
-        iterable_dataset._apply_feature_types_on_example = (
-            _catch_type_error_apply_feature_types_on_example
-        )
+        _monkey_patch_iterable_dataset_apply_feature_types_on_example()
 
     # Return a Dataset or IterableDataset
     __output: Dataset | IterableDataset
 
     if _is_dataset_type(_value, is_lazy):
-        if _value.info and _value.info.features:
-            features = _value.info.features
-        else:
-            features = Features()
-        if pickled:
-            _value.set_transform(partial(unpickle_transform, features=features))
         __output = _value
         if isinstance(_value, Dataset):
             set_progress(1.0)
@@ -546,9 +550,9 @@ def _output_to_dataset(  # noqa: C901
         raise StepOutputError(f"Invalid output type: {type(_value)}.")
 
     if isinstance(__output, IterableDataset):
-        return OutputIterableDataset(__output)
+        return OutputIterableDataset(__output, pickled=pickled)
     else:
-        return OutputDataset(__output)
+        return OutputDataset(__output, pickled=pickled)
 
 
 __all__ = ["LazyRowBatches", "LazyRows", "StepOutputType", "_output_to_dataset"]

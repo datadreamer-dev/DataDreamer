@@ -26,21 +26,27 @@ def unpickle(value: bytes) -> Any:
     return loads(value)[_PICKLE_KEY]
 
 
-def unpickle_transform(batch, features=__FEATURES_DEFAULT):
+def _unpickle_transform_value(value):
+    if (
+        isinstance(value, bytes)
+        and len(value) >= 2
+        and value[0] == 128
+        and value[-1] == 46
+        and _PICKLE_KEY.encode("utf8") in value[:100]
+    ):
+        return unpickle(value)
+    else:
+        return value
+
+
+def unpickle_transform(batch, features=__FEATURES_DEFAULT, batched=False):
     for column in batch:
         feature = features.get(column, None)
         if not isinstance(feature, Value) or feature.dtype != "binary":
             continue
-        for i in range(len(batch[column])):
-            v = batch[column][i]
-            if (
-                isinstance(v, bytes)
-                and len(v) >= 2
-                and v[0] == 128
-                and v[-1] == 46
-                and _PICKLE_KEY.encode("utf8") in v[:100]
-            ):
-                batch[column][i] = unpickle(v)
-            else:
-                batch[column][i] = v
+        if batched:
+            for i in range(len(batch[column])):
+                batch[column][i] = _unpickle_transform_value(batch[column][i])
+        else:
+            batch[column] = _unpickle_transform_value(batch[column])
     return batch

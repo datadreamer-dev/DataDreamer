@@ -1,3 +1,4 @@
+from copy import deepcopy
 from functools import partial
 from itertools import chain
 from typing import Any, Iterator, cast
@@ -21,12 +22,16 @@ def get_column_names(dataset: Dataset | IterableDataset) -> list[str]:
 def dataset_zip(*datasets: Dataset) -> Dataset:
     if len(datasets) == 0:
         raise ValueError("You must provide at least one dataset to zip.")
+    datasets = tuple([deepcopy(d) for d in datasets])
+    for d in datasets:
+        if isinstance(d, Dataset):
+            d.reset_format()
     dataset_dicts: list[dict[str, list[Any]]] = [
         {n: list(d[n]) for n in get_column_names(d)} for d in datasets
     ]
     merged_dataset: dict[str, list[Any]] = {}
-    for d in dataset_dicts:
-        for k, v in d.items():
+    for dd in dataset_dicts:
+        for k, v in dd.items():
             merged_dataset[k] = v
     return Dataset.from_dict(merged_dataset)
 
@@ -34,6 +39,10 @@ def dataset_zip(*datasets: Dataset) -> Dataset:
 def iterable_dataset_zip(*datasets: Dataset | IterableDataset) -> IterableDataset:
     if len(datasets) == 0:
         raise ValueError("You must provide at least one dataset to zip.")
+    datasets = tuple([deepcopy(d) for d in datasets])
+    for d in datasets:
+        if isinstance(d, Dataset):
+            d.reset_format()
 
     def merged_generator(datasets):
         iters: list[Iterator[dict[str, Any]]] = [iter(d) for d in datasets]

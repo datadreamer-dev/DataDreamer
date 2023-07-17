@@ -39,7 +39,7 @@ python = ">=3.10,<3.12"
 poetry = "1.4.2"
 
 [tool.pytest.ini_options]
-addopts = "-v --cov=src"
+addopts = "-v --cov=src --cov-report term-missing"
 filterwarnings = ["ignore::DeprecationWarning:jupyter_client.*:"]
 
 [tool.mypy]
