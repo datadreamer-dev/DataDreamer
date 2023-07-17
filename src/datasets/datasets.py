@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pandas import DataFrame
 
@@ -8,6 +8,9 @@ from datasets.features.features import Features, Value
 
 from ..datasets.utils import get_column_names
 from ..pickling import unpickle_transform
+
+if TYPE_CHECKING:
+    from ..steps import Step
 
 
 class OutputDatasetMixin:
@@ -38,11 +41,13 @@ class OutputDatasetMixin:
         if isinstance(key, str):
             if isinstance(self.dataset, Dataset):
                 return OutputDatasetColumn(
+                    self._step,  # type:ignore[attr-defined]
                     self.dataset.select_columns([key]),
                     pickled=self._pickled,  # type:ignore[attr-defined]
                 )
             else:
                 return OutputIterableDatasetColumn(
+                    self._step,  # type:ignore[attr-defined]
                     self.dataset.select_columns([key]),
                     pickled=self._pickled,  # type:ignore[attr-defined]
                 )
@@ -103,9 +108,14 @@ class OutputDatasetColumnMixin:
 
 
 class OutputIterableDataset(OutputDatasetMixin):
-    def __init__(self, dataset: IterableDataset, pickled: bool = False):
+    def __init__(self, step: "Step", dataset: IterableDataset, pickled: bool = False):
+        from ..steps import Step
+
+        if not isinstance(step, Step):
+            raise ValueError("Expected Step, got {type(step)}.")
         if not isinstance(dataset, IterableDataset):
             raise ValueError(f"Expected IterableDataset, got {type(dataset)}.")
+        self._step: "Step" = step
         self._dataset: IterableDataset = dataset
         self._pickled: bool = pickled
         self._pickled_inferred: bool = False
@@ -120,9 +130,14 @@ class OutputIterableDataset(OutputDatasetMixin):
 
 
 class OutputDataset(OutputDatasetMixin):
-    def __init__(self, dataset: Dataset, pickled: bool = False):
+    def __init__(self, step: "Step", dataset: Dataset, pickled: bool = False):
+        from ..steps import Step
+
+        if not isinstance(step, Step):
+            raise ValueError("Expected Step, got {type(step)}.")
         if not isinstance(dataset, Dataset):
             raise ValueError(f"Expected Dataset, got {type(dataset)}.")
+        self._step: "Step" = step
         self._dataset: Dataset = dataset
         self._pickled: bool = pickled
         self._pickled_inferred: bool = False
@@ -132,9 +147,14 @@ class OutputDataset(OutputDatasetMixin):
 
 
 class OutputIterableDatasetColumn(OutputDatasetColumnMixin, OutputIterableDataset):
-    def __init__(self, dataset: IterableDataset, pickled: bool = False):
+    def __init__(self, step: "Step", dataset: IterableDataset, pickled: bool = False):
+        from ..steps import Step
+
+        if not isinstance(step, Step):
+            raise ValueError("Expected Step, got {type(step)}.")
         if not isinstance(dataset, IterableDataset):
             raise ValueError(f"Expected IterableDataset, got {type(dataset)}.")
+        self._step: "Step" = step
         self._dataset: IterableDataset = dataset
         self._pickled: bool = pickled
         self._pickled_inferred: bool = False
@@ -151,9 +171,14 @@ class OutputIterableDatasetColumn(OutputDatasetColumnMixin, OutputIterableDatase
 
 
 class OutputDatasetColumn(OutputDatasetColumnMixin, OutputDataset):
-    def __init__(self, dataset: Dataset, pickled: bool = False):
+    def __init__(self, step: "Step", dataset: Dataset, pickled: bool = False):
+        from ..steps import Step
+
+        if not isinstance(step, Step):
+            raise ValueError("Expected Step, got {type(step)}.")
         if not isinstance(dataset, Dataset):
             raise ValueError(f"Expected Dataset, got {type(dataset)}.")
+        self._step: "Step" = step
         self._dataset: Dataset = dataset
         self._pickled: bool = pickled
         self._pickled_inferred: bool = False

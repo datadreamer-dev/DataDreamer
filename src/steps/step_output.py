@@ -2,7 +2,7 @@ import warnings
 from collections.abc import Generator, Iterable, Iterator, Mapping, Sized
 from copy import deepcopy
 from functools import partial
-from typing import Any, Callable, Type, TypeAlias, TypeGuard
+from typing import TYPE_CHECKING, Any, Callable, Type, TypeAlias, TypeGuard
 
 from pyarrow.lib import ArrowInvalid, ArrowTypeError
 
@@ -13,6 +13,9 @@ from datasets.iterable_dataset import _apply_feature_types_on_example
 from ..datasets import OutputDataset, OutputIterableDataset
 from ..datasets.utils import dataset_zip, get_column_names, iterable_dataset_zip
 from ..errors import StepOutputError, StepOutputTypeError
+
+if TYPE_CHECKING:
+    from ..steps import Step
 
 _CATCH_TYPE_ERRORS_KEY = "__DataDreamer__catch_type_error__"
 
@@ -213,6 +216,7 @@ class LazyRowBatches:
 
 
 def _output_to_dataset(  # noqa: C901
+    step: "Step",
     output_names: tuple[str, ...],
     set_progress: Callable[[float], None],
     pickled: bool,
@@ -550,9 +554,9 @@ def _output_to_dataset(  # noqa: C901
         raise StepOutputError(f"Invalid output type: {type(_value)}.")
 
     if isinstance(__output, IterableDataset):
-        return OutputIterableDataset(__output, pickled=pickled)
+        return OutputIterableDataset(step=step, dataset=__output, pickled=pickled)
     else:
-        return OutputDataset(__output, pickled=pickled)
+        return OutputDataset(step=step, dataset=__output, pickled=pickled)
 
 
 __all__ = ["LazyRowBatches", "LazyRows", "StepOutputType", "_output_to_dataset"]

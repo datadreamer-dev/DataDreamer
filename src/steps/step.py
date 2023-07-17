@@ -80,6 +80,7 @@ class Step:
         value: StepOutputType | LazyRows | LazyRowBatches,
     ):
         self.__output = _output_to_dataset(
+            step=self,
             output_names=self.output_names,
             set_progress=lambda progress: setattr(self, "progress", progress),
             pickled=self.__pickled,
