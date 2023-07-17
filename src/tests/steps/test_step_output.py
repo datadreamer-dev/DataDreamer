@@ -1538,6 +1538,24 @@ class TestTypes:
             " 'out4': Value(dtype='timestamp[us]', id=None)}"
         )
 
+    def test_unpickle(self):
+        step = Step("my-step", None, ["out1", "out2", "out3", "out4"])
+        datetime_now = datetime.now()
+        step._set_output(
+            {
+                "out1": [step.pickle(lambda x: x)],
+                "out2": [step.pickle(set("a"))],
+                "out3": [b"foo"],
+                "out4": [datetime_now],
+            }
+        )
+        assert isinstance(step.output, OutputDataset)
+        assert (
+            step.unpickle(step.output.dataset["out1"][0]).__code__.co_code
+            == (lambda x: x).__code__.co_code
+        )
+        assert step.unpickle(step.output.dataset["out2"][0]) == set("a")
+
     def test_dict_with_no_keys(self):
         step = Step("my-step", None, "out1")
         step._set_output({"out1": [{}]})

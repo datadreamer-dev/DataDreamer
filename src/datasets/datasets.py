@@ -9,22 +9,18 @@ from datasets.features.features import Features, Value
 from ..datasets.utils import get_column_names
 from ..pickling import unpickle_transform
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from ..steps import Step
 
 
 class OutputDatasetMixin:
     @property
-    def dataset(self) -> Dataset | IterableDataset:
-        return self._dataset  # type:ignore[attr-defined]
-
-    @property
     def column_names(self) -> list[str]:
-        return get_column_names(self.dataset)
+        return get_column_names(self.dataset)  # type:ignore[attr-defined]
 
     @property
     def info(self) -> Any:
-        return self.dataset.info
+        return self.dataset.info  # type:ignore[attr-defined]
 
     def __iter__(self):
         if self.info and self.info.features:
@@ -32,23 +28,23 @@ class OutputDatasetMixin:
         else:
             features = Features()
         if self._pickled or self._pickled_inferred:  # type:ignore[attr-defined]
-            for row in iter(self.dataset):
+            for row in iter(self.dataset):  # type:ignore[attr-defined]
                 yield unpickle_transform(row, features=features, batched=False)
         else:
-            yield from iter(self.dataset)
+            yield from iter(self.dataset)  # type:ignore[attr-defined]
 
     def __getitem__(self, key: int | slice | str | Iterable[int]) -> Any:
         if isinstance(key, str):
-            if isinstance(self.dataset, Dataset):
+            if isinstance(self.dataset, Dataset):  # type:ignore[attr-defined]
                 return OutputDatasetColumn(
                     self._step,  # type:ignore[attr-defined]
-                    self.dataset.select_columns([key]),
+                    self.dataset.select_columns([key]),  # type:ignore[attr-defined]
                     pickled=self._pickled,  # type:ignore[attr-defined]
                 )
             else:
                 return OutputIterableDatasetColumn(
                     self._step,  # type:ignore[attr-defined]
-                    self.dataset.select_columns([key]),
+                    self.dataset.select_columns([key]),  # type:ignore[attr-defined]
                     pickled=self._pickled,  # type:ignore[attr-defined]
                 )
         if self._pickled or self._pickled_inferred:  # type:ignore[attr-defined]
@@ -58,24 +54,26 @@ class OutputDatasetMixin:
                 features = Features()
             if isinstance(key, int):
                 return unpickle_transform(
-                    self.dataset[key],  # type:ignore[index]
+                    self.dataset[key],  # type:ignore[attr-defined]
                     features=features,
                     batched=False,
                 )
             else:
                 return unpickle_transform(
-                    self.dataset[key],  # type:ignore[index]
+                    self.dataset[key],  # type:ignore[attr-defined]
                     features=features,
                     batched=True,
                 )
         else:
-            return self.dataset[key]  # type:ignore[index]
+            return self.dataset[key]  # type:ignore[attr-defined]
 
     def head(self, n=5, shuffle=False, seed=None, buffer_size=1000) -> DataFrame:
-        if isinstance(self.dataset, Dataset):
-            iterable_dataset = self.dataset.to_iterable_dataset()
+        if isinstance(self.dataset, Dataset):  # type:ignore[attr-defined]
+            iterable_dataset = (
+                self.dataset.to_iterable_dataset()  # type:ignore[attr-defined]
+            )
         else:
-            iterable_dataset = self.dataset
+            iterable_dataset = self.dataset  # type:ignore[attr-defined]
         if shuffle:
             iterable_dataset = iterable_dataset.shuffle(
                 seed=seed, buffer_size=buffer_size
@@ -128,6 +126,10 @@ class OutputIterableDataset(OutputDatasetMixin):
                 self._pickled_inferred = True
                 break
 
+    @property
+    def dataset(self) -> IterableDataset:
+        return self._dataset
+
 
 class OutputDataset(OutputDatasetMixin):
     def __init__(self, step: "Step", dataset: Dataset, pickled: bool = False):
@@ -142,8 +144,12 @@ class OutputDataset(OutputDatasetMixin):
         self._pickled: bool = pickled
         self._pickled_inferred: bool = False
 
+    @property
+    def dataset(self) -> Dataset:
+        return self._dataset
+
     def __len__(self):
-        return len(self.dataset)  # type:ignore[arg-type]
+        return len(self.dataset)
 
 
 class OutputIterableDatasetColumn(OutputDatasetColumnMixin, OutputIterableDataset):

@@ -14,7 +14,7 @@ from ..datasets import OutputDataset, OutputIterableDataset
 from ..datasets.utils import dataset_zip, get_column_names, iterable_dataset_zip
 from ..errors import StepOutputError, StepOutputTypeError
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from ..steps import Step
 
 _CATCH_TYPE_ERRORS_KEY = "__DataDreamer__catch_type_error__"
