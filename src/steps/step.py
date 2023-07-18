@@ -156,6 +156,7 @@ class Step(metaclass=StepProtector):
                         "pickled": self.__output._pickled,
                     },
                     f,
+                    indent=4,
                 )
 
     def _setup_folder_and_resume(self):
