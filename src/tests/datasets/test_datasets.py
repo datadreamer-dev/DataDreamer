@@ -1,3 +1,5 @@
+from typing import Callable
+
 import pytest
 
 from datasets import Dataset, IterableDataset
@@ -37,8 +39,10 @@ class TestErrors:
             (OutputIterableDatasetColumn, True),
         ],
     )
-    def test_invalid_args_dataset(self, cls, iterable):
-        step = Step("my-step", None, "out1")
+    def test_invalid_args_dataset(
+        self, cls, iterable, create_test_step: Callable[..., Step]
+    ):
+        step = create_test_step(name="my-step", inputs=None, output_names="out1")
         dataset = Dataset.from_dict({"out1": ["a", "b", "c"]})
         if not iterable:
             dataset = dataset.to_iterable_dataset()  # type:ignore[assignment]
@@ -52,8 +56,10 @@ class TestErrors:
             (OutputIterableDatasetColumn, True),
         ],
     )
-    def test_too_few_columns(self, cls, iterable):
-        step = Step("my-step", None, "out1")
+    def test_too_few_columns(
+        self, cls, iterable, create_test_step: Callable[..., Step]
+    ):
+        step = create_test_step(name="my-step", inputs=None, output_names="out1")
         dataset = Dataset.from_dict({})
         if iterable:
 
@@ -73,8 +79,10 @@ class TestErrors:
             (OutputIterableDatasetColumn, True),
         ],
     )
-    def test_too_many_columns(self, cls, iterable):
-        step = Step("my-step", None, "out1")
+    def test_too_many_columns(
+        self, cls, iterable, create_test_step: Callable[..., Step]
+    ):
+        step = create_test_step(name="my-step", inputs=None, output_names="out1")
         dataset = Dataset.from_dict({"out1": ["a", "b", "c"], "out2": [1, 2, 3]})
         if iterable:
             dataset = dataset.to_iterable_dataset()  # type:ignore[assignment]
@@ -83,16 +91,16 @@ class TestErrors:
 
 
 class TestFunctionality:
-    def test_dataset(self):
-        step = Step("my-step", None, ["out1"])
+    def test_dataset(self, create_test_step: Callable[..., Step]):
+        step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
         dataset = Dataset.from_dict({"out1": ["a", "b", "c"]})
         output = OutputDataset(step, dataset, pickled=False)
         assert len(output) == 3
         rows = list(output)
         assert [row["out1"] for row in rows] == ["a", "b", "c"]
 
-    def test_dataset_pickled(self):
-        step = Step("my-step", None, ["out1"])
+    def test_dataset_pickled(self, create_test_step: Callable[..., Step]):
+        step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
         dataset = Dataset.from_dict(
             {
                 "out1": [
@@ -107,15 +115,15 @@ class TestFunctionality:
         rows = list(output)
         assert [row["out1"] for row in rows] == [set(["a"]), set(["b"]), set(["c"])]
 
-    def test_iterable_dataset(self):
-        step = Step("my-step", None, ["out1"])
+    def test_iterable_dataset(self, create_test_step: Callable[..., Step]):
+        step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
         dataset = Dataset.from_dict({"out1": ["a", "b", "c"]}).to_iterable_dataset()
         output = OutputIterableDataset(step, dataset, pickled=False)
         rows = list(output)
         assert [row["out1"] for row in rows] == ["a", "b", "c"]
 
-    def test_iterable_dataset_pickled(self):
-        step = Step("my-step", None, ["out1"])
+    def test_iterable_dataset_pickled(self, create_test_step: Callable[..., Step]):
+        step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
         dataset = Dataset.from_dict(
             {
                 "out1": [
@@ -129,8 +137,8 @@ class TestFunctionality:
         rows = list(output)
         assert [row["out1"] for row in rows] == [set(["a"]), set(["b"]), set(["c"])]
 
-    def test_dataset_indexing(self):
-        step = Step("my-step", None, ["out1"])
+    def test_dataset_indexing(self, create_test_step: Callable[..., Step]):
+        step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
         dataset = Dataset.from_dict(
             {
                 "out1": ["a", "b", "c"],
@@ -162,8 +170,8 @@ class TestFunctionality:
         assert output["out2"][[0, 2]] == [set(["a"]), set(["c"])]
         assert output["out2"]["out2"] == [set(["a"]), set(["b"]), set(["c"])]
 
-    def test_iterable_dataset_indexing(self):
-        step = Step("my-step", None, ["out1"])
+    def test_iterable_dataset_indexing(self, create_test_step: Callable[..., Step]):
+        step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
         dataset = Dataset.from_dict(
             {
                 "out1": ["a", "b", "c"],

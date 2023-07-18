@@ -4,51 +4,82 @@ from typing import Any
 
 from pandas import DataFrame
 
-from datasets import Dataset, IterableDataset
+from datasets import Dataset
 
 from ..datadreamer import DataDreamer
-from ..datasets import OutputDataset, OutputIterableDataset
+from ..datasets import (
+    OutputDataset,
+    OutputDatasetColumn,
+    OutputIterableDataset,
+    OutputIterableDatasetColumn,
+)
 from ..errors import StepOutputError
 from ..pickling import unpickle as _unpickle
 from ..pickling.pickle import _INTERNAL_PICKLE_KEY, _pickle
 from ..utils.fs_utils import safe_fn
-from .step_output import (
-    LazyRowBatches,
-    LazyRows,
-    StepOutputType,
-    _is_list_or_tuple_type,
-    _output_to_dataset,
-)
+from .step_output import LazyRowBatches, LazyRows, StepOutputType, _output_to_dataset
 
 
 class Step:
     def __init__(
         self,
         name: str,
-        input: None | Dataset | IterableDataset,
-        outputs: str | list[str] | tuple[str, ...],
+        inputs: None
+        | dict[str, OutputDatasetColumn | OutputIterableDatasetColumn] = None,
+        args: None | dict[str, Any] = None,
+        outputs: None | dict[str, str] = None,
     ):
+        # Fill in default argument values
+        if not isinstance(inputs, dict):
+            inputs = {}
+        if not isinstance(args, dict):
+            args = {}
+        if not isinstance(outputs, dict):
+            outputs = {}
+
         # Initialize variables
         self.name: str = name
+        if len(self.name) == 0:
+            raise ValueError("You provide a name for the step.")
         self.__progress: None | float = None
-        self.__registered: dict[str, Any] = {
-            "inputs": [],
-            "outputs": [],
-            "args": {},
-            "trace_info": defaultdict(lambda: defaultdict(list)),
-        }
-        self.input = input
         self.__output: None | OutputDataset | OutputIterableDataset = None
         self.__pickled: bool = False
+        self.__registered: dict[str, Any] = {
+            "inputs": {},
+            "args": {},
+            "outputs": [],
+            "trace_info": defaultdict(lambda: defaultdict(list)),
+        }
+
+        # Run setup
+        self.setup()
+        if set(self.__registered["inputs"].keys()) != set(inputs.keys()):
+            raise ValueError(
+                f"Expected {set(self.__registered['inputs'].keys())} as inputs keys,"
+                f" got {set(inputs.keys())}."
+            )
+        else:
+            self.__registered["inputs"] = inputs
+        if not set(args.keys()).issubset(set(self.__registered["args"].keys())):
+            raise ValueError(
+                f"Expected {set(self.__registered['args'].keys())} as args keys,"
+                f" got {set(args.keys())}."
+            )
+        else:
+            self.__registered["args"].update(args)
+        if len(self.__registered["outputs"]) == 0:
+            raise ValueError("The step must register at least one output.")
 
         # Initialize output names
-        if _is_list_or_tuple_type(outputs) and len(outputs) == 0:
-            raise ValueError("The step must name its outputs.")
-        self.output_names: tuple[str, ...]
-        if isinstance(outputs, list) or isinstance(outputs, tuple):
-            self.output_names = tuple(outputs)
-        else:
-            self.output_names = (outputs,)
+        self.output_name_mapping = {o: o for o in self.__registered["outputs"]}
+        if not set(outputs.keys()).issubset(set(self.__registered["outputs"])):
+            raise ValueError(
+                f"Expected {set(self.__registered['outputs'])} as output keys,"
+                f" got {set(outputs.keys())}."
+            )
+        self.output_names = tuple(
+            [self.output_name_mapping[o] for o in self.__registered["outputs"]]
+        )
 
         # Initialize from context
         self.output_folder_path = None
@@ -68,18 +99,29 @@ class Step:
             os.makedirs(self.output_folder_path)
 
     def register_input(self, input_column_name: str):
+        if type(input_column_name) is not str:
+            raise ValueError(f"Expected str, got {type(input_column_name)}.")
         if input_column_name not in self.__registered["inputs"]:
-            self.__registered["inputs"].append(input_column_name)
+            self.__registered["inputs"][input_column_name] = None
+
+    def register_arg(self, arg_name: str):
+        if type(arg_name) is not str:
+            raise ValueError(f"Expected str, got {type(arg_name)}.")
+        self.__registered["args"][arg_name] = None
 
     def register_output(self, output_column_name: str):
+        if type(output_column_name) is not str:
+            raise ValueError(f"Expected str, got {type(output_column_name)}.")
         if output_column_name not in self.__registered["outputs"]:
             self.__registered["outputs"].append(output_column_name)
 
-    def register_arg(self, arg_name: str):
-        self.__registered["args"][arg_name] = None
-
     def register_trace_info(self, trace_info_type: str, trace_info: Any):
+        if type(trace_info_type) is not str:
+            raise ValueError(f"Expected str, got {type(trace_info_type)}.")
         self.__registered["trace_info"][trace_info_type][self.name].append(trace_info)
+
+    def setup(self):
+        raise NotImplementedError("You must implement the .setup() method in Step.")
 
     def pickle(self, value: Any, *args: Any, **kwargs: Any) -> bytes:
         self.__pickled = True

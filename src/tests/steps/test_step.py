@@ -1,22 +1,26 @@
+from typing import Callable
+
 import pytest
 
 from ...steps import LazyRows, Step
 
 
 class TestErrors:
-    def test_no_outputs_named(self):
+    def test_no_outputs_named(self, create_test_step: Callable[..., Step]):
         with pytest.raises(ValueError):
-            Step("my-step", None, [])
+            create_test_step(name="my-step", inputs=None, output_names=[])
 
 
 class TestFunctionality:
-    def test_new_step(self):
-        step = Step("my-step", None, ["out1"])
+    def test_new_step(self, create_test_step: Callable[..., Step]):
+        step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
         assert step.name == "my-step"
         assert step.output_names == ("out1",)
 
-    def test_head(self):
-        step = Step("my-step", None, ["out1", "out2"])
+    def test_head(self, create_test_step: Callable[..., Step]):
+        step = create_test_step(
+            name="my-step", inputs=None, output_names=["out1", "out2"]
+        )
         step._set_output(
             {
                 "out1": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
@@ -29,8 +33,10 @@ class TestFunctionality:
         assert list(head_df["out1"]) == [1, 2, 3, 4, 5]
         assert list(head_df["out2"]) == ["a", "b", "c", "d", "e"]
 
-    def test_head_shuffle(self):
-        step = Step("my-step", None, ["out1", "out2"])
+    def test_head_shuffle(self, create_test_step: Callable[..., Step]):
+        step = create_test_step(
+            name="my-step", inputs=None, output_names=["out1", "out2"]
+        )
 
         def dataset_generator():
             yield {"out1": 1, "out2": "a"}
