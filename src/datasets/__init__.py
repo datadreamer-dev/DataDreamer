@@ -1,3 +1,13 @@
-from .datasets import OutputDataset, OutputIterableDataset
+from .datasets import (
+    OutputDataset,
+    OutputDatasetColumn,
+    OutputIterableDataset,
+    OutputIterableDatasetColumn,
+)
 
-__all__ = ["OutputDataset", "OutputIterableDataset"]
+__all__ = [
+    "OutputDataset",
+    "OutputDatasetColumn",
+    "OutputIterableDataset",
+    "OutputIterableDatasetColumn",
+]

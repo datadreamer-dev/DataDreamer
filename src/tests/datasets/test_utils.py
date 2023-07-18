@@ -6,7 +6,7 @@ from datasets.features.features import Features
 from ...datasets.utils import dataset_zip, get_column_names, iterable_dataset_zip
 
 
-class TestError:
+class TestErrors:
     def test_dataset_zip_no_args(self):
         with pytest.raises(ValueError):
             dataset_zip()

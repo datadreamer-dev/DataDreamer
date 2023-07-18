@@ -22,46 +22,51 @@ class OutputDatasetMixin:
     def info(self) -> Any:
         return self.dataset.info  # type:ignore[attr-defined]
 
-    def __iter__(self):
+    @property
+    def _features(self) -> Features:
         if self.info and self.info.features:
-            features = self.info.features
+            return self.info.features
         else:
-            features = Features()
+            return Features()
+
+    def __iter__(self):
         if self._pickled or self._pickled_inferred:  # type:ignore[attr-defined]
             for row in iter(self.dataset):  # type:ignore[attr-defined]
-                yield unpickle_transform(row, features=features, batched=False)
+                yield unpickle_transform(row, features=self._features, batched=False)
         else:
             yield from iter(self.dataset)  # type:ignore[attr-defined]
 
     def __getitem__(self, key: int | slice | str | Iterable[int]) -> Any:
         if isinstance(key, str):
+            feature = self._features.get(key, None)
+            feature_is_pickled = False
+            if isinstance(feature, Value) and feature.dtype == "binary":
+                feature_is_pickled = True
             if isinstance(self.dataset, Dataset):  # type:ignore[attr-defined]
                 return OutputDatasetColumn(
                     self._step,  # type:ignore[attr-defined]
                     self.dataset.select_columns([key]),  # type:ignore[attr-defined]
-                    pickled=self._pickled,  # type:ignore[attr-defined]
+                    pickled=self._pickled  # type:ignore[attr-defined]
+                    and feature_is_pickled,
                 )
             else:
                 return OutputIterableDatasetColumn(
                     self._step,  # type:ignore[attr-defined]
                     self.dataset.select_columns([key]),  # type:ignore[attr-defined]
-                    pickled=self._pickled,  # type:ignore[attr-defined]
+                    pickled=self._pickled  # type:ignore[attr-defined]
+                    and feature_is_pickled,
                 )
         if self._pickled or self._pickled_inferred:  # type:ignore[attr-defined]
-            if self.info and self.info.features:
-                features = self.info.features
-            else:
-                features = Features()
             if isinstance(key, int):
                 return unpickle_transform(
                     self.dataset[key],  # type:ignore[attr-defined]
-                    features=features,
+                    features=self._features,
                     batched=False,
                 )
             else:
                 return unpickle_transform(
                     self.dataset[key],  # type:ignore[attr-defined]
-                    features=features,
+                    features=self._features,
                     batched=True,
                 )
         else:
@@ -89,18 +94,21 @@ class OutputDatasetColumnMixin:
 
     def __getitem__(self, key: int | slice | str | Iterable[int]) -> Any:
         column_name = self.column_names[0]  # type:ignore[attr-defined]
-        if (
-            self._pickled or self._pickled_inferred  # type:ignore[attr-defined]
-        ) and isinstance(key, str):
-            info = self.info  # type:ignore[attr-defined]
-            dataset = self.dataset  # type:ignore[attr-defined]
-            if info and info.features:
-                features = info.features
+        if isinstance(key, str):
+            if isinstance(self, OutputIterableDatasetColumn):
+                return iter(self)
             else:
-                features = Features()
-            return (
-                unpickle_transform({key: dataset[key]}, features=features, batched=True)
-            )[key]
+                dataset = self.dataset  # type:ignore[attr-defined]
+                if self._pickled or self._pickled_inferred:  # type:ignore[attr-defined]
+                    return (
+                        unpickle_transform(
+                            {key: dataset[key]},
+                            features=self._features,  # type:ignore[attr-defined]
+                            batched=True,
+                        )
+                    )[key]
+                else:
+                    return dataset[key]
         else:
             return super().__getitem__(key)[column_name]  # type:ignore[misc]
 
@@ -110,18 +118,14 @@ class OutputIterableDataset(OutputDatasetMixin):
         from ..steps import Step
 
         if not isinstance(step, Step):
-            raise ValueError("Expected Step, got {type(step)}.")
+            raise ValueError(f"Expected Step, got {type(step)}.")
         if not isinstance(dataset, IterableDataset):
             raise ValueError(f"Expected IterableDataset, got {type(dataset)}.")
         self._step: "Step" = step
         self._dataset: IterableDataset = dataset
         self._pickled: bool = pickled
         self._pickled_inferred: bool = False
-        if self.info and self.info.features:
-            features = self.info.features
-        else:
-            features = Features()
-        for f in features.values():
+        for f in self._features.values():
             if isinstance(f, Value) and f.dtype == "binary":
                 self._pickled_inferred = True
                 break
@@ -136,7 +140,7 @@ class OutputDataset(OutputDatasetMixin):
         from ..steps import Step
 
         if not isinstance(step, Step):
-            raise ValueError("Expected Step, got {type(step)}.")
+            raise ValueError(f"Expected Step, got {type(step)}.")
         if not isinstance(dataset, Dataset):
             raise ValueError(f"Expected Dataset, got {type(dataset)}.")
         self._step: "Step" = step
@@ -157,18 +161,14 @@ class OutputIterableDatasetColumn(OutputDatasetColumnMixin, OutputIterableDatase
         from ..steps import Step
 
         if not isinstance(step, Step):
-            raise ValueError("Expected Step, got {type(step)}.")
+            raise ValueError(f"Expected Step, got {type(step)}.")
         if not isinstance(dataset, IterableDataset):
             raise ValueError(f"Expected IterableDataset, got {type(dataset)}.")
         self._step: "Step" = step
         self._dataset: IterableDataset = dataset
         self._pickled: bool = pickled
         self._pickled_inferred: bool = False
-        if self.info and self.info.features:
-            features = self.info.features
-        else:
-            features = Features()
-        for f in features.values():
+        for f in self._features.values():
             if isinstance(f, Value) and f.dtype == "binary":
                 self._pickled_inferred = True
                 break
@@ -181,7 +181,7 @@ class OutputDatasetColumn(OutputDatasetColumnMixin, OutputDataset):
         from ..steps import Step
 
         if not isinstance(step, Step):
-            raise ValueError("Expected Step, got {type(step)}.")
+            raise ValueError(f"Expected Step, got {type(step)}.")
         if not isinstance(dataset, Dataset):
             raise ValueError(f"Expected Dataset, got {type(dataset)}.")
         self._step: "Step" = step
