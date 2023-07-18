@@ -1,3 +1,4 @@
+import os
 from collections import defaultdict
 from typing import Any
 
@@ -5,10 +6,12 @@ from pandas import DataFrame
 
 from datasets import Dataset, IterableDataset
 
+from ..datadreamer import DataDreamer
 from ..datasets import OutputDataset, OutputIterableDataset
 from ..errors import StepOutputError
 from ..pickling import unpickle as _unpickle
 from ..pickling.pickle import _INTERNAL_PICKLE_KEY, _pickle
+from ..utils.fs_utils import safe_fn
 from .step_output import (
     LazyRowBatches,
     LazyRows,
@@ -25,6 +28,7 @@ class Step:
         input: None | Dataset | IterableDataset,
         outputs: str | list[str] | tuple[str, ...],
     ):
+        # Initialize variables
         self.name: str = name
         self.__progress: None | float = None
         self.__registered: dict[str, Any] = {
@@ -36,6 +40,8 @@ class Step:
         self.input = input
         self.__output: None | OutputDataset | OutputIterableDataset = None
         self.__pickled: bool = False
+
+        # Initialize output names
         if _is_list_or_tuple_type(outputs) and len(outputs) == 0:
             raise ValueError("The step must name its outputs.")
         self.output_names: tuple[str, ...]
@@ -43,6 +49,23 @@ class Step:
             self.output_names = tuple(outputs)
         else:
             self.output_names = (outputs,)
+
+        # Initialize from context
+        self.output_folder_path = None
+        if hasattr(DataDreamer.ctx, "steps"):
+            # Register the Step in the context
+            for step in DataDreamer.ctx.steps:
+                if step.name == self.name or safe_fn(step.name) == safe_fn(self.name):
+                    raise ValueError(
+                        f"A step already exists with the name: {self.name}"
+                    )
+            DataDreamer.ctx.steps.append(self)
+
+            # Create an output folder for the step
+            self.output_folder_path = os.path.join(
+                DataDreamer.ctx.output_folder_path, safe_fn(self.name)
+            )
+            os.makedirs(self.output_folder_path)
 
     def register_input(self, input_column_name: str):
         if input_column_name not in self.__registered["inputs"]:

@@ -27,6 +27,8 @@ Todo:
 import importlib.metadata
 import os
 
+from .datadreamer import DataDreamer
+
 try:
     project_root_dir = os.path.dirname(os.path.dirname(__file__))
     with open(os.path.join(project_root_dir, "./pyproject.toml")) as pyproject_fp:
@@ -39,4 +41,4 @@ except FileNotFoundError:
         os.path.basename(os.path.dirname(__file__))
     )
 
-__all__ = ["__version__"]
+__all__ = ["__version__", "DataDreamer"]
