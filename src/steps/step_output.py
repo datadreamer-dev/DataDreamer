@@ -236,6 +236,7 @@ class LazyRowBatches:
 def _output_to_dataset(  # noqa: C901
     step: "Step",
     output_names: tuple[str, ...],
+    output_name_mapping: dict[str, str],
     set_progress: Callable[[float], None],
     pickled: bool,
     value: StepOutputType | LazyRows | LazyRowBatches,
@@ -638,6 +639,9 @@ def _output_to_dataset(  # noqa: C901
     else:
         raise StepOutputError(f"Invalid output type: {type(_value)}.")
 
+    # Rename columns and create OutputDataset or OutputIterableDataset
+    rename_mapping = {k: v for k, v in output_name_mapping.items() if k != v}
+    __output = __output.rename_columns(rename_mapping)
     if isinstance(__output, IterableDataset):
         return OutputIterableDataset(step=step, dataset=__output, pickled=pickled)
     else:

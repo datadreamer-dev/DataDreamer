@@ -72,7 +72,9 @@ class Step(metaclass=protect("__init__")):  # type:ignore[misc]
             raise ValueError("The step must register at least one output.")
 
         # Initialize output names
-        self.output_name_mapping = {o: o for o in self.__registered["outputs"]}
+        self.output_name_mapping: dict[str, str] = {
+            o: o for o in self.__registered["outputs"]
+        }
         if not set(outputs.keys()).issubset(set(self.__registered["outputs"])):
             raise ValueError(
                 f"Expected {set(self.__registered['outputs'])} as output keys,"
@@ -170,7 +172,8 @@ class Step(metaclass=protect("__init__")):  # type:ignore[misc]
             raise StepOutputError("Step has already been run.")
         self.__output = _output_to_dataset(
             step=self,
-            output_names=self.output_names,
+            output_names=tuple(self.__registered["outputs"]),
+            output_name_mapping=self.output_name_mapping,
             set_progress=lambda progress: setattr(self, "progress", progress),
             pickled=self.__pickled,
             value=value,
