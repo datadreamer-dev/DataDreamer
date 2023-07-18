@@ -2,8 +2,7 @@ from datetime import datetime
 
 import pytest
 
-from datasets import Dataset as HFDataset
-from datasets import IterableDataset as HFIterableDataset
+from datasets import Dataset, IterableDataset
 
 from ...datasets import OutputDataset, OutputIterableDataset
 from ...errors import StepOutputError, StepOutputTypeError
@@ -36,7 +35,7 @@ class TestErrors:
             yield {"out1": "b"}
             yield {"out1": "c"}
 
-        iterable_dataset = HFIterableDataset.from_generator(dataset_generator)
+        iterable_dataset = IterableDataset.from_generator(dataset_generator)
         with pytest.raises(StepOutputError):
             step_single._set_output(iterable_dataset)  # type: ignore[arg-type]
 
@@ -78,7 +77,7 @@ class TestErrors:
         step = Step("my-step", None, "out1")
         assert step.progress is None
         dataset_dict = {"out1": ["a", "b", "c"], "out2": [1, 2, 3]}
-        dataset = HFDataset.from_dict(dataset_dict)
+        dataset = Dataset.from_dict(dataset_dict)
         with pytest.raises(StepOutputError):
             step._set_output(dataset)
 
@@ -87,7 +86,7 @@ class TestErrors:
             yield {"out1": "b", "out2": 2}
             yield {"out1": "c", "out2": 3}
 
-        iterable_dataset = HFIterableDataset.from_generator(dataset_generator)
+        iterable_dataset = IterableDataset.from_generator(dataset_generator)
         with pytest.raises(StepOutputError):
             step._set_output(LazyRows(iterable_dataset, total_num_rows=3))
 
@@ -225,7 +224,7 @@ class TestProgress:
         step = Step("my-step", None, "out1")
         assert step.progress is None
         dataset_dict = {"out1": ["a", "b", "c"]}
-        dataset = HFDataset.from_dict(dataset_dict)
+        dataset = Dataset.from_dict(dataset_dict)
         step._set_output(dataset)
         assert step.progress == 1.0
 
@@ -238,7 +237,7 @@ class TestProgress:
             yield {"out1": "b"}
             yield {"out1": "c"}
 
-        iterable_dataset = HFIterableDataset.from_generator(dataset_generator)
+        iterable_dataset = IterableDataset.from_generator(dataset_generator)
         step._set_output(LazyRows(iterable_dataset, total_num_rows=3))
         assert step.progress == 0.0
 
@@ -246,7 +245,7 @@ class TestProgress:
         step = Step("my-step", None, "out1")
         assert step.progress is None
         dataset_dict = {"out1": ["a", "b", "c"]}
-        dataset = HFDataset.from_dict(dataset_dict)
+        dataset = Dataset.from_dict(dataset_dict)
         step._Step__output = dataset  # type: ignore[attr-defined]
         assert step.progress is None
         step.progress = 0.5
@@ -522,7 +521,7 @@ class TestSingleOutput:
     def test_output_dataset(self):
         step = Step("my-step", None, "out1")
         dataset_dict = {"out1": ["a", "b", "c"]}
-        dataset = HFDataset.from_dict(dataset_dict)
+        dataset = Dataset.from_dict(dataset_dict)
         step._set_output(dataset)
         assert set(step.output.column_names) == set(["out1"])
         assert isinstance(step.output, OutputDataset)
@@ -539,7 +538,7 @@ class TestSingleOutput:
             yield {"out1": "b"}
             yield {"out1": "c"}
 
-        iterable_dataset = HFIterableDataset.from_generator(dataset_generator)
+        iterable_dataset = IterableDataset.from_generator(dataset_generator)
         step._set_output(LazyRows(iterable_dataset, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1"])
         assert isinstance(step.output, OutputIterableDataset)
@@ -556,7 +555,7 @@ class TestSingleOutput:
             yield {"out1": "b"}
             yield {"out1": "c"}
 
-        iterable_dataset = HFIterableDataset.from_generator(dataset_generator)
+        iterable_dataset = IterableDataset.from_generator(dataset_generator)
         step._set_output(LazyRowBatches(iterable_dataset, total_num_rows=3))  # type: ignore[arg-type]
         assert set(step.output.column_names) == set(["out1"])
         assert isinstance(step.output, OutputIterableDataset)
@@ -568,7 +567,7 @@ class TestSingleOutput:
     def test_output_list_of_datasets(self):
         step = Step("my-step", None, "out1")
         dataset_dict = {"out1": ["a", "b", "c"]}
-        dataset = HFDataset.from_dict(dataset_dict)
+        dataset = Dataset.from_dict(dataset_dict)
         step._set_output([dataset])
         assert set(step.output.column_names) == set(["out1"])
         assert isinstance(step.output, OutputDataset)
@@ -580,7 +579,7 @@ class TestSingleOutput:
     def test_output_tuple_of_datasets(self):
         step = Step("my-step", None, "out1")
         dataset_dict = {"out1": ["a", "b", "c"]}
-        dataset = HFDataset.from_dict(dataset_dict)
+        dataset = Dataset.from_dict(dataset_dict)
         step._set_output((dataset,))
         assert set(step.output.column_names) == set(["out1"])
         assert isinstance(step.output, OutputDataset)
@@ -588,6 +587,22 @@ class TestSingleOutput:
         assert step.output["out1"][0] == "a"
         assert set(step.output[0].keys()) == set(step.output.column_names)
         assert step.output[0]["out1"] == "a"
+
+    def test_output_generator_function_of_single(self):
+        step = Step("my-step", None, "out1")
+
+        def dataset_generator():
+            yield "a"
+            yield "b"
+            yield "c"
+
+        step._set_output(LazyRows(dataset_generator, total_num_rows=3))
+        assert set(step.output.column_names) == set(["out1"])
+        assert isinstance(step.output, OutputIterableDataset)
+        assert len(list(step.output)) == 3
+        first_row = next(iter(step.output))
+        assert set(first_row.keys()) == set(step.output.column_names)
+        assert first_row["out1"] == "a"
 
     def test_output_generator_function_of_dict(self):
         step = Step("my-step", None, "out1")
@@ -1070,7 +1085,7 @@ class TestMultipleOutput:
     def test_output_dataset(self):
         step = Step("my-step", None, ["out1", "out2"])
         dataset_dict = {"out1": ["a", "b", "c"], "out2": [1, 2, 3]}
-        dataset = HFDataset.from_dict(dataset_dict)
+        dataset = Dataset.from_dict(dataset_dict)
         step._set_output(dataset)
         assert set(step.output.column_names) == set(["out1", "out2"])
         assert isinstance(step.output, OutputDataset)
@@ -1088,7 +1103,7 @@ class TestMultipleOutput:
             yield {"out1": "b", "out2": 2}
             yield {"out1": "c", "out2": 3}
 
-        iterable_dataset = HFIterableDataset.from_generator(dataset_generator)
+        iterable_dataset = IterableDataset.from_generator(dataset_generator)
         step._set_output(LazyRows(iterable_dataset, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1", "out2"])
         assert isinstance(step.output, OutputIterableDataset)
@@ -1106,7 +1121,7 @@ class TestMultipleOutput:
             yield {"out1": "b", "out2": 2}
             yield {"out1": "c", "out2": 3}
 
-        iterable_dataset = HFIterableDataset.from_generator(dataset_generator)
+        iterable_dataset = IterableDataset.from_generator(dataset_generator)
         step._set_output(LazyRowBatches(iterable_dataset, total_num_rows=3))  # type: ignore[arg-type]
         assert set(step.output.column_names) == set(["out1", "out2"])
         assert isinstance(step.output, OutputIterableDataset)
@@ -1119,14 +1134,14 @@ class TestMultipleOutput:
     def test_output_list_of_datasets(self):
         step = Step("my-step", None, ["out1", "out2"])
         dataset_dict = {"out1": ["a", "b", "c"]}
-        dataset = HFDataset.from_dict(dataset_dict)
+        dataset = Dataset.from_dict(dataset_dict)
 
         def dataset_generator():
             yield {"out2": 1}
             yield {"out2": 2}
             yield {"out2": 3}
 
-        iterable_dataset = HFIterableDataset.from_generator(dataset_generator)
+        iterable_dataset = IterableDataset.from_generator(dataset_generator)
         step._set_output(LazyRows([dataset, iterable_dataset], total_num_rows=3))
         assert set(step.output.column_names) == set(["out1", "out2"])
         assert isinstance(step.output, OutputIterableDataset)
@@ -1139,14 +1154,14 @@ class TestMultipleOutput:
     def test_output_tuple_of_datasets(self):
         step = Step("my-step", None, ["out1", "out2"])
         dataset_dict = {"out1": ["a", "b", "c"]}
-        dataset = HFDataset.from_dict(dataset_dict)
+        dataset = Dataset.from_dict(dataset_dict)
 
         def dataset_generator():
             yield {"out2": 1}
             yield {"out2": 2}
             yield {"out2": 3}
 
-        iterable_dataset = HFIterableDataset.from_generator(dataset_generator)
+        iterable_dataset = IterableDataset.from_generator(dataset_generator)
         step._set_output(LazyRows((dataset, iterable_dataset), total_num_rows=3))
         assert set(step.output.column_names) == set(["out1", "out2"])
         assert isinstance(step.output, OutputIterableDataset)
@@ -1458,6 +1473,91 @@ class TestMultipleOutput:
         assert set(first_row.keys()) == set(step.output.column_names)
         assert [row["out1"] for row in list(step.output)] == ["a", "b", "c"]
         assert [row["out2"] for row in list(step.output)] == [1, 2, 3]
+
+
+class TestColumn:
+    def test_output_single_outputdataset_column(self):
+        step = Step("my-step", None, "out1")
+        column = OutputDataset(step, Dataset.from_dict({"foo": ["a", "b", "c"]}))["foo"]
+        step._set_output(column)
+        assert set(step.output.column_names) == set(["out1"])
+        assert isinstance(step.output, OutputDataset)
+        assert len(step.output["out1"]) == 3
+        assert step.output["out1"][0] == "a"
+        assert set(step.output[0].keys()) == set(step.output.column_names)
+        assert step.output[0]["out1"] == "a"
+
+    def test_output_single_outputiterabledataset_column(self):
+        step = Step("my-step", None, "out1")
+        column = OutputIterableDataset(
+            step, Dataset.from_dict({"foo": ["a", "b", "c"]}).to_iterable_dataset()
+        )["foo"]
+        step._set_output(LazyRows(column, total_num_rows=3))
+        assert set(step.output.column_names) == set(["out1"])
+        assert isinstance(step.output, OutputIterableDataset)
+        assert len(list(step.output)) == 3
+        first_row = next(iter(step.output))
+        assert set(first_row.keys()) == set(step.output.column_names)
+        assert first_row["out1"] == "a"
+
+    def test_output_list_of_outputdataset_column(self):
+        step = Step("my-step", None, "out1")
+        column = OutputDataset(step, Dataset.from_dict({"foo": ["a", "b", "c"]}))["foo"]
+        step._set_output([column])
+        assert set(step.output.column_names) == set(["out1"])
+        assert isinstance(step.output, OutputDataset)
+        assert len(step.output["out1"]) == 3
+        assert step.output["out1"][0] == "a"
+        assert set(step.output[0].keys()) == set(step.output.column_names)
+        assert step.output[0]["out1"] == "a"
+
+    def test_output_tuple_of_outputdataset_column(self):
+        step = Step("my-step", None, "out1")
+        column = OutputDataset(step, Dataset.from_dict({"foo": ["a", "b", "c"]}))["foo"]
+        step._set_output((column,))
+        assert set(step.output.column_names) == set(["out1"])
+        assert isinstance(step.output, OutputDataset)
+        assert len(step.output["out1"]) == 3
+        assert step.output["out1"][0] == "a"
+        assert set(step.output[0].keys()) == set(step.output.column_names)
+        assert step.output[0]["out1"] == "a"
+
+    def test_output_tuple_of_outputiterabledataset_column(self):
+        step = Step("my-step", None, "out1")
+        column = OutputIterableDataset(
+            step, Dataset.from_dict({"foo": ["a", "b", "c"]}).to_iterable_dataset()
+        )["foo"]
+        step._set_output(LazyRows((column,), total_num_rows=3))
+        assert set(step.output.column_names) == set(["out1"])
+        assert isinstance(step.output, OutputIterableDataset)
+        assert len(list(step.output)) == 3
+        first_row = next(iter(step.output))
+        assert set(first_row.keys()) == set(step.output.column_names)
+        assert first_row["out1"] == "a"
+
+    def test_output_dict_of_outputdataset_column(self):
+        step = Step("my-step", None, "out1")
+        column = OutputDataset(step, Dataset.from_dict({"foo": ["a", "b", "c"]}))["foo"]
+        step._set_output({"out1": column})
+        assert set(step.output.column_names) == set(["out1"])
+        assert isinstance(step.output, OutputDataset)
+        assert len(step.output["out1"]) == 3
+        assert step.output["out1"][0] == "a"
+        assert set(step.output[0].keys()) == set(step.output.column_names)
+        assert step.output[0]["out1"] == "a"
+
+    def test_output_dict_of_outputiterabledataset_column(self):
+        step = Step("my-step", None, "out1")
+        column = OutputIterableDataset(
+            step, Dataset.from_dict({"foo": ["a", "b", "c"]}).to_iterable_dataset()
+        )["foo"]
+        step._set_output(LazyRows({"out1": column}, total_num_rows=3))
+        assert set(step.output.column_names) == set(["out1"])
+        assert isinstance(step.output, OutputIterableDataset)
+        assert len(list(step.output)) == 3
+        first_row = next(iter(step.output))
+        assert set(first_row.keys()) == set(step.output.column_names)
+        assert first_row["out1"] == "a"
 
 
 class TestTypes:

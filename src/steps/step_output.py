@@ -10,7 +10,12 @@ from datasets import Dataset, IterableDataset, iterable_dataset
 from datasets.features.features import Features
 from datasets.iterable_dataset import _apply_feature_types_on_example
 
-from ..datasets import OutputDataset, OutputIterableDataset
+from ..datasets import (
+    OutputDataset,
+    OutputDatasetColumn,
+    OutputIterableDataset,
+    OutputIterableDatasetColumn,
+)
 from ..datasets.utils import dataset_zip, get_column_names, iterable_dataset_zip
 from ..errors import StepOutputError, StepOutputTypeError
 
@@ -18,6 +23,10 @@ if TYPE_CHECKING:  # pragma: no cover
     from ..steps import Step
 
 _CATCH_TYPE_ERRORS_KEY = "__DataDreamer__catch_type_error__"
+
+
+def _is_lazy_type(v: Any) -> bool:
+    return callable(v) or isinstance(v, OutputIterableDatasetColumn)
 
 
 def _is_iterable(v: Any) -> bool:
@@ -133,7 +142,8 @@ def _untuple(v: Any, output_names: tuple[str, ...]) -> Any:
 
 
 LazyStepOutputType: TypeAlias = (
-    IterableDataset
+    OutputIterableDatasetColumn
+    | IterableDataset
     | dict[str, Any]
     | list[Any]
     | Iterator[Any]
@@ -164,7 +174,13 @@ LazyBatchStepOutputType: TypeAlias = (
 )
 
 StepOutputType: TypeAlias = (
-    None | Dataset | dict[str, Any] | list[Any] | Iterator[Any] | tuple[Any, ...]
+    None
+    | OutputDatasetColumn
+    | Dataset
+    | dict[str, Any]
+    | list[Any]
+    | Iterator[Any]
+    | tuple[Any, ...]
 )
 
 
@@ -252,6 +268,10 @@ def _output_to_dataset(  # noqa: C901
     if isinstance(_value, Iterator):
         _value = list(_value)
 
+    # If given OutputDatasetColumn, convert to a list
+    if isinstance(_value, OutputDatasetColumn):
+        _value = list(_value)
+
     # If given a Dataset or IterableDataset, make a copy and reset the format
     if _is_dataset_type(_value, is_lazy):
         _value = deepcopy(_value)
@@ -290,7 +310,7 @@ def _output_to_dataset(  # noqa: C901
 
     # Create a Dataset/generator function if given a dict
     if isinstance(_value, dict) and set(output_names) == set(_value.keys()):
-        if is_lazy and any([callable(v) for v in _value.values()]):
+        if is_lazy and any([_is_lazy_type(v) for v in _value.values()]):
             # One of the values of the dictionary is a generator function,
             # create a generator function of dicts
             def to_dict_generator_wrapper(_value, output_names, _value_is_batched):
@@ -345,7 +365,14 @@ def _output_to_dataset(  # noqa: C901
         isinstance(_value, list)
         and len(output_names) == 1
         and len(_value) == len(output_names)
-        and callable(_value[0])
+        and isinstance(_value[0], OutputDatasetColumn)
+    ):
+        _value = tuple(_value)
+    elif (
+        isinstance(_value, list)
+        and len(output_names) == 1
+        and len(_value) == len(output_names)
+        and _is_lazy_type(_value[0])
     ):
         _value = tuple(_value)
 
@@ -358,7 +385,11 @@ def _output_to_dataset(  # noqa: C901
         raise StepOutputError(f"Expected {len(output_names)} outputs {output_names}.")
 
     # Create a generator function if given a tuple with a generator function
-    if isinstance(_value, tuple) and is_lazy and any([callable(v) for v in _value]):
+    if (
+        isinstance(_value, tuple)
+        and is_lazy
+        and any([_is_lazy_type(v) for v in _value])
+    ):
 
         def to_dict_generator_wrapper(_value, output_names, _value_is_batched):
             iters = [
@@ -396,7 +427,7 @@ def _output_to_dataset(  # noqa: C901
         )
 
     # Create an IterableDataset if given a generator function of dicts
-    if is_lazy and callable(_value):
+    if is_lazy and _is_lazy_type(_value):
         # Make sure the generator returns a dict and the keys are correct
         try:
             first_row = next(
@@ -441,6 +472,21 @@ def _output_to_dataset(  # noqa: C901
                         f"Expected {len(output_names)} outputs"
                         f" {output_names} from generator function."
                     )
+
+                _value = partial(
+                    to_dict_generator_wrapper,
+                    _value,
+                    output_names,
+                    _value_is_batched,
+                )
+                _value_is_batched = False
+            elif not isinstance(first_row, dict) and len(output_names) == 1:
+
+                def to_dict_generator_wrapper(_value, output_names, _value_is_batched):
+                    for v in _iterable_or_generator_func_to_iterator(
+                        _value, _value_is_batched, output_names
+                    ):
+                        yield {output_names[0]: _normalize(v)}
 
                 _value = partial(
                     to_dict_generator_wrapper,
