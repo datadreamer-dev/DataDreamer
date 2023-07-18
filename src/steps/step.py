@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Any
 
 from pandas import DataFrame
@@ -26,6 +27,12 @@ class Step:
     ):
         self.name: str = name
         self.__progress: None | float = None
+        self.__registered: dict[str, Any] = {
+            "inputs": [],
+            "outputs": [],
+            "args": {},
+            "trace_info": defaultdict(defaultdict(list)),
+        }
         self.input = input
         self.__output: None | OutputDataset | OutputIterableDataset = None
         self.__pickled: bool = False
@@ -36,6 +43,20 @@ class Step:
             self.output_names = tuple(outputs)
         else:
             self.output_names = (outputs,)
+
+    def register_input(self, input_column_name: str):
+        if input_column_name not in self.__registered["inputs"]:
+            self.__registered["inputs"].append(input_column_name)
+
+    def register_output(self, output_column_name: str):
+        if output_column_name not in self.__registered["outputs"]:
+            self.__registered["outputs"].append(output_column_name)
+
+    def register_arg(self, arg_name: str):
+        self.__registered["args"][arg_name] = None
+
+    def register_trace_info(self, trace_info_type: str, trace_info: Any):
+        self.__registered["trace_info"][trace_info_type][self.name].append(trace_info)
 
     def pickle(self, value: Any, *args: Any, **kwargs: Any) -> bytes:
         self.__pickled = True
@@ -93,6 +114,10 @@ class Step:
         return self.output.head(
             n=n, shuffle=shuffle, seed=seed, buffer_size=buffer_size
         )
+
+    @property
+    def trace_info(self):
+        return self.__registered["trace_info"]
 
 
 __all__ = ["LazyRowBatches", "LazyRows", "StepOutputType"]
