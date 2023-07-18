@@ -18,6 +18,7 @@ class DataDreamer:
         os.makedirs(self.output_folder_path)
         DataDreamer.ctx.output_folder_path = self.output_folder_path
         DataDreamer.ctx.steps = []
+        DataDreamer.ctx.initialized = True
 
     def __exit__(self, exc_type, exc_value, exc_tb):
         DataDreamer.ctx = threading.local()

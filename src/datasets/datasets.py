@@ -15,6 +15,10 @@ if TYPE_CHECKING:  # pragma: no cover
 
 class OutputDatasetMixin:
     @property
+    def step(self) -> "Step":
+        return self._step  # type:ignore[attr-defined]
+
+    @property
     def column_names(self) -> list[str]:
         return get_column_names(self.dataset)  # type:ignore[attr-defined]
 
@@ -151,6 +155,10 @@ class OutputDataset(OutputDatasetMixin):
     @property
     def dataset(self) -> Dataset:
         return self._dataset
+
+    def save_to_disk(self, path: str) -> None:
+        self._dataset.save_to_disk(path)
+        self._dataset = Dataset.load_from_disk(path)
 
     def __len__(self):
         return len(self.dataset)

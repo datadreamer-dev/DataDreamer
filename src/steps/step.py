@@ -1,5 +1,7 @@
+import json
 import os
 from collections import defaultdict
+from copy import deepcopy
 from typing import Any
 
 from pandas import DataFrame
@@ -7,6 +9,7 @@ from pandas import DataFrame
 from datasets import Dataset
 from datasets.fingerprint import Hasher
 
+from .. import __version__
 from ..datadreamer import DataDreamer
 from ..datasets import (
     OutputDataset,
@@ -17,13 +20,28 @@ from ..datasets import (
 from ..errors import StepOutputError
 from ..pickling import unpickle as _unpickle
 from ..pickling.pickle import _INTERNAL_PICKLE_KEY, _pickle
-from ..utils.class_utils import protect
-from ..utils.fs_utils import safe_fn
+from ..utils.fs_utils import clear_dir, safe_fn
 from .step_output import LazyRowBatches, LazyRows, StepOutputType, _output_to_dataset
 
 
-class Step(metaclass=protect("__init__")):  # type:ignore[misc]
-    def __init__(
+class StepProtector(type):
+    has_base = False
+
+    def __new__(meta, name, bases, attrs):
+        if meta.has_base:
+            for attribute in attrs:
+                if attribute == "__init__":
+                    raise AttributeError(
+                        'Overriding of "%s" not allowed, override setup() instead.'
+                        % attribute
+                    )
+        meta.has_base = True
+        klass = super().__new__(meta, name, bases, attrs)
+        return klass
+
+
+class Step(metaclass=StepProtector):
+    def __init__(  # noqa: C901
         self,
         name: str,
         inputs: None
@@ -38,6 +56,9 @@ class Step(metaclass=protect("__init__")):  # type:ignore[misc]
             args = {}
         if not isinstance(outputs, dict):
             outputs = {}
+        assert inputs is not None
+        assert args is not None
+        assert outputs is not None
 
         # Initialize variables
         self.name: str = name
@@ -55,13 +76,35 @@ class Step(metaclass=protect("__init__")):  # type:ignore[misc]
 
         # Run setup
         self.setup()
+
+        # Validate and setup inputs
         if set(self.__registered["inputs"].keys()) != set(inputs.keys()):
             raise ValueError(
                 f"Expected {set(self.__registered['inputs'].keys())} as inputs keys,"
                 f" got {set(inputs.keys())}."
             )
+        elif not all(
+            [
+                isinstance(v, (OutputDatasetColumn, OutputIterableDatasetColumn))
+                for v in inputs.values()
+            ]
+        ):
+            raise ValueError(
+                "All inputs must be of type OutputDatasetColumn or"
+                " OutputIterableDatasetColumn."
+            )
         else:
             self.__registered["inputs"] = inputs
+
+            # Propagate trace info from previous steps
+            prev_trace_info = {}
+            for v in inputs.values():
+                prev_trace_info.update(v.step.trace_info)
+            self.__registered["trace_info"] = prev_trace_info.update(
+                self.__registered["trace_info"]
+            )
+
+        # Validate and setup args
         if not set(args.keys()).issubset(set(self.__registered["args"].keys())):
             raise ValueError(
                 f"Expected {set(self.__registered['args'].keys())} as args keys,"
@@ -72,7 +115,7 @@ class Step(metaclass=protect("__init__")):  # type:ignore[misc]
         if len(self.__registered["outputs"]) == 0:
             raise ValueError("The step must register at least one output.")
 
-        # Initialize output names
+        # Initialize output names mapping
         self.output_name_mapping: dict[str, str] = {
             o: o for o in self.__registered["outputs"]
         }
@@ -85,9 +128,9 @@ class Step(metaclass=protect("__init__")):  # type:ignore[misc]
             [self.output_name_mapping[o] for o in self.__registered["outputs"]]
         )
 
-        # Initialize from context
+        # Initialize from/to the context
         self.output_folder_path = None
-        if hasattr(DataDreamer.ctx, "steps"):
+        if hasattr(DataDreamer.ctx, "initialized"):
             # Register the Step in the context
             for step in DataDreamer.ctx.steps:
                 if step.name == self.name or safe_fn(step.name) == safe_fn(self.name):
@@ -95,12 +138,59 @@ class Step(metaclass=protect("__init__")):  # type:ignore[misc]
                         f"A step already exists with the name: {self.name}"
                     )
             DataDreamer.ctx.steps.append(self)
-
-            # Create an output folder for the step
             self.output_folder_path = os.path.join(
-                DataDreamer.ctx.output_folder_path, safe_fn(self.name)
+                DataDreamer.ctx.output_folder_path, safe_fn(step.name)
             )
-            os.makedirs(self.output_folder_path)
+            self._setup_folder_and_resume()
+
+    def _save_to_disk(self):
+        if self.output_folder_path and isinstance(self.__output, OutputDataset):
+            metadata_path = os.path.join(self.output_folder_path, "step.json")
+            dataset_path = os.path.join(self.output_folder_path, "dataset")
+            self.__output.save_to_disk(dataset_path)
+            with open(metadata_path, "w+") as f:
+                json.dump(
+                    {
+                        "__version__": __version__,
+                        "fingerprint": self.fingerprint,
+                        "pickled": self.__output._pickled,
+                    },
+                    f,
+                )
+
+    def _setup_folder_and_resume(self):
+        if self.output_folder_path is None:
+            return  # pragma: no cover
+
+        # Create an output folder for the step
+        self.output_folder_path = os.path.join(
+            DataDreamer.ctx.output_folder_path, safe_fn(self.name)
+        )
+        os.makedirs(self.output_folder_path)
+
+        # Check if we have already run this step previously and saved the results to
+        # disk
+        metadata_path = os.path.join(self.output_folder_path, "step.json")
+        dataset_path = os.path.join(self.output_folder_path, "dataset")
+        prev_fingerprint: None | str = None
+        try:
+            with open(metadata_path, "r") as f:
+                metadata = json.load(f)
+                prev_fingerprint = metadata["fingerprint"]
+        except FileNotFoundError:
+            pass
+
+        # We have already run this step
+        if prev_fingerprint == self.fingerprint:
+            self.__output = OutputDataset(
+                self, Dataset.load_from_disk(dataset_path), pickled=metadata["pickled"]
+            )
+            self.progress = 1.0
+            self.__pickled = metadata["pickled"]
+        elif prev_fingerprint != self.fingerprint and prev_fingerprint is not None:
+            # ...but it was a different version, delete the results and we'll need
+            # to re-run this step
+            clear_dir(self.output_folder_path)
 
     def register_input(self, input_column_name: str):
         if type(input_column_name) is not str:
@@ -122,7 +212,7 @@ class Step(metaclass=protect("__init__")):  # type:ignore[misc]
     def register_trace_info(self, trace_info_type: str, trace_info: Any):
         if type(trace_info_type) is not str:
             raise ValueError(f"Expected str, got {type(trace_info_type)}.")
-        self.__registered["trace_info"][trace_info_type][self.name].append(trace_info)
+        self.__registered["trace_info"][self.name][trace_info_type].append(trace_info)
 
     def setup(self):
         raise NotImplementedError("You must implement the .setup() method in Step.")
@@ -179,6 +269,7 @@ class Step(metaclass=protect("__init__")):  # type:ignore[misc]
             pickled=self.__pickled,
             value=value,
         )
+        self._save_to_disk()
 
     def head(self, n=5, shuffle=False, seed=None, buffer_size=1000) -> DataFrame:
         return self.output.head(
@@ -187,10 +278,10 @@ class Step(metaclass=protect("__init__")):  # type:ignore[misc]
 
     @property
     def trace_info(self):
-        return self.__registered["trace_info"]
+        return deepcopy(self.__registered["trace_info"])
 
     @property
-    def fingerprint(self):
+    def fingerprint(self) -> str:
         return Hasher.hash(
             [
                 str(type(self)),
