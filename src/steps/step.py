@@ -16,11 +16,12 @@ from ..datasets import (
 from ..errors import StepOutputError
 from ..pickling import unpickle as _unpickle
 from ..pickling.pickle import _INTERNAL_PICKLE_KEY, _pickle
+from ..utils.class_utils import protect
 from ..utils.fs_utils import safe_fn
 from .step_output import LazyRowBatches, LazyRows, StepOutputType, _output_to_dataset
 
 
-class Step:
+class Step(metaclass=protect("__init__")):  # type:ignore[misc]
     def __init__(
         self,
         name: str,
