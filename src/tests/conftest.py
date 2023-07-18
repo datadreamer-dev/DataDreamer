@@ -17,6 +17,3 @@ pytest_plugins = [
 
 # Set the initial cwd
 project.INITIAL_CWD = os.path.abspath(os.getcwd())
-
-# Set the working directory
-os.chdir(os.path.dirname(os.path.realpath(__file__)))
