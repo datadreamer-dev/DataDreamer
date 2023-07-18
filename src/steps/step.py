@@ -5,6 +5,7 @@ from typing import Any
 from pandas import DataFrame
 
 from datasets import Dataset
+from datasets.fingerprint import Hasher
 
 from ..datadreamer import DataDreamer
 from ..datasets import (
@@ -187,6 +188,18 @@ class Step(metaclass=protect("__init__")):  # type:ignore[misc]
     @property
     def trace_info(self):
         return self.__registered["trace_info"]
+
+    @property
+    def fingerprint(self):
+        return Hasher.hash(
+            [
+                str(type(self)),
+                self.name,
+                list(self.__registered["inputs"].keys()),
+                list(self.__registered["args"].keys()),
+                list(self.__registered["outputs"].keys()),
+            ]
+        )
 
 
 __all__ = ["LazyRowBatches", "LazyRows", "StepOutputType"]
