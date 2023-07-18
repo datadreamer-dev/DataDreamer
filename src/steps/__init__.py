@@ -1,5 +1,5 @@
 from .step import LazyRowBatches, LazyRows, Step
-from .trace import TraceInfoType
+from .trace_info import TraceInfoType
 
 __all__ = [
     "Step",

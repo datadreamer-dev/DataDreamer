@@ -31,7 +31,7 @@ class Step:
             "inputs": [],
             "outputs": [],
             "args": {},
-            "trace_info": defaultdict(defaultdict(list)),
+            "trace_info": defaultdict(lambda: defaultdict(list)),
         }
         self.input = input
         self.__output: None | OutputDataset | OutputIterableDataset = None
