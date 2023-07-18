@@ -42,9 +42,17 @@ class TestErrors:
 
         step_multiple = Step("my-step", None, ["out1", "out2"])
         with pytest.raises(StepOutputError):
+            step_multiple._set_output(5)  # type: ignore[arg-type]
+        with pytest.raises(StepOutputError):
             step_multiple._set_output(
                 LazyRows([iterable_dataset, [1, 2, 3]], total_num_rows=3)
             )
+
+    def test_output_twice(self):
+        step = Step("my-step", None, "out1")
+        step._set_output({"out1": ["a", "b", "c"]})
+        with pytest.raises(StepOutputError):
+            step._set_output({"out1": ["a", "b", "c"]})
 
     def test_output_dict_with_wrong_keys(self):
         step = Step("my-step", None, "out1")
@@ -483,7 +491,7 @@ class TestSingleOutput:
 
     def test_output_tuple_of_iterator(self):
         step = Step("my-step", None, "out1")
-        step._set_output((range(3),))
+        step._set_output((iter(range(3)),))
         assert set(step.output.column_names) == set(["out1"])
         assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 3
@@ -503,7 +511,7 @@ class TestSingleOutput:
 
     def test_output_dict_of_iterator(self):
         step = Step("my-step", None, "out1")
-        step._set_output({"out1": range(3)})
+        step._set_output({"out1": iter(range(3))})
         assert set(step.output.column_names) == set(["out1"])
         assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 3
@@ -1028,7 +1036,7 @@ class TestMultipleOutput:
 
     def test_output_tuple_of_iterator(self):
         step = Step("my-step", None, ["out1", "out2"])
-        step._set_output((range(3), ["a", "b", "c"]))
+        step._set_output((iter(range(3)), ["a", "b", "c"]))
         assert set(step.output.column_names) == set(["out1", "out2"])
         assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 3
@@ -1050,7 +1058,7 @@ class TestMultipleOutput:
 
     def test_output_dict_of_iterator(self):
         step = Step("my-step", None, ["out1", "out2"])
-        step._set_output({"out1": range(3), "out2": ["a", "b", "c"]})
+        step._set_output({"out1": iter(range(3)), "out2": ["a", "b", "c"]})
         assert set(step.output.column_names) == set(["out1", "out2"])
         assert isinstance(step.output, OutputDataset)
         assert len(step.output["out1"]) == 3
@@ -1222,6 +1230,23 @@ class TestMultipleOutput:
             yield (["c"], [3])
 
         step._set_output(LazyRowBatches(dataset_generator, total_num_rows=3))
+        assert set(step.output.column_names) == set(["out1", "out2"])
+        assert isinstance(step.output, OutputIterableDataset)
+        assert len(list(step.output)) == 3
+        first_row = next(iter(step.output))
+        assert set(first_row.keys()) == set(step.output.column_names)
+        assert [row["out1"] for row in list(step.output)] == ["a", "b", "c"]
+        assert [row["out2"] for row in list(step.output)] == [1, 2, 3]
+
+    def test_output_generator_function_of_iterator_row(self):
+        step = Step("my-step", None, ["out1", "out2"])
+
+        def dataset_generator():
+            yield iter(["a", 1])
+            yield iter(["b", 2])
+            yield iter(["c", 3])
+
+        step._set_output(LazyRows(dataset_generator, total_num_rows=3))
         assert set(step.output.column_names) == set(["out1", "out2"])
         assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3

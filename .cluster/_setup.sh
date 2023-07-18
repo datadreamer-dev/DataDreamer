@@ -172,8 +172,9 @@ device-requirements-files-exist() {
 }
 install-device-requirements() {
     if [ -f "$1.txt" ]; then
-        python3 -m pip install --upgrade pip
-        pip3 install -r src/requirements.txt -r "$1.txt" -r src/requirements-test.txt
+        :
+        # python3 -m pip install --upgrade pip
+        # pip3 install -r src/requirements.txt -r "$1.txt" -r src/requirements-test.txt
     fi
     if [ -f "$1.sh" ]; then
         chmod +x ./"$1".sh

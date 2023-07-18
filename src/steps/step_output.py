@@ -1,5 +1,5 @@
 import warnings
-from collections.abc import Generator, Iterable, Iterator, Mapping, Sized
+from collections.abc import Generator, Iterable, Iterator, Mapping, Sequence
 from copy import deepcopy
 from functools import partial
 from typing import TYPE_CHECKING, Any, Callable, Type, TypeAlias, TypeGuard
@@ -37,7 +37,7 @@ def _is_dataset_type(v, is_lazy) -> TypeGuard[Dataset | IterableDataset]:
 
 
 def _normalize(v: Any) -> Any:
-    if _is_iterable(v) and not isinstance(v, Sized):
+    if _is_iterable(v) and not isinstance(v, Sequence):
         return list(v)
     else:
         return v
@@ -315,11 +315,11 @@ def _output_to_dataset(  # noqa: C901
             _value_is_batched = False
         elif all([not _is_iterable(v) for v in _value.values()]):
             _value = _catch_type_error(
-                Dataset.from_dict, {k: [_value[k]] for k in output_names}
+                Dataset.from_dict, {k: [_normalize(_value[k])] for k in output_names}
             )
         else:
             _value = _catch_type_error(
-                Dataset.from_dict, {k: _value[k] for k in output_names}
+                Dataset.from_dict, {k: _normalize(_value[k]) for k in output_names}
             )
     elif isinstance(_value, dict):
         raise StepOutputError(
@@ -404,7 +404,7 @@ def _output_to_dataset(  # noqa: C901
                     _value, _value_is_batched, output_names
                 )
             )
-            if _is_iterable(first_row) and not isinstance(first_row, Sized):
+            if _is_iterable(first_row) and not isinstance(first_row, Sequence):
                 first_row = list(first_row)
             if isinstance(first_row, dict) and set(output_names) != set(
                 first_row.keys()

@@ -79,6 +79,8 @@ class Step:
         self,
         value: StepOutputType | LazyRows | LazyRowBatches,
     ):
+        if self.__output:
+            raise StepOutputError("Step has already been run.")
         self.__output = _output_to_dataset(
             step=self,
             output_names=self.output_names,
