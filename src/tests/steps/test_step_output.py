@@ -1475,8 +1475,116 @@ class TestMultipleOutput:
         assert [row["out2"] for row in list(step.output)] == [1, 2, 3]
 
 
+class TestDataset:
+    def test_output_OutputDataset(self):
+        step = Step("my-step", None, "out1")
+        dataset = OutputDataset(
+            step,
+            Dataset.from_dict(
+                {
+                    "out1": [
+                        step.pickle(set(["a"])),
+                        step.pickle(set(["b"])),
+                        step.pickle(set(["c"])),
+                    ]
+                }
+            ),
+            pickled=True,
+        )
+        step._set_output(dataset)
+        assert set(step.output.column_names) == set(["out1"])
+        assert isinstance(step.output, OutputDataset)
+        assert len(step.output["out1"]) == 3
+        assert step.output["out1"][0] == set(["a"])
+        assert set(step.output[0].keys()) == set(step.output.column_names)
+        assert step.output[0]["out1"] == set(["a"])
+
+    def test_output_OutputIterableDataset(self):
+        step = Step("my-step", None, "out1")
+        iterable_dataset = OutputIterableDataset(
+            step,
+            Dataset.from_dict(
+                {
+                    "out1": [
+                        step.pickle(set(["a"])),
+                        step.pickle(set(["b"])),
+                        step.pickle(set(["c"])),
+                    ]
+                }
+            ).to_iterable_dataset(),
+            pickled=True,
+        )
+        step._set_output(LazyRows(iterable_dataset, total_num_rows=3))
+        assert set(step.output.column_names) == set(["out1"])
+        assert isinstance(step.output, OutputIterableDataset)
+        assert len(list(step.output)) == 3
+        first_row = next(iter(step.output))
+        assert set(first_row.keys()) == set(step.output.column_names)
+        assert first_row["out1"] == set(["a"])
+
+    def test_output_OutputIterableDataset_batched(self):
+        step = Step("my-step", None, "out1")
+        iterable_dataset = OutputIterableDataset(
+            step,
+            Dataset.from_dict(
+                {
+                    "out1": [
+                        step.pickle(set(["a"])),
+                        step.pickle(set(["b"])),
+                        step.pickle(set(["c"])),
+                    ]
+                }
+            ).to_iterable_dataset(),
+            pickled=True,
+        )
+        step._set_output(LazyRowBatches(iterable_dataset, total_num_rows=3))  # type: ignore[arg-type]
+        assert set(step.output.column_names) == set(["out1"])
+        assert isinstance(step.output, OutputIterableDataset)
+        assert len(list(step.output)) == 3
+        first_row = next(iter(step.output))
+        assert set(first_row.keys()) == set(step.output.column_names)
+        assert first_row["out1"] == set(["a"])
+
+    def test_output_list_of_OutputDatasets(self):
+        step = Step("my-step", None, ["out1", "out2"])
+        iterable_dataset = OutputIterableDataset(
+            step,
+            Dataset.from_dict(
+                {
+                    "out1": [
+                        step.pickle(set(["a"])),
+                        step.pickle(set(["b"])),
+                        step.pickle(set(["c"])),
+                    ]
+                }
+            ).to_iterable_dataset(),
+            pickled=True,
+        )
+        dataset = OutputDataset(
+            step,
+            Dataset.from_dict(
+                {
+                    "out2": [
+                        step.pickle(set([1])),
+                        step.pickle(set([2])),
+                        step.pickle(set([3])),
+                    ]
+                }
+            ),
+            pickled=True,
+        )
+        step._set_output(LazyRows([iterable_dataset, dataset], total_num_rows=3))
+        assert set(step.output.column_names) == set(["out1", "out2"])
+        assert isinstance(step.output, OutputIterableDataset)
+        assert len(list(step.output)) == 3
+        first_row = next(iter(step.output))
+        assert set(first_row.keys()) == set(step.output.column_names)
+        assert first_row["out1"] == set(["a"])
+        assert first_row["out2"] == set([1])
+
+
 class TestColumn:
-    def test_output_single_outputdataset_column(self):
+    def test_output_single_OutputDatasetColumn(self):
         step = Step("my-step", None, "out1")
         column = OutputDataset(step, Dataset.from_dict({"foo": ["a", "b", "c"]}))["foo"]
         step._set_output(column)
@@ -1487,7 +1595,7 @@ class TestColumn:
         assert set(step.output[0].keys()) == set(step.output.column_names)
         assert step.output[0]["out1"] == "a"
 
-    def test_output_single_outputiterabledataset_column(self):
+    def test_output_single_OutputIterableDatasetColumn(self):
         step = Step("my-step", None, "out1")
         column = OutputIterableDataset(
             step, Dataset.from_dict({"foo": ["a", "b", "c"]}).to_iterable_dataset()
@@ -1500,7 +1608,7 @@ class TestColumn:
         assert set(first_row.keys()) == set(step.output.column_names)
         assert first_row["out1"] == "a"
 
-    def test_output_list_of_outputdataset_column(self):
+    def test_output_list_of_OutputDatasetColumn(self):
         step = Step("my-step", None, "out1")
         column = OutputDataset(step, Dataset.from_dict({"foo": ["a", "b", "c"]}))["foo"]
         step._set_output([column])
@@ -1511,7 +1619,7 @@ class TestColumn:
         assert set(step.output[0].keys()) == set(step.output.column_names)
         assert step.output[0]["out1"] == "a"
 
-    def test_output_tuple_of_outputdataset_column(self):
+    def test_output_tuple_of_OutputDatasetColumn(self):
         step = Step("my-step", None, "out1")
         column = OutputDataset(step, Dataset.from_dict({"foo": ["a", "b", "c"]}))["foo"]
         step._set_output((column,))
@@ -1522,7 +1630,7 @@ class TestColumn:
         assert set(step.output[0].keys()) == set(step.output.column_names)
         assert step.output[0]["out1"] == "a"
 
-    def test_output_tuple_of_outputiterabledataset_column(self):
+    def test_output_tuple_of_OutputIterableDatasetColumn(self):
         step = Step("my-step", None, "out1")
         column = OutputIterableDataset(
             step, Dataset.from_dict({"foo": ["a", "b", "c"]}).to_iterable_dataset()
@@ -1535,7 +1643,7 @@ class TestColumn:
         assert set(first_row.keys()) == set(step.output.column_names)
         assert first_row["out1"] == "a"
 
-    def test_output_dict_of_outputdataset_column(self):
+    def test_output_dict_of_OutputDatasetColumn(self):
         step = Step("my-step", None, "out1")
         column = OutputDataset(step, Dataset.from_dict({"foo": ["a", "b", "c"]}))["foo"]
         step._set_output({"out1": column})
@@ -1546,7 +1654,7 @@ class TestColumn:
         assert set(step.output[0].keys()) == set(step.output.column_names)
         assert step.output[0]["out1"] == "a"
 
-    def test_output_dict_of_outputiterabledataset_column(self):
+    def test_output_dict_of_OutputIterableDatasetColumn(self):
         step = Step("my-step", None, "out1")
         column = OutputIterableDataset(
             step, Dataset.from_dict({"foo": ["a", "b", "c"]}).to_iterable_dataset()

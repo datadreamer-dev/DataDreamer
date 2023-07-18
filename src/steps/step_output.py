@@ -143,6 +143,7 @@ def _untuple(v: Any, output_names: tuple[str, ...]) -> Any:
 
 LazyStepOutputType: TypeAlias = (
     OutputIterableDatasetColumn
+    | OutputIterableDataset
     | IterableDataset
     | dict[str, Any]
     | list[Any]
@@ -176,6 +177,7 @@ LazyBatchStepOutputType: TypeAlias = (
 StepOutputType: TypeAlias = (
     None
     | OutputDatasetColumn
+    | OutputDataset
     | Dataset
     | dict[str, Any]
     | list[Any]
@@ -254,7 +256,10 @@ def _output_to_dataset(  # noqa: C901
         _value = value.value
         is_lazy = True
         total_num_rows = value.total_num_rows
-        if not _is_dataset_type(_value, is_lazy):
+        if not _is_dataset_type(_value, is_lazy) and type(_value) not in [
+            OutputDataset,
+            OutputIterableDataset,
+        ]:
             _value_is_batched = True
     else:
         _value = value
@@ -272,6 +277,40 @@ def _output_to_dataset(  # noqa: C901
     if isinstance(_value, OutputDatasetColumn):
         _value = list(_value)
 
+    # If given instance of OutputDataset or OutputIterableDataset, unpack them to
+    # Dataset or IterableDataset
+    if type(_value) is OutputDataset or type(_value) is OutputIterableDataset:
+        pickled = pickled or _value._pickled
+        _value = _value.dataset
+
+    # If given a list of OutputDatasets or OutputIterableDatasets, unpack them to
+    # Datasets or IterableDatasets
+    if _is_list_or_tuple_type(_value) and len(_value) > 0:
+        if all(
+            (
+                type(d) in [OutputDataset, OutputIterableDataset]
+                or _is_dataset_type(d, is_lazy)
+            )
+            for d in _value
+        ) or (
+            len(_value) <= len(output_names)
+            and any(
+                (
+                    type(d) in [OutputDataset, OutputIterableDataset]
+                    or _is_dataset_type(d, is_lazy)
+                )
+                for d in _value
+            )
+        ):
+            new_value: list[Any] = []
+            for d in _value:
+                if type(d) in [OutputDataset, OutputIterableDataset]:
+                    pickled = pickled or d._pickled
+                    new_value.append(d.dataset)
+                else:
+                    new_value.append(d)
+            _value = new_value
+
     # If given a Dataset or IterableDataset, make a copy and reset the format
     if _is_dataset_type(_value, is_lazy):
         _value = deepcopy(_value)
@@ -285,8 +324,8 @@ def _output_to_dataset(  # noqa: C901
             _value = dataset_zip(*_value)
         elif all(_is_dataset_type(d, is_lazy) for d in _value):
             _value = iterable_dataset_zip(*_value)
-        elif any(_is_dataset_type(d, True) for d in _value) and len(_value) <= len(
-            output_names
+        elif len(_value) <= len(output_names) and any(
+            _is_dataset_type(d, True) for d in _value
         ):
             raise StepOutputError(
                 f"Invalid output type: all elements in {_value} must be of type"
