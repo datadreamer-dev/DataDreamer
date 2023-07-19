@@ -62,6 +62,7 @@ class Step(metaclass=StepProtector):
         # Initialize variables
         self._initialized: bool = False
         self.name: str = name
+        self.version: float = 1.0
         if len(self.name) == 0:
             raise ValueError("You must provide a name for the step.")
         self.__progress: None | float = None
@@ -129,7 +130,7 @@ class Step(metaclass=StepProtector):
         )
 
         # Initialize from/to the context
-        self.output_folder_path = None
+        self.__output_folder_path = None
         if hasattr(DataDreamer.ctx, "initialized"):
             # Register the Step in the context
             for step in DataDreamer.ctx.steps:
@@ -138,15 +139,15 @@ class Step(metaclass=StepProtector):
                         f"A step already exists with the name: {self.name}"
                     )
             DataDreamer.ctx.steps.append(self)
-            self.output_folder_path = os.path.join(
+            self.__output_folder_path = os.path.join(
                 DataDreamer.ctx.output_folder_path, safe_fn(self.name)
             )
             self._setup_folder_and_resume()
 
     def _save_to_disk(self):
-        if self.output_folder_path and isinstance(self.__output, OutputDataset):
-            metadata_path = os.path.join(self.output_folder_path, "step.json")
-            dataset_path = os.path.join(self.output_folder_path, "dataset")
+        if self.__output_folder_path and isinstance(self.__output, OutputDataset):
+            metadata_path = os.path.join(self.__output_folder_path, "step.json")
+            dataset_path = os.path.join(self.__output_folder_path, "dataset")
             self.__output.save_to_disk(dataset_path)
             with open(metadata_path, "w+") as f:
                 json.dump(
@@ -160,19 +161,19 @@ class Step(metaclass=StepProtector):
                 )
 
     def _setup_folder_and_resume(self):
-        if self.output_folder_path is None:
+        if self.__output_folder_path is None:
             return  # pragma: no cover
 
         # Create an output folder for the step
-        self.output_folder_path = os.path.join(
+        self.__output_folder_path = os.path.join(
             DataDreamer.ctx.output_folder_path, safe_fn(self.name)
         )
-        os.makedirs(self.output_folder_path, exist_ok=True)
+        os.makedirs(self.__output_folder_path, exist_ok=True)
 
         # Check if we have already run this step previously and saved the results to
         # disk
-        metadata_path = os.path.join(self.output_folder_path, "step.json")
-        dataset_path = os.path.join(self.output_folder_path, "dataset")
+        metadata_path = os.path.join(self.__output_folder_path, "step.json")
+        dataset_path = os.path.join(self.__output_folder_path, "dataset")
         prev_fingerprint: None | str = None
         try:
             with open(metadata_path, "r") as f:
@@ -191,7 +192,7 @@ class Step(metaclass=StepProtector):
         elif prev_fingerprint != self.fingerprint and prev_fingerprint is not None:
             # ...but it was a different version, delete the results and we'll need
             # to re-run this step
-            clear_dir(self.output_folder_path)
+            clear_dir(self.__output_folder_path)
 
     def register_input(self, input_column_name: str):
         if self._initialized:
@@ -307,11 +308,21 @@ class Step(metaclass=StepProtector):
             [
                 str(type(self)),
                 self.name,
+                self.version,
                 list(self.__registered["inputs"].keys()),
                 list(self.__registered["args"].keys()),
                 list(self.__registered["outputs"]),
             ]
         )
+
+    def get_run_output_folder_path(self) -> str:
+        if not self.__output_folder_path:
+            raise RuntimeError(
+                "You must run the Step in a DataDreamer() context."
+            )  # pragma: no cover
+        run_output_folder_path = os.path.join(self.__output_folder_path, "run_output")
+        os.makedirs(run_output_folder_path, exist_ok=True)
+        return run_output_folder_path
 
 
 __all__ = ["LazyRowBatches", "LazyRows", "StepOutputType"]

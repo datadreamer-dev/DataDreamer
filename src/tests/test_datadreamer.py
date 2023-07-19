@@ -1,9 +1,10 @@
+import json
 import os
 from typing import Callable
 
 import pytest
 
-from .. import DataDreamer
+from .. import DataDreamer, __version__
 from ..datasets import OutputDataset
 from ..errors import StepOutputError
 from ..steps import Step, TraceInfoType
@@ -70,6 +71,7 @@ class TestFunctionality:
         with create_datadreamer():
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
             step._set_output({"out1": ["a", "b", "c"]})
+            assert step.fingerprint == "6e43a7bd9f184025"
             del step
             assert os.path.isdir(
                 os.path.join(DataDreamer.ctx.output_folder_path, "my-step")
@@ -77,6 +79,16 @@ class TestFunctionality:
             assert os.path.isfile(
                 os.path.join(DataDreamer.ctx.output_folder_path, "my-step", "step.json")
             )
+            with open(
+                os.path.join(
+                    DataDreamer.ctx.output_folder_path, "my-step", "step.json"
+                ),
+                "r",
+            ) as f:
+                metadata = json.load(f)
+                assert metadata["__version__"] == __version__
+                assert metadata["fingerprint"] == "6e43a7bd9f184025"
+                assert metadata["pickled"] is False
             assert os.path.isdir(
                 os.path.join(DataDreamer.ctx.output_folder_path, "my-step", "dataset")
             )
@@ -148,6 +160,15 @@ class TestFunctionality:
             assert step.output["out1"][0] == set(["a"])
             assert set(step.output[0].keys()) == set(step.output.column_names)
             assert list(step.output["out1"]) == [set(["a"]), set(["b"]), set(["c"])]
+
+    def test_step_creates_run_output_folder(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            run_output_folder_path = step.get_run_output_folder_path()
+            assert os.path.isdir(run_output_folder_path)
+            assert os.path.join(DataDreamer.ctx.output_folder_path, "run_output")
 
     def test_trace_info_propogates(
         self, create_datadreamer, create_test_step: Callable[..., Step]
