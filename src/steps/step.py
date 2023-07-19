@@ -61,9 +61,10 @@ class Step(metaclass=StepProtector):
         assert outputs is not None
 
         # Initialize variables
+        self._initialized: bool = False
         self.name: str = name
         if len(self.name) == 0:
-            raise ValueError("You provide a name for the step.")
+            raise ValueError("You must provide a name for the step.")
         self.__progress: None | float = None
         self.__output: None | OutputDataset | OutputIterableDataset = None
         self.__pickled: bool = False
@@ -89,7 +90,7 @@ class Step(metaclass=StepProtector):
                 for v in inputs.values()
             ]
         ):
-            raise ValueError(
+            raise TypeError(
                 "All inputs must be of type OutputDatasetColumn or"
                 " OutputIterableDatasetColumn."
             )
@@ -100,9 +101,8 @@ class Step(metaclass=StepProtector):
             prev_trace_info = {}
             for v in inputs.values():
                 prev_trace_info.update(v.step.trace_info)
-            self.__registered["trace_info"] = prev_trace_info.update(
-                self.__registered["trace_info"]
-            )
+            prev_trace_info.update(self.__registered["trace_info"])
+            self.__registered["trace_info"] = prev_trace_info
 
         # Validate and setup args
         if not set(args.keys()).issubset(set(self.__registered["args"].keys())):
@@ -112,18 +112,18 @@ class Step(metaclass=StepProtector):
             )
         else:
             self.__registered["args"].update(args)
-        if len(self.__registered["outputs"]) == 0:
-            raise ValueError("The step must register at least one output.")
 
         # Initialize output names mapping
-        self.output_name_mapping: dict[str, str] = {
-            o: o for o in self.__registered["outputs"]
-        }
+        if len(self.__registered["outputs"]) == 0:
+            raise ValueError("The step must register at least one output.")
         if not set(outputs.keys()).issubset(set(self.__registered["outputs"])):
             raise ValueError(
                 f"Expected {set(self.__registered['outputs'])} as output keys,"
                 f" got {set(outputs.keys())}."
             )
+        self.output_name_mapping: dict[str, str] = {
+            o: outputs.get(o, o) for o in self.__registered["outputs"]
+        }
         self.output_names = tuple(
             [self.output_name_mapping[o] for o in self.__registered["outputs"]]
         )
@@ -142,6 +142,9 @@ class Step(metaclass=StepProtector):
                 DataDreamer.ctx.output_folder_path, safe_fn(step.name)
             )
             self._setup_folder_and_resume()
+
+        # Mark the Step as initalized
+        self._initialized = True
 
     def _save_to_disk(self):
         if self.output_folder_path and isinstance(self.__output, OutputDataset):
@@ -194,25 +197,45 @@ class Step(metaclass=StepProtector):
             clear_dir(self.output_folder_path)
 
     def register_input(self, input_column_name: str):
+        if self._initialized:
+            raise RuntimeError(
+                "The step is already initialized, you can only run"
+                " .register_xxx() functions in the setup() method."
+            )
         if type(input_column_name) is not str:
-            raise ValueError(f"Expected str, got {type(input_column_name)}.")
+            raise TypeError(f"Expected str, got {type(input_column_name)}.")
         if input_column_name not in self.__registered["inputs"]:
             self.__registered["inputs"][input_column_name] = None
 
     def register_arg(self, arg_name: str):
+        if self._initialized:
+            raise RuntimeError(
+                "The step is already initialized, you can only run"
+                " .register_xxx() functions in the setup() method."
+            )
         if type(arg_name) is not str:
-            raise ValueError(f"Expected str, got {type(arg_name)}.")
+            raise TypeError(f"Expected str, got {type(arg_name)}.")
         self.__registered["args"][arg_name] = None
 
     def register_output(self, output_column_name: str):
+        if self._initialized:
+            raise RuntimeError(
+                "The step is already initialized, you can only run"
+                " .register_xxx() functions in the setup() method."
+            )
         if type(output_column_name) is not str:
-            raise ValueError(f"Expected str, got {type(output_column_name)}.")
+            raise TypeError(f"Expected str, got {type(output_column_name)}.")
         if output_column_name not in self.__registered["outputs"]:
             self.__registered["outputs"].append(output_column_name)
 
     def register_trace_info(self, trace_info_type: str, trace_info: Any):
+        if self._initialized:
+            raise RuntimeError(
+                "The step is already initialized, you can only run"
+                " .register_xxx() functions in the setup() method."
+            )
         if type(trace_info_type) is not str:
-            raise ValueError(f"Expected str, got {type(trace_info_type)}.")
+            raise TypeError(f"Expected str, got {type(trace_info_type)}.")
         self.__registered["trace_info"][self.name][trace_info_type].append(trace_info)
 
     def setup(self):

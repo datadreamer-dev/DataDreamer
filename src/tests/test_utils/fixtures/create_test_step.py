@@ -8,7 +8,12 @@ from ....steps import Step
 @pytest.fixture
 def create_test_step() -> Callable[..., Step]:
     def _create_test_step(
-        name="my-step", inputs=None, args=None, outputs=None, output_names=None
+        name="my-step",
+        inputs=None,
+        args=None,
+        outputs=None,
+        output_names=None,
+        setup=None,
     ) -> Step:
         if output_names is None:
             output_names = []
@@ -20,6 +25,8 @@ def create_test_step() -> Callable[..., Step]:
                 else:
                     for o in output_names:
                         self.register_output(o)
+                if setup is not None:
+                    setup(self)
 
         return TestStep(name, inputs=inputs, args=args, outputs=outputs)
 
