@@ -5,7 +5,15 @@ en_data = HFDataset("en_c4").select({"en_text": "text"}).limit(100)
 es_data = HFDataset("es_c4").select({"es_text": "text"}).limit(100)
 
 to_es_zs = ZeroShot(
-    instruction="Translate the input text to es.", inputs=en_data, outputs="es_text"
+    args={
+        "instruction": "Translate the input text to es."
+    }
+    inputs={
+        "queries": en_data.output["en_text"]
+    }
+    outputs= {  
+        "responses": "es_text"
+    } 
 )
 
 en_to_es_fs_examples = (
