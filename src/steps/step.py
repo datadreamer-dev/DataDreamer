@@ -1,7 +1,6 @@
 import json
 import os
 from collections import defaultdict
-from copy import deepcopy
 from typing import Any
 
 from pandas import DataFrame
@@ -77,6 +76,7 @@ class Step(metaclass=StepProtector):
 
         # Run setup
         self.setup()
+        self._initialized = True
 
         # Validate and setup inputs
         if set(self.__registered["inputs"].keys()) != set(inputs.keys()):
@@ -139,12 +139,9 @@ class Step(metaclass=StepProtector):
                     )
             DataDreamer.ctx.steps.append(self)
             self.output_folder_path = os.path.join(
-                DataDreamer.ctx.output_folder_path, safe_fn(step.name)
+                DataDreamer.ctx.output_folder_path, safe_fn(self.name)
             )
             self._setup_folder_and_resume()
-
-        # Mark the Step as initalized
-        self._initialized = True
 
     def _save_to_disk(self):
         if self.output_folder_path and isinstance(self.__output, OutputDataset):
@@ -302,7 +299,7 @@ class Step(metaclass=StepProtector):
 
     @property
     def trace_info(self):
-        return deepcopy(self.__registered["trace_info"])
+        return json.loads(json.dumps(self.__registered["trace_info"]))
 
     @property
     def fingerprint(self) -> str:
@@ -312,7 +309,7 @@ class Step(metaclass=StepProtector):
                 self.name,
                 list(self.__registered["inputs"].keys()),
                 list(self.__registered["args"].keys()),
-                list(self.__registered["outputs"].keys()),
+                list(self.__registered["outputs"]),
             ]
         )
 

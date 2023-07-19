@@ -9,5 +9,5 @@ def safe_fn(value: str):
 
 
 def clear_dir(path: str):
-    shutil.rmtree(path)
-    os.makedirs(path)
+    shutil.rmtree(path, ignore_errors=True)
+    os.makedirs(path, exist_ok=True)

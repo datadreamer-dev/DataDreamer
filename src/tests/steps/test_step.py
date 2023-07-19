@@ -140,8 +140,12 @@ class TestFunctionality:
         trace_info = create_test_step(
             name="my-step", inputs=None, output_names=["out1"], setup=setup
         ).trace_info
-        assert trace_info["my-step"][TraceInfoType.URL] == ["http://example.com"]
-        assert trace_info["my-step"][TraceInfoType.CITATION] == ["citation"]
+        assert trace_info == {
+            "my-step": {
+                "Citation Information": ["citation"],
+                "URL": ["http://example.com"],
+            }
+        }
 
     def test_head(self, create_test_step: Callable[..., Step]):
         step = create_test_step(
