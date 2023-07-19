@@ -167,7 +167,7 @@ class Step(metaclass=StepProtector):
         self.output_folder_path = os.path.join(
             DataDreamer.ctx.output_folder_path, safe_fn(self.name)
         )
-        os.makedirs(self.output_folder_path)
+        os.makedirs(self.output_folder_path, exist_ok=True)
 
         # Check if we have already run this step previously and saved the results to
         # disk

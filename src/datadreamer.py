@@ -15,7 +15,7 @@ class DataDreamer:
     def __enter__(self):
         if hasattr(DataDreamer.ctx, "steps"):
             raise RuntimeError("Cannot nest DataDreamer() context managers.")
-        os.makedirs(self.output_folder_path)
+        os.makedirs(self.output_folder_path, exist_ok=True)
         DataDreamer.ctx.output_folder_path = self.output_folder_path
         DataDreamer.ctx.steps = []
         DataDreamer.ctx.initialized = True

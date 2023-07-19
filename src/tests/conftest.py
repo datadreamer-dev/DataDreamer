@@ -2,6 +2,7 @@ import os
 from glob import glob
 
 from .. import project
+from ..utils.fs_utils import clear_dir
 
 
 # Register pytest fixtures
@@ -17,3 +18,9 @@ pytest_plugins = [
 
 # Set the initial cwd
 project.INITIAL_CWD = os.path.abspath(os.getcwd())
+
+# Clear the tests data directory
+try:
+    clear_dir("./.tests_data")
+except FileNotFoundError:
+    pass
