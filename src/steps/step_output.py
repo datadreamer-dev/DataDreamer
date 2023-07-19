@@ -16,7 +16,12 @@ from ..datasets import (
     OutputIterableDataset,
     OutputIterableDatasetColumn,
 )
-from ..datasets.utils import dataset_zip, get_column_names, iterable_dataset_zip
+from ..datasets.utils import (
+    dataset_zip,
+    drop_unsupported_features,
+    get_column_names,
+    iterable_dataset_zip,
+)
 from ..errors import StepOutputError, StepOutputTypeError
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -315,8 +320,7 @@ def _output_to_dataset(  # noqa: C901
     # If given a Dataset or IterableDataset, make a copy and reset the format
     if _is_dataset_type(_value, is_lazy):
         _value = deepcopy(_value)
-        if isinstance(_value, Dataset):
-            _value.reset_format()
+        drop_unsupported_features(_value)
 
     # Create a Dataset if given a list or tuple of Datasets
     # or create an IterableDataset if given a list or tuple of IterableDatasets

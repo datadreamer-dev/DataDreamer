@@ -19,13 +19,19 @@ def get_column_names(dataset: Dataset | IterableDataset) -> list[str]:
         return list(first_row.keys())
 
 
+def drop_unsupported_features(dataset: Dataset | IterableDataset):
+    if isinstance(dataset, Dataset):
+        dataset.reset_format()
+        for index_name in dataset.list_indexes():
+            dataset.drop_index(index_name)
+
+
 def dataset_zip(*datasets: Dataset) -> Dataset:
     if len(datasets) == 0:
         raise ValueError("You must provide at least one dataset to zip.")
     datasets = tuple([deepcopy(d) for d in datasets])
     for d in datasets:
-        if isinstance(d, Dataset):
-            d.reset_format()
+        drop_unsupported_features(d)
     dataset_dicts: list[dict[str, list[Any]]] = [
         {n: list(d[n]) for n in get_column_names(d)} for d in datasets
     ]
@@ -41,8 +47,7 @@ def iterable_dataset_zip(*datasets: Dataset | IterableDataset) -> IterableDatase
         raise ValueError("You must provide at least one dataset to zip.")
     datasets = tuple([deepcopy(d) for d in datasets])
     for d in datasets:
-        if isinstance(d, Dataset):
-            d.reset_format()
+        drop_unsupported_features(d)
 
     def merged_generator(datasets):
         iters: list[Iterator[dict[str, Any]]] = [iter(d) for d in datasets]
