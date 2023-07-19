@@ -32,14 +32,20 @@ def dataset_zip(*datasets: Dataset) -> Dataset:
     datasets = tuple([deepcopy(d) for d in datasets])
     for d in datasets:
         drop_unsupported_features(d)
-    dataset_dicts: list[dict[str, list[Any]]] = [
-        {n: list(d[n]) for n in get_column_names(d)} for d in datasets
-    ]
-    merged_dataset: dict[str, list[Any]] = {}
-    for dd in dataset_dicts:
-        for k, v in dd.items():
-            merged_dataset[k] = v
-    return Dataset.from_dict(merged_dataset)
+    smallest_dataset = min(datasets, key=lambda d: len(d))
+
+    def merge_rows(datasets, x, idx):
+        result_row = {}
+        for d in datasets:
+            result_row.update(d[idx])
+        return result_row
+
+    return smallest_dataset.map(
+        partial(merge_rows, datasets),
+        with_indices=True,
+        remove_columns=get_column_names(smallest_dataset),
+        desc="Zipping datasets together",
+    )
 
 
 def iterable_dataset_zip(*datasets: Dataset | IterableDataset) -> IterableDataset:

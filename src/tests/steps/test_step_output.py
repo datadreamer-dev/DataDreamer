@@ -1264,6 +1264,25 @@ class TestMultipleOutput:
         step = create_test_step(
             name="my-step", inputs=None, output_names=["out1", "out2"]
         )
+        dataset_dict_1 = {"out1": ["a", "b", "c"]}
+        dataset_1 = Dataset.from_dict(dataset_dict_1)
+        dataset_dict_2 = {"out2": [1, 2, 3]}
+        dataset_2 = Dataset.from_dict(dataset_dict_2)
+        step._set_output([dataset_1, dataset_2])
+        assert set(step.output.column_names) == set(["out1", "out2"])
+        assert isinstance(step.output, OutputDataset)
+        assert len(step.output["out1"]) == 3
+        assert step.output["out1"][0] == "a"
+        assert set(step.output[0].keys()) == set(step.output.column_names)
+        assert list(step.output["out1"]) == ["a", "b", "c"]
+        assert list(step.output["out2"]) == [1, 2, 3]
+
+    def test_output_list_of_iterable_datasets(
+        self, create_test_step: Callable[..., Step]
+    ):
+        step = create_test_step(
+            name="my-step", inputs=None, output_names=["out1", "out2"]
+        )
         dataset_dict = {"out1": ["a", "b", "c"]}
         dataset = Dataset.from_dict(dataset_dict)
 

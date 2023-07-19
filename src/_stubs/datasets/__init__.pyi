@@ -17,6 +17,13 @@ class Dataset:
     def list_indexes(self) -> list[str]: ...
     def drop_index(self, index_name: str): ...
     def reset_format(self) -> None: ...
+    def map(
+        self,
+        function: None | Callable = None,
+        with_indices: bool = False,
+        remove_columns: None | str | list[str] = None,
+        desc: None | str = None,
+    ): ...
     def shuffle(
         self,
         seed=None,
@@ -45,6 +52,13 @@ class IterableDataset:
     def column_names(self) -> None | list[str]: ...
     @property
     def info(self) -> Any: ...
+    def map(
+        self,
+        function: None | Callable = None,
+        with_indices: bool = False,
+        remove_columns: None | str | list[str] = None,
+        desc: None | str = None,
+    ): ...
     def shuffle(
         self,
         seed=None,
