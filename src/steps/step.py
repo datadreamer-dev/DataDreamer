@@ -17,6 +17,7 @@ from ..datasets import (
     OutputIterableDatasetColumn,
 )
 from ..errors import StepOutputError
+from ..logging import logger
 from ..pickling import unpickle as _unpickle
 from ..pickling.pickle import _INTERNAL_PICKLE_KEY, _pickle
 from ..utils.fs_utils import clear_dir, safe_fn
@@ -146,6 +147,7 @@ class Step(metaclass=StepProtector):
 
     def _save_to_disk(self):
         if self.__output_folder_path and isinstance(self.__output, OutputDataset):
+            logger.debug(f"Step '{self.name}' is being saved to disk.")
             metadata_path = os.path.join(self.__output_folder_path, "step.json")
             dataset_path = os.path.join(self.__output_folder_path, "dataset")
             self.__output.save_to_disk(dataset_path)
@@ -159,6 +161,10 @@ class Step(metaclass=StepProtector):
                     f,
                     indent=4,
                 )
+            logger.debug(f"Step '{self.name}' is now saved to disk.")
+            logger.info(f"Step '{self.name}' finished and is saved to disk. 🎉")
+        else:
+            logger.info(f"Step '{self.name}' will run lazily. 🥱")
 
     def _setup_folder_and_resume(self):
         if self.__output_folder_path is None:
@@ -189,10 +195,22 @@ class Step(metaclass=StepProtector):
             )
             self.progress = 1.0
             self.__pickled = metadata["pickled"]
-        elif prev_fingerprint != self.fingerprint and prev_fingerprint is not None:
+            logger.info(
+                f"Step '{self.name}' results loaded from disk. 🙌 It was previously run"
+                " and saved."
+            )
+            return
+        elif prev_fingerprint is not None and prev_fingerprint != self.fingerprint:
             # ...but it was a different version, delete the results and we'll need
             # to re-run this step
             clear_dir(self.__output_folder_path)
+            logger.info(
+                f"Step '{self.name}' was previously run and saved, but was outdated. 😞"
+                " It will be re-run."
+            )
+
+        # We still need to run this step
+        logger.info(f"Step '{self.name}' is running. ⏳")
 
     def register_input(self, input_column_name: str):
         if self._initialized:
@@ -283,6 +301,7 @@ class Step(metaclass=StepProtector):
     ):
         if self.__output:
             raise StepOutputError("Step has already been run.")
+        logger.debug(f"Step '{self.name}''s results are being processed.")
         self.__output = _output_to_dataset(
             step=self,
             output_names=tuple(self.__registered["outputs"]),

@@ -34,6 +34,20 @@ class TestErrors:
 
 
 class TestFunctionality:
+    def test_logging(self, create_datadreamer, caplog):
+        with create_datadreamer():
+            pass
+        logs = [rec.message for rec in caplog.records]
+        caplog.clear()
+        assert "Intialized. ✨ Dreaming to folder: " in logs[0]
+        assert "Done. 🥂 Results in folder:" in logs[1]
+
+        with create_datadreamer(verbose=False):
+            pass
+        logs = [rec.message for rec in caplog.records]
+        caplog.clear()
+        assert len(logs) == 0
+
     def test_creates_folder(self, create_datadreamer):
         with create_datadreamer():
             assert os.path.exists(DataDreamer.ctx.output_folder_path)

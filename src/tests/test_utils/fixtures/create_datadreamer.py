@@ -9,9 +9,9 @@ from .... import DataDreamer
 
 @pytest.fixture
 def create_datadreamer() -> Callable[..., DataDreamer]:
-    def _create_datadreamer(path: None | str = None) -> DataDreamer:
+    def _create_datadreamer(path: None | str = None, **kwargs) -> DataDreamer:
         if path is None:
             path = uuid.uuid4().hex[0:10]
-        return DataDreamer(os.path.join("./.tests_data", path))
+        return DataDreamer(os.path.join("./.tests_data", path), **kwargs)
 
     return _create_datadreamer
