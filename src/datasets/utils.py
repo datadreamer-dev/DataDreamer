@@ -23,7 +23,7 @@ def drop_unsupported_features(dataset: Dataset | IterableDataset):
     if isinstance(dataset, Dataset):
         dataset.reset_format()
         for index_name in dataset.list_indexes():
-            dataset.drop_index(index_name)
+            dataset.drop_index(index_name)  # pragma: no cover
 
 
 def dataset_zip(*datasets: Dataset) -> Dataset:
