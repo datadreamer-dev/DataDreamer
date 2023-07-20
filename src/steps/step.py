@@ -346,6 +346,8 @@ class Step(metaclass=StepMeta):
 
     def pickle(self, value: Any, *args: Any, **kwargs: Any) -> bytes:
         self.__pickled = True
+        if self.__output:
+            self.output._pickled = True
         kwargs[_INTERNAL_PICKLE_KEY] = True
         return _pickle(value, *args, **kwargs)
 
@@ -394,8 +396,10 @@ class Step(metaclass=StepMeta):
             step=self,
             output_names=tuple(self.__registered["outputs"]),
             output_name_mapping=self.output_name_mapping,
-            set_progress=lambda progress: setattr(self, "progress", progress),
-            pickled=self.__pickled,
+            set_progress=partial(
+                lambda self, progress: setattr(self, "progress", progress), self
+            ),
+            get_pickled=partial(lambda self: self.__pickled, self),
             value=value,
         )
         self._save_to_disk(num_proc=num_proc)
@@ -447,6 +451,7 @@ class Step(metaclass=StepMeta):
                     writer_batch_size=writer_batch_size,
                     num_proc=num_proc,
                 )
+                save_step.__pickled = output._pickled
                 save_step._set_output(dataset)
             return save_step
 

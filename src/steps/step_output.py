@@ -243,7 +243,7 @@ def _output_to_dataset(  # noqa: C901
     output_names: tuple[str, ...],
     output_name_mapping: dict[str, str],
     set_progress: Callable[[float], None],
-    pickled: bool,
+    get_pickled: Callable[[], bool],
     value: StepOutputType | LazyRows | LazyRowBatches,
 ) -> OutputDataset | OutputIterableDataset:
     # Set progress to 0.0
@@ -286,7 +286,8 @@ def _output_to_dataset(  # noqa: C901
     # If given instance of OutputDataset or OutputIterableDataset, unpack them to
     # Dataset or IterableDataset
     if type(_value) is OutputDataset or type(_value) is OutputIterableDataset:
-        pickled = pickled or _value._pickled
+        if _value._pickled:
+            step.pickle(True)
         _value = _value.dataset
 
     # If given a list of OutputDatasets or OutputIterableDatasets, unpack them to
@@ -311,7 +312,8 @@ def _output_to_dataset(  # noqa: C901
             new_value: list[Any] = []
             for d in _value:
                 if type(d) in [OutputDataset, OutputIterableDataset]:
-                    pickled = pickled or d._pickled
+                    if d._pickled:
+                        step.pickle(True)
                     new_value.append(d.dataset)
                 else:
                     new_value.append(d)
@@ -647,9 +649,9 @@ def _output_to_dataset(  # noqa: C901
     rename_mapping = {k: v for k, v in output_name_mapping.items() if k != v}
     __output = __output.rename_columns(rename_mapping)
     if isinstance(__output, IterableDataset):
-        return OutputIterableDataset(step=step, dataset=__output, pickled=pickled)
+        return OutputIterableDataset(step=step, dataset=__output, pickled=get_pickled())
     else:
-        return OutputDataset(step=step, dataset=__output, pickled=pickled)
+        return OutputDataset(step=step, dataset=__output, pickled=get_pickled())
 
 
 __all__ = ["LazyRowBatches", "LazyRows", "StepOutputType", "_output_to_dataset"]
