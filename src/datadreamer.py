@@ -37,7 +37,7 @@ class DataDreamer:
         else:
             logger.setLevel(logging.CRITICAL + 1)
 
-        logger.info(f"Intialized. ✨ Dreaming to folder: {self.output_folder_path}")
+        logger.info(f"Intialized. 🚀 Dreaming to folder: {self.output_folder_path}")
 
     def __enter__(self):
         if hasattr(DataDreamer.ctx, "steps"):
@@ -49,4 +49,4 @@ class DataDreamer:
 
     def __exit__(self, exc_type, exc_value, exc_tb):
         DataDreamer.ctx = threading.local()
-        logger.info(f"Done. 🥂 Results in folder: {self.output_folder_path}")
+        logger.info(f"Done. ✨ Results in folder: {self.output_folder_path}")

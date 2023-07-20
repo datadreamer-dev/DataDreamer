@@ -4,6 +4,7 @@ import os
 from collections import defaultdict
 from functools import cached_property, partial
 from logging import Logger
+from time import time
 from typing import Any
 
 from pandas import DataFrame
@@ -67,6 +68,7 @@ class Step(metaclass=StepMeta):
         inputs: None
         | dict[str, OutputDatasetColumn | OutputIterableDatasetColumn] = None,
         outputs: None | dict[str, str] = None,
+        progress_interval: None | int = 60,
         force: bool = False,
         verbose: bool = False,
         log_level: None | int = None,
@@ -89,6 +91,8 @@ class Step(metaclass=StepMeta):
         if len(self.name) == 0:
             raise ValueError("You must provide a name for the step.")
         self.__progress: None | float = None
+        self.progress_interval: None | int = progress_interval
+        self.progress_last = time()
         self.__output: None | OutputDataset | OutputIterableDataset = None
         self.__pickled: bool = False
         self.__registered: dict[str, Any] = {
@@ -362,7 +366,20 @@ class Step(metaclass=StepMeta):
     def progress(self, value: float):
         if isinstance(self.__output, Dataset):
             value = 1.0
-        self.__progress = max(min(value, 1.0), self.__progress or 0.0)
+        value = max(min(value, 1.0), self.__progress or 0.0)
+        should_log = False
+        if (
+            self.progress_interval is not None
+            and (time() - self.progress_last) > self.progress_interval
+            and value > (self.__progress or 0.0)
+        ):
+            should_log = True
+        self.__progress = value
+        self.progress_last = time()
+        if should_log:
+            logger.info(
+                f"Step '{self.name}' progress:" f" {self.__get_progress_string()} 🔄"
+            )
 
     def __get_progress_string(self):
         if self.__progress is not None:

@@ -45,8 +45,8 @@ class TestFunctionality:
         ]
         logs = [rec.message for rec in caplog.records]
         caplog.clear()
-        assert logs[0].startswith("Intialized. ✨ Dreaming to folder: ")
-        assert logs[1].startswith("Done. 🥂 Results in folder:")
+        assert logs[0].startswith("Intialized. 🚀 Dreaming to folder: ")
+        assert logs[1].startswith("Done. ✨ Results in folder:")
         assert not any(log_dates)
 
         with create_datadreamer(verbose=False):
@@ -62,8 +62,8 @@ class TestFunctionality:
         ]
         logs = [rec.message for rec in caplog.records]
         caplog.clear()
-        assert logs[0].startswith("Intialized. ✨ Dreaming to folder: ")
-        assert logs[1].startswith("Done. 🥂 Results in folder:")
+        assert logs[0].startswith("Intialized. 🚀 Dreaming to folder: ")
+        assert logs[1].startswith("Done. ✨ Results in folder:")
         assert all(log_dates)
 
     def test_step_logging(
