@@ -85,7 +85,7 @@ class TestFunctionality:
         with create_datadreamer():
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
             step._set_output({"out1": ["a", "b", "c"]})
-            assert step.fingerprint == "6e43a7bd9f184025"
+            assert step.fingerprint == "d1be80768c5c1306"
             del step
             assert os.path.isdir(
                 os.path.join(DataDreamer.ctx.output_folder_path, "my-step")
@@ -101,7 +101,7 @@ class TestFunctionality:
             ) as f:
                 metadata = json.load(f)
                 assert metadata["__version__"] == __version__
-                assert metadata["fingerprint"] == "6e43a7bd9f184025"
+                assert metadata["fingerprint"] == "d1be80768c5c1306"
                 assert metadata["pickled"] is False
             assert os.path.isdir(
                 os.path.join(DataDreamer.ctx.output_folder_path, "my-step", "dataset")

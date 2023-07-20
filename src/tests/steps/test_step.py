@@ -121,6 +121,32 @@ class TestFunctionality:
         assert step.output_names == ("out1",)
         assert step.trace_info == {}
 
+    def test_step_str_repr(self, create_test_step: Callable[..., Step]):
+        def setup_1(self):
+            self.register_arg("arg1")
+            self.register_output("out1")
+
+        step = create_test_step(
+            name="my-step", args={"arg1": 5}, outputs={"out1": "foo"}, setup=setup_1
+        )
+        assert (
+            str(step)
+            == "TestStep(\n\tname='my-step',\n\targs={\n\t\t'arg1': 5\n\t},\n\tinputs={},\n\toutputs={\n\t\t'out1' => 'foo'\n\t},\n\toutput=None,\n)"  # noqa: B950
+        )
+
+        def setup_2(self):
+            self.register_output("out1")
+            self.register_output("out2")
+
+        step = create_test_step(
+            name="my-step", args=None, outputs={"out1": "foo"}, setup=setup_2
+        )
+        step._set_output({"out1": ["a", "b", "c"], "out2": [1, 2, 3]})
+        assert str(step).startswith(
+            "TestStep(\n\tname='my-step',\n\tinputs={},\n\toutputs={\n\t\t'out1' => 'foo',\n\t\t'out2' => 'out2'\n\t},\n\toutput=OutputDataset(column_names=['foo', 'out2'], num_rows=3, dataset=<Dataset @ "  # noqa: B950
+        )
+        assert str(step).endswith(">),\n)")
+
     def test_outputs_renames_columns(self, create_test_step: Callable[..., Step]):
         step = create_test_step(
             name="my-step",

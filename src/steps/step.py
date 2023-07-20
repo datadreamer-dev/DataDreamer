@@ -325,7 +325,7 @@ class Step(metaclass=StepProtector):
     def fingerprint(self) -> str:
         return Hasher.hash(
             [
-                str(type(self)),
+                str(type(self).__name__),
                 self.name,
                 self.version,
                 list(self.__registered["inputs"].keys()),
@@ -342,6 +342,41 @@ class Step(metaclass=StepProtector):
         run_output_folder_path = os.path.join(self.__output_folder_path, "run_output")
         os.makedirs(run_output_folder_path, exist_ok=True)
         return run_output_folder_path
+
+    def __repr__(self) -> str:
+        # Representation helpers
+        def dict_to_str(d: dict, delim: str = ": "):
+            dict_repr = ",".join(
+                [f"\n\t\t{repr(k)}{delim}{repr(v)}" for k, v in d.items()]
+            )
+            if len(d) > 0:
+                dict_repr += "\n\t"
+            return dict_repr
+
+        def repr_var(name: str, value: Any):
+            return f"\t{name}={repr(value)},\n"
+
+        def repr_dict_var(name: str, value: dict, delim: str = ": "):
+            return f"\t{name}={{" + dict_to_str(value, delim=delim) + "},\n"
+
+        # Build representations
+        name_repr = repr_var("name", self.name)
+        if len(self.__registered["args"]) > 0:
+            args_repr = repr_dict_var("args", self.__registered["args"])
+        else:
+            args_repr = ""
+        inputs_repr = repr_dict_var("inputs", self.__registered["inputs"])
+        outputs_repr = repr_dict_var("outputs", self.output_name_mapping, delim=" => ")
+        output_repr = repr_var("output", self.__output)
+        return (
+            f"{type(self).__name__}(\n"
+            f"{name_repr}"
+            f"{args_repr}"
+            f"{inputs_repr}"
+            f"{outputs_repr}"
+            f"{output_repr}"
+            ")"
+        )
 
 
 __all__ = ["LazyRowBatches", "LazyRows", "StepOutputType"]

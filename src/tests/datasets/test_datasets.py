@@ -98,6 +98,17 @@ class TestFunctionality:
         assert len(output) == 3
         rows = list(output)
         assert [row["out1"] for row in rows] == ["a", "b", "c"]
+        assert str(output).startswith(
+            "OutputDataset(column_names=['out1'], num_rows=3, dataset=<Dataset @ "
+        )
+        assert str(output).endswith(")")
+        assert str(output) == repr(output)
+        column = output["out1"]
+        assert str(column).startswith(
+            "OutputDatasetColumn(column_name='out1', num_rows=3, dataset=<Dataset @ "
+        )
+        assert str(column).endswith(")")
+        assert str(column) == repr(column)
 
     def test_dataset_pickled(self, create_test_step: Callable[..., Step]):
         step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
@@ -121,6 +132,17 @@ class TestFunctionality:
         output = OutputIterableDataset(step, dataset, pickled=False)
         rows = list(output)
         assert [row["out1"] for row in rows] == ["a", "b", "c"]
+        assert str(output).startswith(
+            "OutputIterableDataset(column_names=['out1'], dataset=<IterableDataset @ "
+        )
+        assert str(output).endswith(")")
+        assert str(output) == repr(output)
+        column = output["out1"]
+        assert str(column).startswith(
+            "OutputIterableDatasetColumn(column_name='out1', dataset=<IterableDataset @ "
+        )
+        assert str(column).endswith(")")
+        assert str(column) == repr(column)
 
     def test_iterable_dataset_pickled(self, create_test_step: Callable[..., Step]):
         step = create_test_step(name="my-step", inputs=None, output_names=["out1"])

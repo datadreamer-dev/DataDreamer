@@ -89,6 +89,25 @@ class OutputDatasetMixin:
             )
         return DataFrame.from_records(list(iterable_dataset.take(n)))
 
+    def __repr__(self) -> str:
+        if isinstance(self, OutputDataset):
+            return (
+                f"{type(self).__name__}("
+                f"column_names={str(self.column_names)}, "
+                f"num_rows={len(self)}, "
+                f"dataset=<{type(self.dataset).__name__} @ {id(self.dataset)}>"
+                ")"
+            )
+        elif isinstance(self, OutputIterableDataset):
+            return (
+                f"{type(self).__name__}("
+                f"column_names={str(self.column_names)}, "
+                f"dataset=<{type(self.dataset).__name__} @ {id(self.dataset)}>"
+                ")"
+            )
+        else:
+            return super().__repr__()  # pragma: no cover
+
 
 class OutputDatasetColumnMixin:
     def __iter__(self):
@@ -115,6 +134,25 @@ class OutputDatasetColumnMixin:
                     return dataset[key]
         else:
             return super().__getitem__(key)[column_name]  # type:ignore[misc]
+
+    def __repr__(self) -> str:
+        if isinstance(self, OutputDatasetColumn):
+            return (
+                f"{type(self).__name__}("
+                f"column_name={repr(self.column_names[0])}, "
+                f"num_rows={len(self)}, "
+                f"dataset=<{type(self.dataset).__name__} @ {id(self.dataset)}>"
+                ")"
+            )
+        elif isinstance(self, OutputIterableDatasetColumn):
+            return (
+                f"{type(self).__name__}("
+                f"column_name={repr(self.column_names[0])}, "
+                f"dataset=<{type(self.dataset).__name__} @ {id(self.dataset)}>"
+                ")"
+            )
+        else:
+            return super().__repr__()  # pragma: no cover
 
 
 class OutputIterableDataset(OutputDatasetMixin):
