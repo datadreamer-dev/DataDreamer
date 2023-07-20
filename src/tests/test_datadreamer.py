@@ -5,10 +5,12 @@ from typing import Callable
 
 import pytest
 
+from datasets import Dataset
+
 from .. import DataDreamer, __version__
 from ..datasets import OutputDataset
 from ..errors import StepOutputError
-from ..steps import Step, TraceInfoType
+from ..steps import LazyRows, Step, TraceInfoType
 
 
 class TestErrors:
@@ -219,6 +221,35 @@ class TestFunctionality:
                     "dataset_info.json",
                 )
             )
+
+    def test_step_does_not_save_iterable_dataset(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            step._set_output(
+                LazyRows(
+                    Dataset.from_dict({"out1": ["a", "b", "c"]}).to_iterable_dataset(),
+                    total_num_rows=3,
+                )
+            )
+            assert step.fingerprint == "2d5db4b5ff337633"
+            del step
+            assert os.path.isdir(
+                os.path.join(DataDreamer.ctx.output_folder_path, "my-step")
+            )
+            assert not os.path.exists(
+                os.path.join(DataDreamer.ctx.output_folder_path, "my-step", "step.json")
+            )
+            assert not os.path.exists(
+                os.path.join(DataDreamer.ctx.output_folder_path, "my-step", "dataset")
+            )
+            resume_path = os.path.basename(DataDreamer.ctx.output_folder_path)
+
+        with create_datadreamer(resume_path):
+            step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            with pytest.raises(StepOutputError):
+                assert set(step.output.column_names) == set(["out1"])
 
     def test_saves_pickled_dataset(
         self, create_datadreamer, create_test_step: Callable[..., Step]

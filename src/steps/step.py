@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from collections import defaultdict
-from functools import cached_property
+from functools import cached_property, partial
 from logging import Logger
 from typing import Any
 
@@ -198,12 +198,14 @@ class Step(metaclass=StepMeta):
             )
             self._setup_folder_and_resume()
 
-    def _save_to_disk(self):
-        if self.__output_folder_path and isinstance(self.__output, OutputDataset):
+    def _save_to_disk(self, num_proc: None | int = None):
+        if not self.__output_folder_path:
+            return
+        if isinstance(self.__output, OutputDataset):
             logger.debug(f"Step '{self.name}' is being saved to disk.")
             metadata_path = os.path.join(self.__output_folder_path, "step.json")
             dataset_path = os.path.join(self.__output_folder_path, "dataset")
-            self.__output.save_to_disk(dataset_path)
+            self.__output.save_to_disk(dataset_path, num_proc=num_proc)
             with open(metadata_path, "w+") as f:
                 json.dump(
                     {
@@ -216,7 +218,7 @@ class Step(metaclass=StepMeta):
                 )
             logger.debug(f"Step '{self.name}' is now saved to disk.")
             logger.info(f"Step '{self.name}' finished and is saved to disk. 🎉")
-        else:
+        elif isinstance(self.__output, OutputIterableDataset):
             logger.info(f"Step '{self.name}' will run lazily. 🥱")
 
     def _setup_folder_and_resume(self):
@@ -363,6 +365,7 @@ class Step(metaclass=StepMeta):
     def _set_output(  # noqa: C901
         self,
         value: StepOutputType | LazyRows | LazyRowBatches,
+        num_proc: None | int = None,
     ):
         if self.__output:
             raise StepOutputError("Step has already been run.")
@@ -375,7 +378,7 @@ class Step(metaclass=StepMeta):
             pickled=self.__pickled,
             value=value,
         )
-        self._save_to_disk()
+        self._save_to_disk(num_proc=num_proc)
 
     def head(self, n=5, shuffle=False, seed=None, buffer_size=1000) -> DataFrame:
         return self.output.head(
@@ -385,6 +388,56 @@ class Step(metaclass=StepMeta):
     @cached_property
     def trace_info(self):
         return json.loads(json.dumps(self.__registered["trace_info"]))
+
+    def save(
+        self,
+        name: None | str = None,
+        writer_batch_size: None | int = 1000,
+        num_proc: None | int = None,
+    ) -> "Step":
+        final_name = name or f"{self.name}_save"
+
+        def create_save_step(
+            self: Step,
+            name: str,
+            output: OutputDataset | OutputIterableDataset,
+            writer_batch_size: None | int,
+            num_proc: None | int,
+        ) -> Step:
+            class SaveStep(Step):
+                def setup(self):
+                    for column_name in output.column_names:
+                        self.register_output(column_name)
+
+            save_step = SaveStep(name=name)
+            if isinstance(output, OutputDataset):
+                save_step._set_output(output, num_proc=num_proc)
+            else:
+
+                def dataset_generator(dataset):
+                    yield from dataset
+
+                logger.debug(
+                    f"Iterating through all of '{self.name}''s lazy results in"
+                    " preparation for saving."
+                )
+                dataset = Dataset.from_generator(
+                    partial(dataset_generator, output.dataset),
+                    features=output._features,
+                    writer_batch_size=writer_batch_size,
+                    num_proc=num_proc,
+                )
+                save_step._set_output(dataset)
+            return save_step
+
+        return partial(
+            create_save_step,
+            self=self,
+            name=final_name,
+            output=self.output,
+            writer_batch_size=writer_batch_size,
+            num_proc=num_proc,
+        )()
 
     @cached_property
     def fingerprint(self) -> str:
