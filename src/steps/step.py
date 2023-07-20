@@ -419,11 +419,15 @@ class Step(metaclass=StepMeta):
         writer_batch_size: None | int = 1000,
         num_proc: None | int = None,
     ) -> "Step":
-        final_name = name or f"{self.name}_save"
+        if not self.__output_folder_path:
+            raise RuntimeError(
+                "You must run the Step in a DataDreamer() context."
+            )  # pragma: no cover
 
         def create_save_step(
             self: Step,
             name: str,
+            output_folder_path: str,
             output: OutputDataset | OutputIterableDataset,
             writer_batch_size: None | int,
             num_proc: None | int,
@@ -445,9 +449,11 @@ class Step(metaclass=StepMeta):
                     f"Iterating through all of '{self.name}''s lazy results in"
                     " preparation for saving."
                 )
+                cache_path = os.path.join(output_folder_path, "cache")
                 dataset = Dataset.from_generator(
                     partial(dataset_generator, output.dataset),
                     features=output._features,
+                    cache_dir=cache_path,
                     writer_batch_size=writer_batch_size,
                     num_proc=num_proc,
                 )
@@ -455,10 +461,12 @@ class Step(metaclass=StepMeta):
                 save_step._set_output(dataset)
             return save_step
 
+        final_name = name or f"{self.name}_save"
         return partial(
             create_save_step,
             self=self,
             name=final_name,
+            output_folder_path=self.__output_folder_path,
             output=self.output,
             writer_batch_size=writer_batch_size,
             num_proc=num_proc,

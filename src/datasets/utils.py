@@ -26,7 +26,11 @@ def drop_unsupported_features(dataset: Dataset | IterableDataset):
             dataset.drop_index(index_name)  # pragma: no cover
 
 
-def dataset_zip(*datasets: Dataset) -> Dataset:
+def dataset_zip(
+    *datasets: Dataset,
+    writer_batch_size: None | int = 1000,
+    num_proc: None | int = None
+) -> Dataset:
     if len(datasets) == 0:
         raise ValueError("You must provide at least one dataset to zip.")
     datasets = tuple([deepcopy(d) for d in datasets])
@@ -45,6 +49,8 @@ def dataset_zip(*datasets: Dataset) -> Dataset:
         with_indices=True,
         remove_columns=get_column_names(smallest_dataset),
         desc="Zipping datasets together",
+        writer_batch_size=writer_batch_size,
+        num_proc=num_proc,
     )
 
 

@@ -17,8 +17,9 @@ class Dataset:
         cls,
         generator: Callable,
         features: None | Features,
-        writer_batch_size: None | int,
-        num_proc: None | int,
+        cache_dir: None | str,
+        writer_batch_size: None | int = 1000,
+        num_proc: None | int = None,
     ) -> Dataset: ...
     @property
     def column_names(self) -> None | list[str]: ...
@@ -33,6 +34,8 @@ class Dataset:
         with_indices: bool = False,
         remove_columns: None | str | list[str] = None,
         desc: None | str = None,
+        writer_batch_size: None | int = 1000,
+        num_proc: None | int = None,
     ): ...
     def shuffle(
         self,
@@ -46,7 +49,7 @@ class Dataset:
     ) -> Dataset: ...
     def rename_columns(self, column_mapping: dict[str, str]): ...
     def to_iterable_dataset(self, num_shards: None | int = 1) -> IterableDataset: ...
-    def save_to_disk(self, path: str, num_proc: None | int) -> None: ...
+    def save_to_disk(self, path: str, num_proc: None | int = None) -> None: ...
     @classmethod
     def load_from_disk(cls, path) -> Dataset: ...
     def __iter__(self): ...
@@ -67,7 +70,6 @@ class IterableDataset:
         function: None | Callable = None,
         with_indices: bool = False,
         remove_columns: None | str | list[str] = None,
-        desc: None | str = None,
     ): ...
     def shuffle(
         self,
