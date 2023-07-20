@@ -2,7 +2,7 @@ import logging
 import os
 import threading
 
-from .logging import logger
+from .logging import DATEFMT, DATETIME_FORMAT, STANDARD_FORMAT, logger
 
 
 class DataDreamer:
@@ -13,6 +13,7 @@ class DataDreamer:
         output_folder_path: str,
         verbose: bool = True,
         log_level: None | int = None,
+        log_date: bool = False,
     ):
         if os.path.isfile(output_folder_path):
             raise ValueError(
@@ -21,6 +22,16 @@ class DataDreamer:
         self.output_folder_path = output_folder_path
 
         # Setup logger
+        if log_date:
+            formatter = logging.Formatter(
+                DATETIME_FORMAT, datefmt=DATEFMT, validate=False
+            )
+            logger.handlers[0].setFormatter(formatter)
+        else:
+            formatter = logging.Formatter(
+                STANDARD_FORMAT, datefmt=DATEFMT, validate=False
+            )
+            logger.handlers[0].setFormatter(formatter)
         if verbose:
             logger.setLevel(log_level or logging.INFO)
         else:

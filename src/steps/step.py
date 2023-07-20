@@ -1,7 +1,9 @@
 import json
+import logging
 import os
 from collections import defaultdict
 from functools import cached_property
+from logging import Logger
 from typing import Any
 
 from pandas import DataFrame
@@ -18,9 +20,10 @@ from ..datasets import (
     OutputIterableDatasetColumn,
 )
 from ..errors import StepOutputError
-from ..logging import logger
+from ..logging import DATEFMT, STANDARD_FORMAT, logger
 from ..pickling import unpickle as _unpickle
 from ..pickling.pickle import _INTERNAL_PICKLE_KEY, _pickle
+from ..project.environment import RUNNING_IN_PYTEST
 from ..utils.fs_utils import clear_dir, safe_fn
 from .step_output import LazyRowBatches, LazyRows, StepOutputType, _output_to_dataset
 
@@ -64,6 +67,8 @@ class Step(metaclass=StepMeta):
         inputs: None
         | dict[str, OutputDatasetColumn | OutputIterableDatasetColumn] = None,
         outputs: None | dict[str, str] = None,
+        verbose: bool = False,
+        log_level: None | int = None,
     ):
         # Fill in default argument valu]es
         if not isinstance(args, dict):
@@ -97,6 +102,30 @@ class Step(metaclass=StepMeta):
             "inputs": {},
             "outputs": {},
         }
+
+        # Initialize the logger
+        self.logger: Logger
+        if not hasattr(self.__class__, _INTERNAL_HELP_KEY):
+            stderr_handler = logging.StreamHandler()
+            stderr_handler.setLevel(logging.DEBUG)
+            self.logger = logging.getLogger(f"datadreamer.steps.{self.name}")
+            if RUNNING_IN_PYTEST:
+                self.logger.propagate = True
+            else:
+                self.logger.propagate = False  # pragma: no cover
+            log_format: str = (
+                logger.handlers[0].formatter and logger.handlers[0].formatter._fmt
+            ) or STANDARD_FORMAT
+            log_format = log_format.replace(
+                "%(message)s", f"[ ➡️ {self.name}] %(message)s"
+            )
+            formatter = logging.Formatter(log_format, datefmt=DATEFMT, validate=False)
+            stderr_handler.setFormatter(formatter)
+            self.logger.addHandler(stderr_handler)
+            if verbose:
+                self.logger.setLevel(log_level or max(logger.level, logging.INFO))
+            else:
+                self.logger.setLevel(logging.CRITICAL + 1)
 
         # Run setup
         self.setup()

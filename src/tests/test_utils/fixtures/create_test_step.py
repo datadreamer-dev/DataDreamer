@@ -14,6 +14,7 @@ def create_test_step() -> Callable[..., Step]:
         outputs=None,
         output_names=None,
         setup=None,
+        **kwargs,
     ) -> Step:
         if output_names is None:
             output_names = []
@@ -28,6 +29,6 @@ def create_test_step() -> Callable[..., Step]:
                 if setup is not None:
                     setup(self)
 
-        return TestStep(name, inputs=inputs, args=args, outputs=outputs)
+        return TestStep(name, inputs=inputs, args=args, outputs=outputs, **kwargs)
 
     return _create_test_step

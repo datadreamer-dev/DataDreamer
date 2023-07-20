@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from typing import Callable
 
@@ -37,16 +38,88 @@ class TestFunctionality:
     def test_logging(self, create_datadreamer, caplog):
         with create_datadreamer():
             pass
+        log_dates = [
+            rec.asctime if hasattr(rec, "asctime") else False for rec in caplog.records
+        ]
         logs = [rec.message for rec in caplog.records]
         caplog.clear()
-        assert "Intialized. ✨ Dreaming to folder: " in logs[0]
-        assert "Done. 🥂 Results in folder:" in logs[1]
+        assert logs[0].startswith("Intialized. ✨ Dreaming to folder: ")
+        assert logs[1].startswith("Done. 🥂 Results in folder:")
+        assert not any(log_dates)
 
         with create_datadreamer(verbose=False):
             pass
         logs = [rec.message for rec in caplog.records]
         caplog.clear()
         assert len(logs) == 0
+
+        with create_datadreamer(log_date=True):
+            pass
+        log_dates = [
+            rec.asctime if hasattr(rec, "asctime") else False for rec in caplog.records
+        ]
+        logs = [rec.message for rec in caplog.records]
+        caplog.clear()
+        assert logs[0].startswith("Intialized. ✨ Dreaming to folder: ")
+        assert logs[1].startswith("Done. 🥂 Results in folder:")
+        assert all(log_dates)
+
+    def test_step_logging(
+        self, create_datadreamer, create_test_step: Callable[..., Step], caplog
+    ):
+        with create_datadreamer():
+            step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            step.logger.info("Log from step.")
+        logs = [rec.message for rec in caplog.records]
+        caplog.clear()
+        assert logs[2] != "Log from step."
+
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step", inputs=None, output_names=["out1"], verbose=True
+            )
+            step.logger.info("Log from step.")
+        logs = [rec.message for rec in caplog.records]
+        caplog.clear()
+        assert logs[2] == "Log from step."
+
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step",
+                inputs=None,
+                output_names=["out1"],
+                verbose=True,
+                log_level=logging.WARNING,
+            )
+            step.logger.info("Log from step.")
+        logs = [rec.message for rec in caplog.records]
+        caplog.clear()
+        assert logs[2] != "Log from step."
+
+        with create_datadreamer(verbose=True):
+            step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            step.logger.info("Log from step.")
+        logs = [rec.message for rec in caplog.records]
+        caplog.clear()
+        assert logs[2] != "Log from step."
+
+        with create_datadreamer(log_level=logging.WARNING):
+            step = create_test_step(
+                name="my-step", inputs=None, output_names=["out1"], verbose=True
+            )
+            step.logger.info("Log from step.")
+        logs = [rec.message for rec in caplog.records]
+        caplog.clear()
+        assert len(logs) < 3
+
+        with create_datadreamer(verbose=True, log_level=logging.INFO):
+            step = create_test_step(
+                name="my-step", inputs=None, output_names=["out1"], verbose=True
+            )
+            step.logger.info("Log from step.")
+        logs = [rec.message for rec in caplog.records]
+        caplog.clear()
+        assert logs[2] == "Log from step."
 
     def test_creates_folder(self, create_datadreamer):
         with create_datadreamer():
