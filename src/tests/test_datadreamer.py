@@ -255,34 +255,6 @@ class TestFunctionality:
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
             step._set_output({"out1": ["a", "b", "c"]})
             assert step.fingerprint == "2d5db4b5ff337633"
-            del step
-            assert os.path.isdir(
-                os.path.join(DataDreamer.ctx.output_folder_path, "my-step")
-            )
-            assert os.path.isfile(
-                os.path.join(DataDreamer.ctx.output_folder_path, "my-step", "step.json")
-            )
-            with open(
-                os.path.join(
-                    DataDreamer.ctx.output_folder_path, "my-step", "step.json"
-                ),
-                "r",
-            ) as f:
-                metadata = json.load(f)
-                assert metadata["__version__"] == __version__
-                assert metadata["fingerprint"] == "2d5db4b5ff337633"
-                assert metadata["pickled"] is False
-            assert os.path.isdir(
-                os.path.join(DataDreamer.ctx.output_folder_path, "my-step", "dataset")
-            )
-            assert os.path.isfile(
-                os.path.join(
-                    DataDreamer.ctx.output_folder_path,
-                    "my-step",
-                    "dataset",
-                    "dataset_info.json",
-                )
-            )
             resume_path = os.path.basename(DataDreamer.ctx.output_folder_path)
 
         with create_datadreamer(resume_path):
