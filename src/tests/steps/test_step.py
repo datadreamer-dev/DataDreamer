@@ -121,6 +121,27 @@ class TestFunctionality:
         assert step.output_names == ("out1",)
         assert step.trace_info == {}
 
+    def test_step_help_string(self):
+        class TestStep1(Step):
+            def setup(self):
+                pass
+
+        assert (
+            TestStep1.help
+            == "TestStep1(\n\tname='The name of the step.',\n\toutputs={},\n)"
+        )
+
+        class TestStep2(Step):
+            def setup(self):
+                self.register_arg("arg1", help="The first argument.")
+                self.register_input("in1", help="The first input.")
+                self.register_output("out1", help="The first output.")
+
+        assert (
+            TestStep2.help
+            == "TestStep2(\n\tname='The name of the step.',\n\targs={\n\t\t'arg1': 'The first argument.'\n\t},\n\tinputs={\n\t\t'in1': 'The first input.'\n\t},\n\toutputs={\n\t\t'out1': 'The first output.'\n\t},\n)"  # noqa: B950
+        )
+
     def test_step_str_repr(self, create_test_step: Callable[..., Step]):
         def setup_1(self):
             self.register_arg("arg1")

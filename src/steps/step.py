@@ -1,6 +1,7 @@
 import json
 import os
 from collections import defaultdict
+from functools import cached_property
 from typing import Any
 
 from pandas import DataFrame
@@ -23,8 +24,10 @@ from ..pickling.pickle import _INTERNAL_PICKLE_KEY, _pickle
 from ..utils.fs_utils import clear_dir, safe_fn
 from .step_output import LazyRowBatches, LazyRows, StepOutputType, _output_to_dataset
 
+_INTERNAL_HELP_KEY = "__DataDreamer__help__"
 
-class StepProtector(type):
+
+class StepMeta(type):
     has_base = False
 
     def __new__(meta, name, bases, attrs):
@@ -39,25 +42,38 @@ class StepProtector(type):
         klass = super().__new__(meta, name, bases, attrs)
         return klass
 
+    @property
+    def help(self) -> str:
+        if not hasattr(self, ".__help_str__"):
 
-class Step(metaclass=StepProtector):
+            class StepHelp(self):  # type:ignore[valid-type,misc]
+                pass
+
+            StepHelp.__name__ = self.__name__
+            setattr(StepHelp, _INTERNAL_HELP_KEY, True)
+            help_step = StepHelp(name="help_step")
+            self.__help_str__ = help_step.help
+        return self.__help_str__
+
+
+class Step(metaclass=StepMeta):
     def __init__(  # noqa: C901
         self,
         name: str,
+        args: None | dict[str, Any] = None,
         inputs: None
         | dict[str, OutputDatasetColumn | OutputIterableDatasetColumn] = None,
-        args: None | dict[str, Any] = None,
         outputs: None | dict[str, str] = None,
     ):
-        # Fill in default argument values
-        if not isinstance(inputs, dict):
-            inputs = {}
+        # Fill in default argument valu]es
         if not isinstance(args, dict):
             args = {}
+        if not isinstance(inputs, dict):
+            inputs = {}
         if not isinstance(outputs, dict):
             outputs = {}
-        assert inputs is not None
         assert args is not None
+        assert inputs is not None
         assert outputs is not None
 
         # Initialize variables
@@ -70,15 +86,32 @@ class Step(metaclass=StepProtector):
         self.__output: None | OutputDataset | OutputIterableDataset = None
         self.__pickled: bool = False
         self.__registered: dict[str, Any] = {
-            "inputs": {},
             "args": {},
+            "inputs": {},
             "outputs": [],
             "trace_info": defaultdict(lambda: defaultdict(list)),
+        }
+        self.output_name_mapping = {}
+        self.__help: dict[str, Any] = {
+            "args": {},
+            "inputs": {},
+            "outputs": {},
         }
 
         # Run setup
         self.setup()
+        if hasattr(self.__class__, _INTERNAL_HELP_KEY):
+            return
         self._initialized = True
+
+        # Validate and setup args
+        if not set(args.keys()).issubset(set(self.__registered["args"].keys())):
+            raise ValueError(
+                f"Expected {set(self.__registered['args'].keys())} as args keys,"
+                f" got {set(args.keys())}."
+            )
+        else:
+            self.__registered["args"].update(args)
 
         # Validate and setup inputs
         if set(self.__registered["inputs"].keys()) != set(inputs.keys()):
@@ -106,15 +139,6 @@ class Step(metaclass=StepProtector):
             prev_trace_info.update(self.__registered["trace_info"])
             self.__registered["trace_info"] = prev_trace_info
 
-        # Validate and setup args
-        if not set(args.keys()).issubset(set(self.__registered["args"].keys())):
-            raise ValueError(
-                f"Expected {set(self.__registered['args'].keys())} as args keys,"
-                f" got {set(args.keys())}."
-            )
-        else:
-            self.__registered["args"].update(args)
-
         # Initialize output names mapping
         if len(self.__registered["outputs"]) == 0:
             raise ValueError("The step must register at least one output.")
@@ -123,7 +147,7 @@ class Step(metaclass=StepProtector):
                 f"Expected {set(self.__registered['outputs'])} as output keys,"
                 f" got {set(outputs.keys())}."
             )
-        self.output_name_mapping: dict[str, str] = {
+        self.output_name_mapping = {
             o: outputs.get(o, o) for o in self.__registered["outputs"]
         }
         self.output_names = tuple(
@@ -212,7 +236,18 @@ class Step(metaclass=StepProtector):
         # We still need to run this step
         logger.info(f"Step '{self.name}' is running. ⏳")
 
-    def register_input(self, input_column_name: str):
+    def register_arg(self, arg_name: str, help: None | str = None):
+        if self._initialized:
+            raise RuntimeError(
+                "The step is already initialized, you can only run"
+                " .register_xxx() functions in the setup() method."
+            )
+        if type(arg_name) is not str:
+            raise TypeError(f"Expected str, got {type(arg_name)}.")
+        self.__registered["args"][arg_name] = None
+        self.__help["args"][arg_name] = help
+
+    def register_input(self, input_column_name: str, help: None | str = None):
         if self._initialized:
             raise RuntimeError(
                 "The step is already initialized, you can only run"
@@ -222,18 +257,9 @@ class Step(metaclass=StepProtector):
             raise TypeError(f"Expected str, got {type(input_column_name)}.")
         if input_column_name not in self.__registered["inputs"]:
             self.__registered["inputs"][input_column_name] = None
+        self.__help["inputs"][input_column_name] = help
 
-    def register_arg(self, arg_name: str):
-        if self._initialized:
-            raise RuntimeError(
-                "The step is already initialized, you can only run"
-                " .register_xxx() functions in the setup() method."
-            )
-        if type(arg_name) is not str:
-            raise TypeError(f"Expected str, got {type(arg_name)}.")
-        self.__registered["args"][arg_name] = None
-
-    def register_output(self, output_column_name: str):
+    def register_output(self, output_column_name: str, help: None | str = None):
         if self._initialized:
             raise RuntimeError(
                 "The step is already initialized, you can only run"
@@ -243,6 +269,7 @@ class Step(metaclass=StepProtector):
             raise TypeError(f"Expected str, got {type(output_column_name)}.")
         if output_column_name not in self.__registered["outputs"]:
             self.__registered["outputs"].append(output_column_name)
+        self.__help["outputs"][output_column_name] = help
 
     def register_trace_info(self, trace_info_type: str, trace_info: Any):
         if self._initialized:
@@ -317,20 +344,24 @@ class Step(metaclass=StepProtector):
             n=n, shuffle=shuffle, seed=seed, buffer_size=buffer_size
         )
 
-    @property
+    @cached_property
     def trace_info(self):
         return json.loads(json.dumps(self.__registered["trace_info"]))
 
-    @property
+    @cached_property
     def fingerprint(self) -> str:
         return Hasher.hash(
             [
                 str(type(self).__name__),
                 self.name,
                 self.version,
+                self.__registered["args"],
                 list(self.__registered["inputs"].keys()),
-                list(self.__registered["args"].keys()),
+                list(
+                    [c.step.fingerprint for c in self.__registered["inputs"].values()]
+                ),
                 list(self.__registered["outputs"]),
+                self.output_name_mapping,
             ]
         )
 
@@ -342,6 +373,42 @@ class Step(metaclass=StepProtector):
         run_output_folder_path = os.path.join(self.__output_folder_path, "run_output")
         os.makedirs(run_output_folder_path, exist_ok=True)
         return run_output_folder_path
+
+    @cached_property
+    def help(self) -> str:
+        # Representation helpers
+        def dict_to_str(d: dict, delim: str = ": "):
+            dict_repr = ",".join(
+                [f"\n\t\t{repr(k)}{delim}{repr(v)}" for k, v in d.items()]
+            )
+            if len(d) > 0:
+                dict_repr += "\n\t"
+            return dict_repr
+
+        def repr_var(name: str, value: Any):
+            return f"\t{name}={repr(value)},\n"
+
+        def repr_dict_var(name: str, value: dict, delim: str = ": "):
+            return f"\t{name}={{" + dict_to_str(value, delim=delim) + "},\n"
+
+        name_repr = repr_var("name", "The name of the step.")
+        if len(self.__help["args"]) > 0:
+            args_repr = repr_dict_var("args", self.__help["args"])
+        else:
+            args_repr = ""
+        if len(self.__help["inputs"]) > 0:
+            inputs_repr = repr_dict_var("inputs", self.__help["inputs"])
+        else:
+            inputs_repr = ""
+        outputs_repr = repr_dict_var("outputs", self.__help["outputs"])
+        return (
+            f"{type(self).__name__}(\n"
+            f"{name_repr}"
+            f"{args_repr}"
+            f"{inputs_repr}"
+            f"{outputs_repr}"
+            ")"
+        )
 
     def __repr__(self) -> str:
         # Representation helpers
