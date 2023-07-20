@@ -24,7 +24,7 @@ from ..logging import DATEFMT, STANDARD_FORMAT, logger
 from ..pickling import unpickle as _unpickle
 from ..pickling.pickle import _INTERNAL_PICKLE_KEY, _pickle
 from ..project.environment import RUNNING_IN_PYTEST
-from ..utils.fs_utils import clear_dir, safe_fn
+from ..utils.fs_utils import move_dir, safe_fn
 from .step_output import LazyRowBatches, LazyRows, StepOutputType, _output_to_dataset
 
 _INTERNAL_HELP_KEY = "__DataDreamer__help__"
@@ -67,6 +67,7 @@ class Step(metaclass=StepMeta):
         inputs: None
         | dict[str, OutputDatasetColumn | OutputIterableDatasetColumn] = None,
         outputs: None | dict[str, str] = None,
+        force: bool = False,
         verbose: bool = False,
         log_level: None | int = None,
     ):
@@ -102,6 +103,7 @@ class Step(metaclass=StepMeta):
             "inputs": {},
             "outputs": {},
         }
+        self.force = force
 
         # Initialize the logger
         self.logger: Logger
@@ -202,7 +204,9 @@ class Step(metaclass=StepMeta):
         if not self.__output_folder_path:
             return
         if isinstance(self.__output, OutputDataset):
-            logger.debug(f"Step '{self.name}' is being saved to disk.")
+            logger.debug(
+                f"Step '{self.name}' is being saved to disk: {self.__output_folder_path}."
+            )
             metadata_path = os.path.join(self.__output_folder_path, "step.json")
             dataset_path = os.path.join(self.__output_folder_path, "dataset")
             self.__output.save_to_disk(dataset_path, num_proc=num_proc)
@@ -216,7 +220,9 @@ class Step(metaclass=StepMeta):
                     f,
                     indent=4,
                 )
-            logger.debug(f"Step '{self.name}' is now saved to disk.")
+            logger.debug(
+                f"Step '{self.name}' is now saved to disk: {self.__output_folder_path}."
+            )
             logger.info(f"Step '{self.name}' finished and is saved to disk. 🎉")
         elif isinstance(self.__output, OutputIterableDataset):
             logger.info(f"Step '{self.name}' will run lazily. 🥱")
@@ -244,7 +250,7 @@ class Step(metaclass=StepMeta):
             pass
 
         # We have already run this step
-        if prev_fingerprint == self.fingerprint:
+        if prev_fingerprint == self.fingerprint and not self.force:
             self.__output = OutputDataset(
                 self, Dataset.load_from_disk(dataset_path), pickled=metadata["pickled"]
             )
@@ -255,13 +261,27 @@ class Step(metaclass=StepMeta):
                 " and saved."
             )
             return
-        elif prev_fingerprint is not None and prev_fingerprint != self.fingerprint:
+        elif prev_fingerprint is not None and (
+            prev_fingerprint != self.fingerprint or self.force
+        ):
             # ...but it was a different version, delete the results and we'll need
             # to re-run this step
-            clear_dir(self.__output_folder_path)
             logger.info(
                 f"Step '{self.name}' was previously run and saved, but was outdated. 😞"
                 " It will be re-run."
+            )
+            backup_path = os.path.join(
+                DataDreamer.ctx.output_folder_path,
+                ".backups",
+                safe_fn(self.name),
+                prev_fingerprint,
+            )
+            logger.debug(
+                f"Step '{self.name}''s outdated results are being backed up: {backup_path}"
+            )
+            move_dir(self.__output_folder_path, backup_path)
+            logger.debug(
+                f"Step '{self.name}''s outdated results are backed up: {backup_path}"
             )
 
         # We still need to run this step
