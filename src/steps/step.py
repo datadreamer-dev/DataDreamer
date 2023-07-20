@@ -313,6 +313,15 @@ class Step(metaclass=StepMeta):
     def setup(self):
         raise NotImplementedError("You must implement the .setup() method in Step.")
 
+    def get_run_output_folder_path(self) -> str:
+        if not self.__output_folder_path:
+            raise RuntimeError(
+                "You must run the Step in a DataDreamer() context."
+            )  # pragma: no cover
+        run_output_folder_path = os.path.join(self.__output_folder_path, "run_output")
+        os.makedirs(run_output_folder_path, exist_ok=True)
+        return run_output_folder_path
+
     def pickle(self, value: Any, *args: Any, **kwargs: Any) -> bytes:
         self.__pickled = True
         kwargs[_INTERNAL_PICKLE_KEY] = True
@@ -393,15 +402,6 @@ class Step(metaclass=StepMeta):
                 self.output_name_mapping,
             ]
         )
-
-    def get_run_output_folder_path(self) -> str:
-        if not self.__output_folder_path:
-            raise RuntimeError(
-                "You must run the Step in a DataDreamer() context."
-            )  # pragma: no cover
-        run_output_folder_path = os.path.join(self.__output_folder_path, "run_output")
-        os.makedirs(run_output_folder_path, exist_ok=True)
-        return run_output_folder_path
 
     @cached_property
     def help(self) -> str:
