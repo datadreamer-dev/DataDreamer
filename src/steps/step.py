@@ -2,6 +2,7 @@ import json
 import logging
 import os
 from collections import defaultdict
+from datetime import datetime
 from functools import cached_property, partial
 from logging import Logger
 from time import time
@@ -54,6 +55,7 @@ class StepMeta(type):
                 pass
 
             StepHelp.__name__ = self.__name__
+            StepHelp.__qualname__ = self.__name__
             setattr(StepHelp, _INTERNAL_HELP_KEY, True)
             help_step = StepHelp(name="help_step")
             self.__help_str__ = help_step.help
@@ -86,6 +88,7 @@ class Step(metaclass=StepMeta):
 
         # Initialize variables
         self._initialized: bool = False
+        self._resumed: bool = False
         self.name: str = name
         self.version: float = 1.0
         if len(self.name) == 0:
@@ -218,8 +221,13 @@ class Step(metaclass=StepMeta):
                 json.dump(
                     {
                         "__version__": __version__,
+                        "datetime": datetime.now().isoformat(),
+                        "type": type(self).__name__,
+                        "name": self.name,
+                        "version": self.version,
                         "fingerprint": self.fingerprint,
                         "pickled": self.__output._pickled,
+                        "trace_info": self.trace_info,
                     },
                     f,
                     indent=4,
@@ -260,6 +268,7 @@ class Step(metaclass=StepMeta):
             )
             self.progress = 1.0
             self.__pickled = metadata["pickled"]
+            self._resumed = True
             logger.info(
                 f"Step '{self.name}' results loaded from disk. 🙌 It was previously run"
                 " and saved."
@@ -374,8 +383,8 @@ class Step(metaclass=StepMeta):
             and value > (self.__progress or 0.0)
         ):
             should_log = True
+            self.progress_last = time()
         self.__progress = value
-        self.progress_last = time()
         if should_log:
             logger.info(
                 f"Step '{self.name}' progress:" f" {self.__get_progress_string()} 🔄"
@@ -436,10 +445,8 @@ class Step(metaclass=StepMeta):
         writer_batch_size: None | int = 1000,
         num_proc: None | int = None,
     ) -> "Step":
-        if not self.__output_folder_path:
-            raise RuntimeError(
-                "You must run the Step in a DataDreamer() context."
-            )  # pragma: no cover
+        if not self.__output_folder_path:  # pragma: no cover
+            raise RuntimeError("You must run the Step in a DataDreamer() context.")
 
         def create_save_step(
             self: Step,
@@ -449,12 +456,16 @@ class Step(metaclass=StepMeta):
             writer_batch_size: None | int,
             num_proc: None | int,
         ) -> Step:
-            class SaveStep(Step):
+            class _SaveStep(SaveStep):
                 def setup(self):
                     for column_name in output.column_names:
                         self.register_output(column_name)
 
-            save_step = SaveStep(name=name)
+            _SaveStep.__name__ = "SaveStep"
+            _SaveStep.__qualname__ = "SaveStep"
+            save_step = _SaveStep(name=name)
+            if save_step._resumed:
+                return save_step
             if isinstance(output, OutputDataset):
                 save_step._set_output(output, num_proc=num_proc)
             else:
@@ -578,4 +589,11 @@ class Step(metaclass=StepMeta):
         )
 
 
-__all__ = ["LazyRowBatches", "LazyRows", "StepOutputType"]
+# Operation steps below:
+
+
+class SaveStep(Step):
+    pass
+
+
+__all__ = ["LazyRowBatches", "LazyRows", "StepOutputType", "SaveStep"]

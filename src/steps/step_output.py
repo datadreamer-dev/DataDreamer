@@ -23,6 +23,7 @@ from ..datasets.utils import (
     iterable_dataset_zip,
 )
 from ..errors import StepOutputError, StepOutputTypeError
+from ..logging import logger
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..steps import Step
@@ -547,6 +548,7 @@ def _output_to_dataset(  # noqa: C901
         # If so, convert the generator to an IterableDataset) but first,
         # wrap the generator so that we can set progress = 1.0 when complete
         def generator_wrapper(
+            name,
             _value,
             total_num_rows,
             output_names,
@@ -583,9 +585,11 @@ def _output_to_dataset(  # noqa: C901
             # Update progress
             if not_preview:
                 set_progress(1.0)
+            logger.info(f"Step '{name}' finished running lazily. 🎉")
 
         _value_preview = partial(
             generator_wrapper,
+            step.name,
             _value,
             total_num_rows,
             output_names,
@@ -594,6 +598,7 @@ def _output_to_dataset(  # noqa: C901
         )
         _value = partial(
             generator_wrapper,
+            step.name,
             _value,
             total_num_rows,
             output_names,

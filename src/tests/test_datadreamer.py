@@ -159,28 +159,24 @@ class TestFunctionality:
     ):
         with create_datadreamer():
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            assert not step._resumed
             step._set_output({"out1": ["a", "b", "c"]})
             assert step.fingerprint == "2d5db4b5ff337633"
             del step
-            assert os.path.isdir(
-                os.path.join(DataDreamer.ctx.output_folder_path, "my-step")
-            )
-            assert os.path.isfile(
-                os.path.join(DataDreamer.ctx.output_folder_path, "my-step", "step.json")
-            )
-            with open(
-                os.path.join(
-                    DataDreamer.ctx.output_folder_path, "my-step", "step.json"
-                ),
-                "r",
-            ) as f:
+            step_path = os.path.join(DataDreamer.ctx.output_folder_path, "my-step")
+            assert os.path.isdir(step_path)
+            assert os.path.isfile(os.path.join(step_path, "step.json"))
+            with open(os.path.join(step_path, "step.json"), "r") as f:
                 metadata = json.load(f)
+                assert "datetime" in metadata
+                assert metadata["type"] == "TestStep"
+                assert metadata["name"] == "my-step"
+                assert metadata["version"] == 1.0
                 assert metadata["__version__"] == __version__
                 assert metadata["fingerprint"] == "2d5db4b5ff337633"
                 assert metadata["pickled"] is False
-            assert os.path.isdir(
-                os.path.join(DataDreamer.ctx.output_folder_path, "my-step", "dataset")
-            )
+                assert "trace_info" in metadata
+            assert os.path.isdir(os.path.join(step_path, "dataset"))
             assert os.path.isfile(
                 os.path.join(
                     DataDreamer.ctx.output_folder_path,
@@ -193,6 +189,7 @@ class TestFunctionality:
 
         with create_datadreamer(resume_path):
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            assert step._resumed
             assert set(step.output.column_names) == set(["out1"])
             assert isinstance(step.output, OutputDataset)
             assert step.output.step == step
@@ -207,52 +204,28 @@ class TestFunctionality:
             step = create_test_step(name="my-step", inputs=None, output_names=["out2"])
             with pytest.raises(StepOutputError):
                 step.output
-            assert os.path.isdir(
-                os.path.join(DataDreamer.ctx.output_folder_path, "my-step")
-            )
+            step_path = os.path.join(DataDreamer.ctx.output_folder_path, "my-step")
+            assert os.path.isdir(step_path)
+            assert not os.path.exists(os.path.join(step_path, "step.json"))
             assert not os.path.exists(
-                os.path.join(DataDreamer.ctx.output_folder_path, "my-step", "step.json")
+                os.path.join(step_path, "dataset", "dataset_info.json")
             )
-            assert not os.path.exists(
-                os.path.join(
-                    DataDreamer.ctx.output_folder_path,
-                    "my-step",
-                    "dataset",
-                    "dataset_info.json",
-                )
+            backup_path = os.path.join(
+                DataDreamer.ctx.output_folder_path,
+                ".backups",
+                "my-step",
+                "2d5db4b5ff337633",
             )
-            assert os.path.isdir(
-                os.path.join(
-                    DataDreamer.ctx.output_folder_path,
-                    ".backups",
-                    "my-step",
-                    "2d5db4b5ff337633",
-                )
-            )
-            assert os.path.isfile(
-                os.path.join(
-                    DataDreamer.ctx.output_folder_path,
-                    ".backups",
-                    "my-step",
-                    "2d5db4b5ff337633",
-                    "step.json",
-                )
-            )
-            assert os.path.isdir(
-                os.path.join(
-                    DataDreamer.ctx.output_folder_path,
-                    ".backups",
-                    "my-step",
-                    "2d5db4b5ff337633",
-                    "dataset",
-                )
-            )
+            assert os.path.isdir(backup_path)
+            assert os.path.isfile(os.path.join(backup_path, "step.json"))
+            assert os.path.isdir(os.path.join(backup_path, "dataset"))
 
     def test_step_force(
         self, create_datadreamer, create_test_step: Callable[..., Step]
     ):
         with create_datadreamer():
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            assert not step._resumed
             step._set_output({"out1": ["a", "b", "c"]})
             assert step.fingerprint == "2d5db4b5ff337633"
             resume_path = os.path.basename(DataDreamer.ctx.output_folder_path)
@@ -261,6 +234,7 @@ class TestFunctionality:
             step = create_test_step(
                 name="my-step", inputs=None, output_names=["out1"], force=True
             )
+            assert not step._resumed
             with pytest.raises(StepOutputError):
                 step.output
             assert os.path.isdir(
@@ -277,6 +251,7 @@ class TestFunctionality:
     ):
         with create_datadreamer():
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            assert not step._resumed
             step._set_output(
                 LazyRows(
                     Dataset.from_dict({"out1": ["a", "b", "c"]}).to_iterable_dataset(),
@@ -285,19 +260,15 @@ class TestFunctionality:
             )
             assert step.fingerprint == "2d5db4b5ff337633"
             del step
-            assert os.path.isdir(
-                os.path.join(DataDreamer.ctx.output_folder_path, "my-step")
-            )
-            assert not os.path.exists(
-                os.path.join(DataDreamer.ctx.output_folder_path, "my-step", "step.json")
-            )
-            assert not os.path.exists(
-                os.path.join(DataDreamer.ctx.output_folder_path, "my-step", "dataset")
-            )
+            step_path = os.path.join(DataDreamer.ctx.output_folder_path, "my-step")
+            assert os.path.isdir(step_path)
+            assert not os.path.exists(os.path.join(step_path, "step.json"))
+            assert not os.path.exists(os.path.join(step_path, "dataset"))
             resume_path = os.path.basename(DataDreamer.ctx.output_folder_path)
 
         with create_datadreamer(resume_path):
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            assert not step._resumed
             with pytest.raises(StepOutputError):
                 assert set(step.output.column_names) == set(["out1"])
 
@@ -306,6 +277,7 @@ class TestFunctionality:
     ):
         with create_datadreamer():
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            assert not step._resumed
             step._set_output(
                 {
                     "out1": [
@@ -320,6 +292,7 @@ class TestFunctionality:
 
         with create_datadreamer(resume_path):
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            assert step._resumed
             assert set(step.output.column_names) == set(["out1"])
             assert isinstance(step.output, OutputDataset)
             assert step.output.step == step

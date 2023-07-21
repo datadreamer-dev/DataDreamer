@@ -36,7 +36,7 @@ try:
             line.strip() for line in pyproject_fp if line.startswith("version")
         ][0]
         __version__ = version_line[version_line.find('"') + 1 : version_line.rfind('"')]
-except FileNotFoundError:
+except FileNotFoundError:  # pragma: no cover
     __version__ = importlib.metadata.version(
         os.path.basename(os.path.dirname(__file__))
     )
