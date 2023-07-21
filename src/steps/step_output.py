@@ -8,7 +8,10 @@ from pyarrow.lib import ArrowInvalid, ArrowTypeError
 
 from datasets import Dataset, IterableDataset, iterable_dataset
 from datasets.features.features import Features
-from datasets.iterable_dataset import _apply_feature_types_on_example
+from datasets.iterable_dataset import (
+    _apply_feature_types_on_batch,
+    _apply_feature_types_on_example,
+)
 
 from ..datasets import (
     OutputDataset,
@@ -78,9 +81,23 @@ def _catch_type_error_apply_feature_types_on_example(example, *args, **kwargs):
         return _apply_feature_types_on_example(example, *args, **kwargs)
 
 
-def _monkey_patch_iterable_dataset_apply_feature_types_on_example():
+def _catch_type_error_apply_feature_types_on_batch(batch, *args, **kwargs):
+    if type(batch) is dict and _CATCH_TYPE_ERRORS_KEY in batch:
+        del batch[_CATCH_TYPE_ERRORS_KEY]
+        try:
+            return _apply_feature_types_on_batch(batch, *args, **kwargs)
+        except (ArrowInvalid, ArrowTypeError, ValueError, TypeError) as e:
+            raise StepOutputTypeError(str(e))
+    else:
+        return _apply_feature_types_on_batch(batch, *args, **kwargs)
+
+
+def _monkey_patch_iterable_dataset_apply_feature_types():
     iterable_dataset._apply_feature_types_on_example = (
         _catch_type_error_apply_feature_types_on_example
+    )
+    iterable_dataset._apply_feature_types_on_batch = (
+        _catch_type_error_apply_feature_types_on_batch
     )
 
 
@@ -633,7 +650,7 @@ def _output_to_dataset(  # noqa: C901
         _value = _catch_type_error(
             IterableDataset.from_generator, _value, features=features
         )
-        _monkey_patch_iterable_dataset_apply_feature_types_on_example()
+        _monkey_patch_iterable_dataset_apply_feature_types()
 
     # Return a Dataset or IterableDataset
     __output: Dataset | IterableDataset
