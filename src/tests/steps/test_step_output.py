@@ -319,7 +319,7 @@ class TestProgress:
         assert any(["Step 'my-step' progress: 66% 🔄" in log for log in logs])
         assert any(["Step 'my-step' progress: 100% 🔄" in log for log in logs])
 
-    def test_auto_progress_examples(
+    def test_auto_progress_rows(
         self, create_datadreamer, create_test_step: Callable[..., Step], caplog
     ):
         with create_datadreamer():
