@@ -96,7 +96,7 @@ class TestSave:
                     total_num_rows=3,
                 )
             )
-            save_step = step.save("save-step", writer_batch_size=1000)
+            save_step = step.save(name="save-step", writer_batch_size=1000)
             step_path = os.path.join(DataDreamer.ctx.output_folder_path, "my-step")
             assert os.path.isdir(os.path.join(step_path, "cache", "generator"))
             assert type(save_step).__name__ == "SaveStep"
@@ -124,7 +124,7 @@ class TestSave:
                     total_num_rows=3,
                 )
             )
-            save_step = step.save("save-step", writer_batch_size=1000)
+            save_step = step.save(name="save-step", writer_batch_size=1000)
             assert save_step._resumed
             assert save_step.output._pickled
             assert save_step.output["out1"][0] == set(["a"])
@@ -173,7 +173,12 @@ class TestSave:
                     total_num_rows=3,
                 )
             )
-            step.save("save-step", writer_batch_size=1000, num_proc=3, num_shards=3)
+            step.save(
+                name="save-step",
+                writer_batch_size=1000,
+                save_num_proc=3,
+                save_num_shards=3,
+            )
             save_step_path = os.path.join(
                 DataDreamer.ctx.output_folder_path, "save-step"
             )

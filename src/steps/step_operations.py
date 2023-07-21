@@ -51,11 +51,11 @@ def _create_step_operation_step(
 
 
 def _create_save_step(
-    step: "Step",
-    name: None | str,
     writer_batch_size: None | int,
-    num_proc: None | int,
-    num_shards: None | int,
+    name: None | str,
+    save_num_proc: None | int,
+    save_num_shards: None | int,
+    step: "Step",
 ) -> "Step":
     def setup(self):
         self.register_arg("fingerprint")
@@ -82,7 +82,7 @@ def _create_save_step(
                 features=step.output._features,
                 cache_dir=cache_path,
                 writer_batch_size=writer_batch_size,
-                num_proc=num_proc,
+                num_proc=save_num_proc,
             )
             self._pickled = step.output._pickled
             return dataset
@@ -98,8 +98,8 @@ def _create_save_step(
         setup=setup,
         run=run,
         args={"fingerprint": step.fingerprint},
-        save_num_proc=num_proc,
-        save_num_shards=num_shards,
+        save_num_proc=save_num_proc,
+        save_num_shards=save_num_shards,
     )()
 
 

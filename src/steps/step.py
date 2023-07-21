@@ -481,18 +481,18 @@ class Step(metaclass=StepMeta):
 
     def save(
         self,
-        name: None | str = None,
         writer_batch_size: None | int = 1000,
-        num_proc: None | int = None,
-        num_shards: None | int = None,
+        name: None | str = None,
+        save_num_proc: None | int = None,
+        save_num_shards: None | int = None,
     ) -> "Step":
         return partial(
             _create_save_step,
-            step=self,
-            name=name,
             writer_batch_size=writer_batch_size,
-            num_proc=num_proc,
-            num_shards=num_shards,
+            name=name,
+            save_num_proc=save_num_proc,
+            save_num_shards=save_num_shards,
+            step=self,
         )()
 
     @cached_property
