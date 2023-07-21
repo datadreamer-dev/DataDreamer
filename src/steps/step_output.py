@@ -256,6 +256,7 @@ def _output_to_dataset(  # noqa: C901
     output_names: tuple[str, ...],
     output_name_mapping: dict[str, str],
     set_progress: Callable[[float], None],
+    set_progress_rows: Callable[[float], None],
     get_pickled: Callable[[], bool],
     value: StepOutputType | LazyRows | LazyRowBatches,
 ) -> OutputDataset | OutputIterableDataset:
@@ -568,6 +569,7 @@ def _output_to_dataset(  # noqa: C901
             not_preview,
         ):
             column_types: dict[str, Type] = {}
+            i = None
             for i, row in enumerate(
                 _iterable_or_generator_func_to_iterator(
                     _value, _value_is_batched, output_names
@@ -588,6 +590,8 @@ def _output_to_dataset(  # noqa: C901
                 # Update progress
                 if total_num_rows is not None and not_preview:
                     set_progress((i + 1) / total_num_rows)
+                elif total_num_rows is None and not_preview:
+                    set_progress_rows(i + 1)
 
                 # Yield a row
                 if not_preview and type(row) is dict:
@@ -596,6 +600,8 @@ def _output_to_dataset(  # noqa: C901
 
             # Update progress
             if not_preview:
+                if i is not None:
+                    set_progress_rows(i + 1)
                 set_progress(1.0)
             logger.info(f"Step '{name}' finished running lazily. 🎉")
 

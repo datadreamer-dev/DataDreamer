@@ -94,6 +94,8 @@ class Step(metaclass=StepMeta):
         if len(self.name) == 0:
             raise ValueError("You must provide a name for the step.")
         self.__progress: None | float = None
+        self.__progress_rows: None | int = None
+        self.__progress_logging_rows: bool = False
         self.progress_interval: None | int = progress_interval
         self.progress_last = time()
         self.__output: None | OutputDataset | OutputIterableDataset = None
@@ -372,6 +374,7 @@ class Step(metaclass=StepMeta):
             self.progress_interval is not None
             and (time() - self.progress_last) > self.progress_interval
             and value > (self.__progress or 0.0)
+            and (not self.__progress_logging_rows or value < 1.0)
         ):
             should_log = True
             self.progress_last = time()
@@ -379,6 +382,25 @@ class Step(metaclass=StepMeta):
         if should_log:
             logger.info(
                 f"Step '{self.name}' progress:" f" {self.__get_progress_string()} 🔄"
+            )
+
+    def __set_progress_rows(self, value: int):
+        value = max(value, self.__progress_rows or 0)
+        should_log = False
+        if (
+            not self.progress
+            and self.progress_interval is not None
+            and (time() - self.progress_last) > self.progress_interval
+            and value > 0
+            and value > (self.__progress_rows or 0)
+        ):
+            should_log = True
+            self.__progress_logging_rows = True
+            self.progress_last = time()
+        self.__progress_rows = value
+        if should_log:
+            logger.info(
+                f"Step '{self.name}' progress:" f" {self.__progress_rows} row(s) 🔄"
             )
 
     def __get_progress_string(self):
@@ -415,6 +437,9 @@ class Step(metaclass=StepMeta):
             output_name_mapping=self.output_name_mapping,
             set_progress=partial(
                 lambda self, progress: setattr(self, "progress", progress), self
+            ),
+            set_progress_rows=partial(
+                lambda self, rows: self.__set_progress_rows(rows), self
             ),
             get_pickled=partial(lambda self: self.__pickled, self),
             value=value,
