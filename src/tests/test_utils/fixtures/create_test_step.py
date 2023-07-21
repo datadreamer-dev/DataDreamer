@@ -3,6 +3,7 @@ from typing import Callable
 import pytest
 
 from ....steps import Step
+from ....steps.step import _INTERNAL_TEST_KEY
 
 
 @pytest.fixture
@@ -28,6 +29,8 @@ def create_test_step() -> Callable[..., Step]:
                         self.register_output(o)
                 if setup is not None:
                     setup(self)
+
+        setattr(TestStep, _INTERNAL_TEST_KEY, True)
 
         return TestStep(name, inputs=inputs, args=args, outputs=outputs, **kwargs)
 

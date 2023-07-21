@@ -27,9 +27,11 @@ from ..pickling import unpickle as _unpickle
 from ..pickling.pickle import _INTERNAL_PICKLE_KEY, _pickle
 from ..project.environment import RUNNING_IN_PYTEST
 from ..utils.fs_utils import move_dir, safe_fn
+from .step_operations import _INTERNAL_STEP_OPERATION_KEY, _create_save_step
 from .step_output import LazyRowBatches, LazyRows, StepOutputType, _output_to_dataset
 
 _INTERNAL_HELP_KEY = "__DataDreamer__help__"
+_INTERNAL_TEST_KEY = "__DataDreamer__test__"
 
 
 class StepMeta(type):
@@ -99,7 +101,7 @@ class Step(metaclass=StepMeta):
         self.progress_interval: None | int = progress_interval
         self.progress_last = time()
         self.__output: None | OutputDataset | OutputIterableDataset = None
-        self.__pickled: bool = False
+        self._pickled: bool = False
         self.__registered: dict[str, Any] = {
             "args": {},
             "inputs": {},
@@ -180,7 +182,9 @@ class Step(metaclass=StepMeta):
             self.__registered["trace_info"] = prev_trace_info
 
         # Initialize output names mapping
-        if len(self.__registered["outputs"]) == 0:
+        if len(self.__registered["outputs"]) == 0 and not hasattr(
+            self.__class__, _INTERNAL_STEP_OPERATION_KEY
+        ):
             raise ValueError("The step must register at least one output.")
         if not set(outputs.keys()).issubset(set(self.__registered["outputs"])):
             raise ValueError(
@@ -195,21 +199,21 @@ class Step(metaclass=StepMeta):
         )
 
         # Initialize from/to the context
-        self.__output_folder_path = None
+        self._output_folder_path = None
         if DataDreamer.initialized():
             # Register the Step in the context
             DataDreamer._add_step(self)
             self._setup_folder_and_resume()
 
     def _save_to_disk(self, num_proc: None | int = None):
-        if not self.__output_folder_path:
+        if not self._output_folder_path:
             return
         if isinstance(self.__output, OutputDataset):
             logger.debug(
-                f"Step '{self.name}' is being saved to disk: {self.__output_folder_path}."
+                f"Step '{self.name}' is being saved to disk: {self._output_folder_path}."
             )
-            metadata_path = os.path.join(self.__output_folder_path, "step.json")
-            dataset_path = os.path.join(self.__output_folder_path, "dataset")
+            metadata_path = os.path.join(self._output_folder_path, "step.json")
+            dataset_path = os.path.join(self._output_folder_path, "dataset")
             self.__output.save_to_disk(dataset_path, num_proc=num_proc)
             with open(metadata_path, "w+") as f:
                 json.dump(
@@ -227,7 +231,7 @@ class Step(metaclass=StepMeta):
                     indent=4,
                 )
             logger.debug(
-                f"Step '{self.name}' is now saved to disk: {self.__output_folder_path}."
+                f"Step '{self.name}' is now saved to disk: {self._output_folder_path}."
             )
             logger.info(f"Step '{self.name}' finished and is saved to disk. 🎉")
         elif isinstance(self.__output, OutputIterableDataset):
@@ -235,17 +239,17 @@ class Step(metaclass=StepMeta):
 
     def _setup_folder_and_resume(self):
         # Create an output folder for the step
-        self.__output_folder_path = os.path.join(
+        self._output_folder_path = os.path.join(
             DataDreamer.ctx.output_folder_path, safe_fn(self.name)
         )
-        if self.__output_folder_path is None:
+        if self._output_folder_path is None:
             return  # pragma: no cover
-        os.makedirs(self.__output_folder_path, exist_ok=True)
+        os.makedirs(self._output_folder_path, exist_ok=True)
 
         # Check if we have already run this step previously and saved the results to
         # disk
-        metadata_path = os.path.join(self.__output_folder_path, "step.json")
-        dataset_path = os.path.join(self.__output_folder_path, "dataset")
+        metadata_path = os.path.join(self._output_folder_path, "step.json")
+        dataset_path = os.path.join(self._output_folder_path, "dataset")
         prev_fingerprint: None | str = None
         try:
             with open(metadata_path, "r") as f:
@@ -260,7 +264,7 @@ class Step(metaclass=StepMeta):
                 self, Dataset.load_from_disk(dataset_path), pickled=metadata["pickled"]
             )
             self.progress = 1.0
-            self.__pickled = metadata["pickled"]
+            self._pickled = metadata["pickled"]
             self._resumed = True
             logger.info(
                 f"Step '{self.name}' results loaded from disk. 🙌 It was previously run"
@@ -285,13 +289,15 @@ class Step(metaclass=StepMeta):
             logger.debug(
                 f"Step '{self.name}''s outdated results are being backed up: {backup_path}"
             )
-            move_dir(self.__output_folder_path, backup_path)
+            move_dir(self._output_folder_path, backup_path)
             logger.debug(
                 f"Step '{self.name}''s outdated results are backed up: {backup_path}"
             )
 
         # We still need to run this step
         logger.info(f"Step '{self.name}' is running. ⏳")
+        if not hasattr(self.__class__, _INTERNAL_TEST_KEY):
+            self._set_output(self.run())
 
     def register_arg(self, arg_name: str, help: None | str = None):
         if self._initialized:
@@ -338,20 +344,31 @@ class Step(metaclass=StepMeta):
             raise TypeError(f"Expected str, got {type(trace_info_type)}.")
         self.__registered["trace_info"][self.name][trace_info_type].append(trace_info)
 
+    @property
+    def args(self) -> dict[str, Any]:
+        return self.__registered["args"]
+
+    @property
+    def inputs(self) -> dict[str, OutputDatasetColumn | OutputIterableDatasetColumn]:
+        return self.__registered["inputs"]
+
     def setup(self):
         raise NotImplementedError("You must implement the .setup() method in Step.")
 
+    def run(self) -> StepOutputType | LazyRows | LazyRowBatches:
+        raise NotImplementedError("You must implement the .run() method in Step.")
+
     def get_run_output_folder_path(self) -> str:
-        if not self.__output_folder_path:
+        if not self._output_folder_path:
             raise RuntimeError(
                 "You must run the Step in a DataDreamer() context."
             )  # pragma: no cover
-        run_output_folder_path = os.path.join(self.__output_folder_path, "run_output")
+        run_output_folder_path = os.path.join(self._output_folder_path, "run_output")
         os.makedirs(run_output_folder_path, exist_ok=True)
         return run_output_folder_path
 
     def pickle(self, value: Any, *args: Any, **kwargs: Any) -> bytes:
-        self.__pickled = True
+        self._pickled = True
         if self.__output:
             self.output._pickled = True
         kwargs[_INTERNAL_PICKLE_KEY] = True
@@ -441,7 +458,7 @@ class Step(metaclass=StepMeta):
             set_progress_rows=partial(
                 lambda self, rows: self.__set_progress_rows(rows), self
             ),
-            get_pickled=partial(lambda self: self.__pickled, self),
+            get_pickled=partial(lambda self: self._pickled, self),
             value=value,
         )
         self._save_to_disk(num_proc=num_proc)
@@ -461,57 +478,10 @@ class Step(metaclass=StepMeta):
         writer_batch_size: None | int = 1000,
         num_proc: None | int = None,
     ) -> "Step":
-        if not self.__output_folder_path:  # pragma: no cover
-            raise RuntimeError("You must run the Step in a DataDreamer() context.")
-
-        def create_save_step(
-            self: Step,
-            name: str,
-            output_folder_path: str,
-            output: OutputDataset | OutputIterableDataset,
-            writer_batch_size: None | int,
-            num_proc: None | int,
-        ) -> Step:
-            class _SaveStep(SaveStep):
-                def setup(self):
-                    for column_name in output.column_names:
-                        self.register_output(column_name)
-
-            _SaveStep.__name__ = "SaveStep"
-            _SaveStep.__qualname__ = "SaveStep"
-            save_step = _SaveStep(name=name)
-            if save_step._resumed:
-                return save_step
-            if isinstance(output, OutputDataset):
-                save_step._set_output(output, num_proc=num_proc)
-            else:
-
-                def dataset_generator(dataset):
-                    yield from dataset
-
-                logger.debug(
-                    f"Iterating through all of '{self.name}''s lazy results in"
-                    " preparation for saving."
-                )
-                cache_path = os.path.join(output_folder_path, "cache")
-                dataset = Dataset.from_generator(
-                    partial(dataset_generator, output.dataset),
-                    features=output._features,
-                    cache_dir=cache_path,
-                    writer_batch_size=writer_batch_size,
-                    num_proc=num_proc,
-                )
-                save_step.__pickled = output._pickled
-                save_step._set_output(dataset)
-            return save_step
-
-        final_name = name or DataDreamer._new_step_name(self.name, "save")
         return partial(
-            create_save_step,
-            self=self,
-            name=final_name,
-            output_folder_path=self.__output_folder_path,
-            output=self.output,
+            _create_save_step,
+            step=self,
+            name=name,
             writer_batch_size=writer_batch_size,
             num_proc=num_proc,
         )()
@@ -605,7 +575,9 @@ class Step(metaclass=StepMeta):
         )
 
 
-# Operation steps below:
+#############################
+# Classes for step operations
+#############################
 
 
 class SaveStep(Step):

@@ -27,6 +27,7 @@ from ..datasets.utils import (
 )
 from ..errors import StepOutputError, StepOutputTypeError
 from ..logging import logger
+from .step_operations import _INTERNAL_STEP_OPERATION_KEY
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..steps import Step
@@ -484,9 +485,11 @@ def _output_to_dataset(  # noqa: C901
         )
         _value_is_batched = False
 
-    # If given a Dataset with the wrong number of
-    if _is_dataset_type(_value, is_lazy) and set(get_column_names(_value)) != set(
-        output_names
+    # If given a Dataset with the wrong number of columns
+    if (
+        _is_dataset_type(_value, is_lazy)
+        and set(get_column_names(_value)) != set(output_names)
+        and not hasattr(step.__class__, _INTERNAL_STEP_OPERATION_KEY)
     ):
         raise StepOutputError(
             f"Expected {len(output_names)} columns {output_names}"

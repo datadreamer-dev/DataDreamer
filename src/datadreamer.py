@@ -1,9 +1,13 @@
 import logging
 import os
 import threading
+from typing import TYPE_CHECKING
 
 from .logging import DATEFMT, DATETIME_FORMAT, STANDARD_FORMAT, logger
 from .utils.fs_utils import safe_fn
+
+if TYPE_CHECKING:  # pragma: no cover
+    from .steps import Step
 
 
 class DataDreamer:
@@ -52,7 +56,7 @@ class DataDreamer:
         )
 
     @staticmethod
-    def _add_step(step):
+    def _add_step(step: "Step"):
         if DataDreamer._has_step_name(step.name):
             raise ValueError(f"A step already exists with the name: {step.name}")
         DataDreamer.ctx.steps.append(step)

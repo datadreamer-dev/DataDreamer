@@ -2057,9 +2057,9 @@ class TestTypes:
                 "out4": datetime_now,
             }
 
-        assert not step._Step__pickled  # type: ignore[attr-defined]
+        assert not step._pickled
         step._set_output(LazyRows(dataset_generator, total_num_rows=1))
-        assert step._Step__pickled  # type: ignore[attr-defined]
+        assert step._pickled
         assert step.output._pickled
         first_row = next(iter(step.output))
         assert first_row["out1"].__code__.co_code == (lambda x: x).__code__.co_code

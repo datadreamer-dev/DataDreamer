@@ -17,9 +17,25 @@ class TestErrors:
         with pytest.raises(ValueError):
             create_test_step(name="", inputs=None, output_names=["out1"])
 
-    def test_step_not_implemented(self):
+    def test_step_setup_not_implemented(self):
         with pytest.raises(NotImplementedError):
             Step(name="my-step")
+
+    def test_step_run_not_implemented(self, create_datadreamer):
+        with pytest.raises(NotImplementedError):
+            Step(name="my-step")
+
+        class TestStep(Step):
+            def setup(self):
+                self.register_output("out1")
+
+        # This will work fine
+        TestStep(name="my-step")
+
+        with create_datadreamer():
+            # This will not work because now .run() will tried to be called
+            with pytest.raises(NotImplementedError):
+                TestStep(name="my-step")
 
     def test_no_outputs_registered(self, create_test_step: Callable[..., Step]):
         with pytest.raises(ValueError):
