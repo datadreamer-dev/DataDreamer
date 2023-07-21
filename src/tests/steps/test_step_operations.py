@@ -15,7 +15,15 @@ class TestSave:
     ):
         with create_datadreamer():
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
-            step._set_output({"out1": ["a", "b", "c"]})
+            step._set_output(
+                {
+                    "out1": [
+                        step.pickle(set(["a"])),
+                        step.pickle(set(["b"])),
+                        step.pickle(set(["c"])),
+                    ]
+                }
+            )
             save_step = step.save()
             assert type(save_step).__name__ == "SaveStep"
             assert isinstance(save_step, SaveStep)
@@ -39,6 +47,8 @@ class TestSave:
             assert step._resumed
             save_step = step.save()
             assert save_step._resumed
+            assert save_step.output._pickled
+            assert save_step.output["out1"][0] == set(["a"])
 
     def test_save_on_iterable_dataset(
         self, create_datadreamer, create_test_step: Callable[..., Step]
@@ -47,7 +57,15 @@ class TestSave:
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
             step._set_output(
                 LazyRows(
-                    Dataset.from_dict({"out1": ["a", "b", "c"]}).to_iterable_dataset(),
+                    Dataset.from_dict(
+                        {
+                            "out1": [
+                                step.pickle(set(["a"])),
+                                step.pickle(set(["b"])),
+                                step.pickle(set(["c"])),
+                            ]
+                        }
+                    ).to_iterable_dataset(),
                     total_num_rows=3,
                 )
             )
@@ -81,3 +99,5 @@ class TestSave:
             )
             save_step = step.save("save-step", writer_batch_size=1000, num_proc=2)
             assert save_step._resumed
+            assert save_step.output._pickled
+            assert save_step.output["out1"][0] == set(["a"])
