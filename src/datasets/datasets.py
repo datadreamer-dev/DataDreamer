@@ -212,8 +212,10 @@ class OutputDataset(OutputDatasetMixin):
     def dataset(self) -> Dataset:
         return self._dataset
 
-    def save_to_disk(self, path: str, num_proc: None | int) -> None:
-        self._dataset.save_to_disk(path, num_proc=num_proc)
+    def save_to_disk(
+        self, path: str, num_proc: None | int, num_shards: None | int
+    ) -> None:
+        self._dataset.save_to_disk(path, num_proc=num_proc, num_shards=num_shards)
         self._dataset = Dataset.load_from_disk(path)
 
     @property

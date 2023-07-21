@@ -161,7 +161,7 @@ class TestFunctionality:
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
             assert not step._resumed
             step._set_output({"out1": ["a", "b", "c"]})
-            assert step.fingerprint == "2d5db4b5ff337633"
+            assert step.fingerprint == "ed3426fd675eff03"
             del step
             step_path = os.path.join(DataDreamer.ctx.output_folder_path, "my-step")
             assert os.path.isdir(step_path)
@@ -173,17 +173,15 @@ class TestFunctionality:
                 assert metadata["name"] == "my-step"
                 assert metadata["version"] == 1.0
                 assert metadata["__version__"] == __version__
-                assert metadata["fingerprint"] == "2d5db4b5ff337633"
+                assert metadata["fingerprint"] == "ed3426fd675eff03"
                 assert metadata["pickled"] is False
                 assert "trace_info" in metadata
             assert os.path.isdir(os.path.join(step_path, "dataset"))
             assert os.path.isfile(
-                os.path.join(
-                    DataDreamer.ctx.output_folder_path,
-                    "my-step",
-                    "dataset",
-                    "dataset_info.json",
-                )
+                os.path.join(step_path, "dataset", "dataset_info.json")
+            )
+            assert os.path.isfile(
+                os.path.join(step_path, "dataset", "data-00000-of-00001.arrow")
             )
             resume_path = os.path.basename(DataDreamer.ctx.output_folder_path)
 
@@ -214,7 +212,7 @@ class TestFunctionality:
                 DataDreamer.ctx.output_folder_path,
                 ".backups",
                 "my-step",
-                "2d5db4b5ff337633",
+                "ed3426fd675eff03",
             )
             assert os.path.isdir(backup_path)
             assert os.path.isfile(os.path.join(backup_path, "step.json"))
@@ -227,7 +225,7 @@ class TestFunctionality:
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
             assert not step._resumed
             step._set_output({"out1": ["a", "b", "c"]})
-            assert step.fingerprint == "2d5db4b5ff337633"
+            assert step.fingerprint == "ed3426fd675eff03"
             resume_path = os.path.basename(DataDreamer.ctx.output_folder_path)
 
         with create_datadreamer(resume_path):
@@ -242,7 +240,7 @@ class TestFunctionality:
                     DataDreamer.ctx.output_folder_path,
                     ".backups",
                     "my-step",
-                    "2d5db4b5ff337633",
+                    "ed3426fd675eff03",
                 )
             )
 
@@ -258,7 +256,7 @@ class TestFunctionality:
                     total_num_rows=3,
                 )
             )
-            assert step.fingerprint == "2d5db4b5ff337633"
+            assert step.fingerprint == "ed3426fd675eff03"
             del step
             step_path = os.path.join(DataDreamer.ctx.output_folder_path, "my-step")
             assert os.path.isdir(step_path)
@@ -350,3 +348,26 @@ class TestFunctionality:
                     "URL": ["http://example2.com"],
                 },
             }
+
+    def test_num_shards(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step",
+                inputs=None,
+                output_names=["out1"],
+                save_num_proc=3,
+                save_num_shards=3,
+            )
+            step._set_output({"out1": ["a", "b", "c"]})
+            step_path = os.path.join(DataDreamer.ctx.output_folder_path, "my-step")
+            assert os.path.isfile(
+                os.path.join(step_path, "dataset", "data-00000-of-00003.arrow")
+            )
+            assert os.path.isfile(
+                os.path.join(step_path, "dataset", "data-00001-of-00003.arrow")
+            )
+            assert os.path.isfile(
+                os.path.join(step_path, "dataset", "data-00002-of-00003.arrow")
+            )

@@ -10,6 +10,33 @@ from ...steps.step import SaveStep
 
 
 class TestSave:
+    def test_save_step_naming(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            step._set_output(
+                {
+                    "out1": [
+                        step.pickle(set(["a"])),
+                        step.pickle(set(["b"])),
+                        step.pickle(set(["c"])),
+                    ]
+                }
+            )
+            save_step_1 = step.save()
+            save_step_2 = step.save()
+            save_step_1_path = os.path.join(
+                DataDreamer.ctx.output_folder_path, "my-step-save"
+            )
+            save_step_2_path = os.path.join(
+                DataDreamer.ctx.output_folder_path, "my-step-save-2"
+            )
+            assert save_step_1.name == "my-step (save)"
+            assert save_step_2.name == "my-step (save #2)"
+            assert os.path.isdir(save_step_1_path)
+            assert os.path.isdir(save_step_2_path)
+
     def test_save_on_dataset(
         self, create_datadreamer, create_test_step: Callable[..., Step]
     ):
@@ -69,7 +96,7 @@ class TestSave:
                     total_num_rows=3,
                 )
             )
-            save_step = step.save("save-step", writer_batch_size=1000, num_proc=2)
+            save_step = step.save("save-step", writer_batch_size=1000)
             step_path = os.path.join(DataDreamer.ctx.output_folder_path, "my-step")
             assert os.path.isdir(os.path.join(step_path, "cache", "generator"))
             assert type(save_step).__name__ == "SaveStep"
@@ -97,16 +124,22 @@ class TestSave:
                     total_num_rows=3,
                 )
             )
-            save_step = step.save("save-step", writer_batch_size=1000, num_proc=2)
+            save_step = step.save("save-step", writer_batch_size=1000)
             assert save_step._resumed
             assert save_step.output._pickled
             assert save_step.output["out1"][0] == set(["a"])
 
-    def test_save_step_naming(
+    def test_save_num_shards(
         self, create_datadreamer, create_test_step: Callable[..., Step]
     ):
         with create_datadreamer():
-            step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            step = create_test_step(
+                name="my-step",
+                inputs=None,
+                output_names=["out1"],
+                save_num_proc=3,
+                save_num_shards=3,
+            )
             step._set_output(
                 {
                     "out1": [
@@ -116,15 +149,34 @@ class TestSave:
                     ]
                 }
             )
-            save_step_1 = step.save()
-            save_step_2 = step.save()
-            save_step_1_path = os.path.join(
+            step.save()
+            save_step_path = os.path.join(
                 DataDreamer.ctx.output_folder_path, "my-step-save"
             )
-            save_step_2_path = os.path.join(
-                DataDreamer.ctx.output_folder_path, "my-step-save-2"
+            assert os.path.isfile(
+                os.path.join(save_step_path, "dataset", "data-00000-of-00003.arrow")
             )
-            assert save_step_1.name == "my-step (save)"
-            assert save_step_2.name == "my-step (save #2)"
-            assert os.path.isdir(save_step_1_path)
-            assert os.path.isdir(save_step_2_path)
+
+        with create_datadreamer():
+            step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            step._set_output(
+                LazyRows(
+                    Dataset.from_dict(
+                        {
+                            "out1": [
+                                step.pickle(set(["a"])),
+                                step.pickle(set(["b"])),
+                                step.pickle(set(["c"])),
+                            ]
+                        }
+                    ).to_iterable_dataset(),
+                    total_num_rows=3,
+                )
+            )
+            step.save("save-step", writer_batch_size=1000, num_proc=3, num_shards=3)
+            save_step_path = os.path.join(
+                DataDreamer.ctx.output_folder_path, "save-step"
+            )
+            assert os.path.isfile(
+                os.path.join(save_step_path, "dataset", "data-00000-of-00003.arrow")
+            )

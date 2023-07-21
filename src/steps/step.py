@@ -76,6 +76,8 @@ class Step(metaclass=StepMeta):
         force: bool = False,
         verbose: bool = False,
         log_level: None | int = None,
+        save_num_proc: None | int = None,
+        save_num_shards: None | int = None,
     ):
         # Fill in default argument valu]es
         if not isinstance(args, dict):
@@ -115,6 +117,8 @@ class Step(metaclass=StepMeta):
             "outputs": {},
         }
         self.force = force
+        self.save_num_proc = save_num_proc
+        self.save_num_shards = save_num_shards
 
         # Initialize the logger
         self.logger: Logger
@@ -205,7 +209,7 @@ class Step(metaclass=StepMeta):
             DataDreamer._add_step(self)
             self._setup_folder_and_resume()
 
-    def _save_to_disk(self, num_proc: None | int = None):
+    def _save_to_disk(self):
         if not self._output_folder_path:
             return
         if isinstance(self.__output, OutputDataset):
@@ -214,7 +218,11 @@ class Step(metaclass=StepMeta):
             )
             metadata_path = os.path.join(self._output_folder_path, "step.json")
             dataset_path = os.path.join(self._output_folder_path, "dataset")
-            self.__output.save_to_disk(dataset_path, num_proc=num_proc)
+            self.__output.save_to_disk(
+                dataset_path,
+                num_proc=self.save_num_proc,
+                num_shards=self.save_num_shards,
+            )
             with open(metadata_path, "w+") as f:
                 json.dump(
                     {
@@ -443,7 +451,6 @@ class Step(metaclass=StepMeta):
     def _set_output(  # noqa: C901
         self,
         value: StepOutputType | LazyRows | LazyRowBatches,
-        num_proc: None | int = None,
     ):
         if self.__output:
             raise StepOutputError("Step has already been run.")
@@ -461,7 +468,7 @@ class Step(metaclass=StepMeta):
             get_pickled=partial(lambda self: self._pickled, self),
             value=value,
         )
-        self._save_to_disk(num_proc=num_proc)
+        self._save_to_disk()
 
     def head(self, n=5, shuffle=False, seed=None, buffer_size=1000) -> DataFrame:
         return self.output.head(
@@ -477,13 +484,15 @@ class Step(metaclass=StepMeta):
         name: None | str = None,
         writer_batch_size: None | int = 1000,
         num_proc: None | int = None,
+        num_shards: None | int = None,
     ) -> "Step":
         return partial(
             _create_save_step,
             step=self,
             name=name,
             writer_batch_size=writer_batch_size,
-            num_proc=num_proc,
+            num_proc=num_proc if num_proc is not None else self.save_num_proc,
+            num_shards=num_shards if num_shards is not None else self.save_num_shards,
         )()
 
     @cached_property
@@ -500,6 +509,7 @@ class Step(metaclass=StepMeta):
                 ),
                 list(self.__registered["outputs"]),
                 self.output_name_mapping,
+                self.save_num_shards,
             ]
         )
 

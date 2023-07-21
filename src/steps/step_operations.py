@@ -23,6 +23,7 @@ def _create_save_step(
     name: None | str,
     writer_batch_size: None | int,
     num_proc: None | int,
+    num_shards: None | int,
 ) -> "Step":
     from .step import SaveStep
 
@@ -62,7 +63,12 @@ def _create_save_step(
     _SaveStep.__qualname__ = SaveStep.__name__
     _SaveStep.__module__ = SaveStep.__module__
     final_name: str = name or DataDreamer._new_step_name(step.name, "save")
-    save_step = _SaveStep(name=final_name, args={"fingerprint": step.fingerprint})
+    save_step = _SaveStep(
+        name=final_name,
+        args={"fingerprint": step.fingerprint},
+        save_num_proc=num_proc,
+        save_num_shards=num_shards,
+    )
     return save_step
 
 
