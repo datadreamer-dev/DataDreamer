@@ -194,17 +194,9 @@ class Step(metaclass=StepMeta):
 
         # Initialize from/to the context
         self.__output_folder_path = None
-        if hasattr(DataDreamer.ctx, "initialized"):
+        if DataDreamer.initialized():
             # Register the Step in the context
-            for step in DataDreamer.ctx.steps:
-                if step.name == self.name or safe_fn(step.name) == safe_fn(self.name):
-                    raise ValueError(
-                        f"A step already exists with the name: {self.name}"
-                    )
-            DataDreamer.ctx.steps.append(self)
-            self.__output_folder_path = os.path.join(
-                DataDreamer.ctx.output_folder_path, safe_fn(self.name)
-            )
+            DataDreamer._add_step(self)
             self._setup_folder_and_resume()
 
     def _save_to_disk(self, num_proc: None | int = None):
@@ -240,13 +232,12 @@ class Step(metaclass=StepMeta):
             logger.info(f"Step '{self.name}' will run lazily. 🥱")
 
     def _setup_folder_and_resume(self):
-        if self.__output_folder_path is None:
-            return  # pragma: no cover
-
         # Create an output folder for the step
         self.__output_folder_path = os.path.join(
             DataDreamer.ctx.output_folder_path, safe_fn(self.name)
         )
+        if self.__output_folder_path is None:
+            return  # pragma: no cover
         os.makedirs(self.__output_folder_path, exist_ok=True)
 
         # Check if we have already run this step previously and saved the results to
@@ -489,7 +480,7 @@ class Step(metaclass=StepMeta):
                 save_step._set_output(dataset)
             return save_step
 
-        final_name = name or f"{self.name}_save"
+        final_name = name or DataDreamer._new_step_name(self.name, "save")
         return partial(
             create_save_step,
             self=self,

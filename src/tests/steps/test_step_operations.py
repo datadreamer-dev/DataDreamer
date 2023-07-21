@@ -29,13 +29,13 @@ class TestSave:
             assert isinstance(save_step, SaveStep)
             assert isinstance(save_step.output, OutputDataset)
             save_step_path = os.path.join(
-                DataDreamer.ctx.output_folder_path, "my-step_save"
+                DataDreamer.ctx.output_folder_path, "my-step-save"
             )
             assert os.path.isdir(save_step_path)
             assert os.path.isfile(
                 os.path.join(
                     DataDreamer.ctx.output_folder_path,
-                    "my-step_save",
+                    "my-step-save",
                     "dataset",
                     "dataset_info.json",
                 )
@@ -101,3 +101,30 @@ class TestSave:
             assert save_step._resumed
             assert save_step.output._pickled
             assert save_step.output["out1"][0] == set(["a"])
+
+    def test_save_step_naming(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            step._set_output(
+                {
+                    "out1": [
+                        step.pickle(set(["a"])),
+                        step.pickle(set(["b"])),
+                        step.pickle(set(["c"])),
+                    ]
+                }
+            )
+            save_step_1 = step.save()
+            save_step_2 = step.save()
+            save_step_1_path = os.path.join(
+                DataDreamer.ctx.output_folder_path, "my-step-save"
+            )
+            save_step_2_path = os.path.join(
+                DataDreamer.ctx.output_folder_path, "my-step-save-2"
+            )
+            assert save_step_1.name == "my-step (save)"
+            assert save_step_2.name == "my-step (save #2)"
+            assert os.path.isdir(save_step_1_path)
+            assert os.path.isdir(save_step_2_path)
