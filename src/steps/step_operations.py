@@ -28,9 +28,10 @@ def _create_step_operation_step(
             return setup(self)
 
         def run(self):
+            run_output = run(self)
             if step._pickled:
                 self.pickle(True)
-            return run(self)
+            return run_output
 
     setattr(_StepOpStep, _INTERNAL_STEP_OPERATION_KEY, True)
     _StepOpStep.__name__ = op_cls.__name__
