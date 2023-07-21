@@ -200,8 +200,14 @@ class LazyRows:
         auto_progress: bool = True,
     ) -> None:
         self.__value: LazyStepOutputType = value
-        self.total_num_rows: None | int = total_num_rows
-        if total_num_rows is None and auto_progress:
+        if total_num_rows is not None:
+            self.total_num_rows: None | int = max(0, total_num_rows)
+        else:
+            if isinstance(self.__value, OutputIterableDataset):
+                self.total_num_rows = self.__value.num_rows
+            else:
+                self.total_num_rows = None
+        if self.total_num_rows is None and auto_progress:
             warnings.warn(
                 "You did not specify `total_num_rows`, so we cannot"
                 " automatically update the progress % for this step. Either"
@@ -223,8 +229,14 @@ class LazyRowBatches:
         auto_progress: bool = True,
     ) -> None:
         self.__value: LazyBatchStepOutputType = value
-        self.total_num_rows: None | int = total_num_rows
-        if total_num_rows is None and auto_progress:
+        if total_num_rows is not None:
+            self.total_num_rows: None | int = max(0, total_num_rows)
+        else:
+            if isinstance(self.__value, OutputIterableDataset):
+                self.total_num_rows = self.__value.num_rows
+            else:
+                self.total_num_rows = None
+        if self.total_num_rows is None and auto_progress:
             warnings.warn(
                 "You did not specify `total_num_rows`, so we cannot"
                 " automatically update the progress % for this step. Either"
@@ -654,7 +666,12 @@ def _output_to_dataset(  # noqa: C901
     rename_mapping = {k: v for k, v in output_name_mapping.items() if k != v}
     __output = __output.rename_columns(rename_mapping)
     if isinstance(__output, IterableDataset):
-        return OutputIterableDataset(step=step, dataset=__output, pickled=get_pickled())
+        return OutputIterableDataset(
+            step=step,
+            dataset=__output,
+            pickled=get_pickled(),
+            total_num_rows=total_num_rows,
+        )
     else:
         return OutputDataset(step=step, dataset=__output, pickled=get_pickled())
 

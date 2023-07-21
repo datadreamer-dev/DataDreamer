@@ -23,6 +23,10 @@ class OutputDatasetMixin:
         return get_column_names(self.dataset)  # type:ignore[attr-defined]
 
     @property
+    def num_columns(self) -> int:
+        return len(self.column_names)
+
+    @property
     def info(self) -> Any:
         return self.dataset.info  # type:ignore[attr-defined]
 
@@ -43,22 +47,23 @@ class OutputDatasetMixin:
     def __getitem__(self, key: int | slice | str | Iterable[int]) -> Any:
         if isinstance(key, str):
             feature = self._features.get(key, None)
-            feature_is_pickled = False
+            feature_is_pickle_type = False
             if isinstance(feature, Value) and feature.dtype == "binary":
-                feature_is_pickled = True
+                feature_is_pickle_type = True
             if isinstance(self.dataset, Dataset):  # type:ignore[attr-defined]
                 return OutputDatasetColumn(
                     self._step,  # type:ignore[attr-defined]
                     self.dataset.select_columns([key]),  # type:ignore[attr-defined]
                     pickled=self._pickled  # type:ignore[attr-defined]
-                    and feature_is_pickled,
+                    and feature_is_pickle_type,
                 )
             else:
                 return OutputIterableDatasetColumn(
                     self._step,  # type:ignore[attr-defined]
                     self.dataset.select_columns([key]),  # type:ignore[attr-defined]
                     pickled=self._pickled  # type:ignore[attr-defined]
-                    and feature_is_pickled,
+                    and feature_is_pickle_type,
+                    total_num_rows=self.total_num_rows,  # type:ignore[attr-defined]
                 )
         if self._pickled or self._pickled_inferred:  # type:ignore[attr-defined]
             if isinstance(key, int):
@@ -102,6 +107,7 @@ class OutputDatasetMixin:
             return (
                 f"{type(self).__name__}("
                 f"column_names={str(self.column_names)}, "
+                f"num_rows={str(self.total_num_rows).replace('None', 'Unknown')}, "
                 f"dataset=<{type(self.dataset).__name__} @ {id(self.dataset)}>"
                 ")"
             )
@@ -148,6 +154,7 @@ class OutputDatasetColumnMixin:
             return (
                 f"{type(self).__name__}("
                 f"column_name={repr(self.column_names[0])}, "
+                f"num_rows={str(self.total_num_rows).replace('None', 'Unknown')}, "
                 f"dataset=<{type(self.dataset).__name__} @ {id(self.dataset)}>"
                 ")"
             )
@@ -156,7 +163,13 @@ class OutputDatasetColumnMixin:
 
 
 class OutputIterableDataset(OutputDatasetMixin):
-    def __init__(self, step: "Step", dataset: IterableDataset, pickled: bool = False):
+    def __init__(
+        self,
+        step: "Step",
+        dataset: IterableDataset,
+        pickled: bool = False,
+        total_num_rows: None | int = None,
+    ):
         from ..steps import Step
 
         if not isinstance(step, Step):
@@ -167,6 +180,7 @@ class OutputIterableDataset(OutputDatasetMixin):
         self._dataset: IterableDataset = dataset
         self._pickled: bool = pickled
         self._pickled_inferred: bool = False
+        self.total_num_rows: None | int = total_num_rows
         for f in self._features.values():
             if isinstance(f, Value) and f.dtype == "binary":
                 self._pickled_inferred = True
@@ -175,6 +189,10 @@ class OutputIterableDataset(OutputDatasetMixin):
     @property
     def dataset(self) -> IterableDataset:
         return self._dataset
+
+    @property
+    def num_rows(self) -> None | int:
+        return self.total_num_rows
 
 
 class OutputDataset(OutputDatasetMixin):
@@ -198,12 +216,22 @@ class OutputDataset(OutputDatasetMixin):
         self._dataset.save_to_disk(path, num_proc=num_proc)
         self._dataset = Dataset.load_from_disk(path)
 
+    @property
+    def num_rows(self) -> int:
+        return len(self)
+
     def __len__(self):
         return len(self.dataset)
 
 
 class OutputIterableDatasetColumn(OutputDatasetColumnMixin, OutputIterableDataset):
-    def __init__(self, step: "Step", dataset: IterableDataset, pickled: bool = False):
+    def __init__(
+        self,
+        step: "Step",
+        dataset: IterableDataset,
+        pickled: bool = False,
+        total_num_rows: None | int = None,
+    ):
         from ..steps import Step
 
         if not isinstance(step, Step):
@@ -214,6 +242,7 @@ class OutputIterableDatasetColumn(OutputDatasetColumnMixin, OutputIterableDatase
         self._dataset: IterableDataset = dataset
         self._pickled: bool = pickled
         self._pickled_inferred: bool = False
+        self.total_num_rows: None | int = total_num_rows
         for f in self._features.values():
             if isinstance(f, Value) and f.dtype == "binary":
                 self._pickled_inferred = True

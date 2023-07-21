@@ -186,6 +186,12 @@ class TestErrors:
         with pytest.warns(UserWarning):
             LazyRows(dataset_generator)
 
+        step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+        with pytest.warns(UserWarning):
+            step._set_output(LazyRows(dataset_generator))
+        assert "num_rows=Unknown" in str(step.output)
+        assert step.output.num_rows is None
+
         def dataset_batch_generator():
             yield (["a", "b"],)
             yield (["c"],)
@@ -1748,8 +1754,10 @@ class TestDataset:
                 }
             ).to_iterable_dataset(),
             pickled=True,
+            total_num_rows=3,
         )
-        step._set_output(LazyRows(iterable_dataset, total_num_rows=3))
+        step._set_output(LazyRows(iterable_dataset))
+        assert step.output.num_rows == 3
         assert set(step.output.column_names) == set(["out1"])
         assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3
@@ -1773,8 +1781,10 @@ class TestDataset:
                 }
             ).to_iterable_dataset(),
             pickled=True,
+            total_num_rows=3,
         )
-        step._set_output(LazyRowBatches(iterable_dataset, total_num_rows=3))  # type: ignore[arg-type]
+        step._set_output(LazyRowBatches(iterable_dataset))  # type: ignore[arg-type]
+        assert step.output.num_rows == 3
         assert set(step.output.column_names) == set(["out1"])
         assert isinstance(step.output, OutputIterableDataset)
         assert len(list(step.output)) == 3

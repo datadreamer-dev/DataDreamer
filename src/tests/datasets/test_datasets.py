@@ -95,6 +95,8 @@ class TestFunctionality:
         step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
         dataset = Dataset.from_dict({"out1": ["a", "b", "c"]})
         output = OutputDataset(step, dataset, pickled=False)
+        assert output.num_columns == 1
+        assert output.num_rows == 3
         assert len(output) == 3
         rows = list(output)
         assert [row["out1"] for row in rows] == ["a", "b", "c"]
@@ -129,17 +131,21 @@ class TestFunctionality:
     def test_iterable_dataset(self, create_test_step: Callable[..., Step]):
         step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
         dataset = Dataset.from_dict({"out1": ["a", "b", "c"]}).to_iterable_dataset()
-        output = OutputIterableDataset(step, dataset, pickled=False)
+        output = OutputIterableDataset(step, dataset, pickled=False, total_num_rows=3)
+        assert output.num_columns == 1
+        assert output.num_rows == 3
         rows = list(output)
         assert [row["out1"] for row in rows] == ["a", "b", "c"]
         assert str(output).startswith(
-            "OutputIterableDataset(column_names=['out1'], dataset=<IterableDataset @ "
+            "OutputIterableDataset(column_names=['out1'], num_rows=3,"
+            " dataset=<IterableDataset @ "
         )
         assert str(output).endswith(")")
         assert str(output) == repr(output)
         column = output["out1"]
         assert str(column).startswith(
-            "OutputIterableDatasetColumn(column_name='out1', dataset=<IterableDataset @ "
+            "OutputIterableDatasetColumn(column_name='out1', num_rows=3,"
+            " dataset=<IterableDataset @ "
         )
         assert str(column).endswith(")")
         assert str(column) == repr(column)
@@ -155,7 +161,7 @@ class TestFunctionality:
                 ]
             }
         ).to_iterable_dataset()
-        output = OutputIterableDataset(step, dataset, pickled=True)
+        output = OutputIterableDataset(step, dataset, pickled=True, total_num_rows=3)
         rows = list(output)
         assert [row["out1"] for row in rows] == [set(["a"]), set(["b"]), set(["c"])]
 
@@ -177,6 +183,8 @@ class TestFunctionality:
         assert output[[0, 2]] == {"out1": ["a", "c"], "out2": [set(["a"]), set(["c"])]}
         assert isinstance(output["out1"], OutputDatasetColumn)
         assert output["out1"]._pickled is False
+        assert output["out1"].num_columns == 1
+        assert output["out1"].num_rows == 3
         assert len(output["out1"]) == 3
         assert list(output["out1"]) == ["a", "b", "c"]
         assert output["out1"][1] == "b"
@@ -204,7 +212,7 @@ class TestFunctionality:
                 ],
             }
         ).to_iterable_dataset()
-        output = OutputIterableDataset(step, dataset, pickled=False)
+        output = OutputIterableDataset(step, dataset, pickled=False, total_num_rows=3)
         with pytest.raises(NotImplementedError):
             assert output[1] == {"out1": "b", "out2": set(["b"])}
         with pytest.raises(NotImplementedError):
@@ -217,6 +225,8 @@ class TestFunctionality:
         assert isinstance(output["out1"], OutputIterableDatasetColumn)
         assert output["out1"]._pickled is False
         assert output["out1"]._pickled_inferred is False
+        assert output["out1"].num_columns == 1
+        assert output["out1"].num_rows == 3
         with pytest.raises(TypeError):
             assert len(output["out1"]) == 3  # type:ignore[arg-type]
         assert list(output["out1"]) == ["a", "b", "c"]
