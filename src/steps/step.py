@@ -491,8 +491,8 @@ class Step(metaclass=StepMeta):
             step=self,
             name=name,
             writer_batch_size=writer_batch_size,
-            num_proc=num_proc if num_proc is not None else self.save_num_proc,
-            num_shards=num_shards if num_shards is not None else self.save_num_shards,
+            num_proc=num_proc,
+            num_shards=num_shards,
         )()
 
     @cached_property
