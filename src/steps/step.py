@@ -403,14 +403,15 @@ class Step(metaclass=StepMeta):
 
     @progress.setter
     def progress(self, value: float):
+        prev_progress = self.__progress or 0.0
         if isinstance(self.__output, Dataset):
             value = 1.0
-        value = max(min(value, 1.0), self.__progress or 0.0)
+        value = max(min(value, 1.0), prev_progress)
         should_log = False
         if (
             self.progress_interval is not None
             and (time() - self.progress_last) > self.progress_interval
-            and value > (self.__progress or 0.0)
+            and value > prev_progress
             and (not self.__progress_logging_rows or value < 1.0)
         ):
             should_log = True
@@ -420,6 +421,8 @@ class Step(metaclass=StepMeta):
             logger.info(
                 f"Step '{self.name}' progress:" f" {self.__get_progress_string()} 🔄"
             )
+        if self.__progress == 1.0 and self.__progress > prev_progress:
+            logger.info(f"Step '{self.name}' finished running lazily. 🎉")
 
     def _set_progress_rows(self, value: int):
         value = max(value, self.__progress_rows or 0)
@@ -551,7 +554,7 @@ class Step(metaclass=StepMeta):
         buffer_size: int = 1000,
         lazy: bool = True,
         name: None | str = None,
-        progress_interval: None | int = 60,
+        progress_interval: None | int = None,
         force: bool = False,
         writer_batch_size: None | int = 1000,
         save_num_proc: None | int = None,

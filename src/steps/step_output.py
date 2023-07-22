@@ -26,7 +26,6 @@ from ..datasets.utils import (
     iterable_dataset_zip,
 )
 from ..errors import StepOutputError, StepOutputTypeError
-from ..logging import logger
 from .step_operations import _INTERNAL_STEP_OPERATION_KEY
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -627,7 +626,6 @@ def _output_to_dataset(  # noqa: C901
                 if i is not None:
                     set_progress_rows(i + 1)
                 set_progress(1.0)
-            logger.info(f"Step '{name}' finished running lazily. 🎉")
 
         _value_preview = partial(
             generator_wrapper,
