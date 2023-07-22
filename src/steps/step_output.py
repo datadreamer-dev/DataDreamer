@@ -2,7 +2,7 @@ import warnings
 from collections.abc import Generator, Iterable, Iterator, Mapping, Sequence
 from copy import deepcopy
 from functools import partial
-from typing import TYPE_CHECKING, Any, Callable, Type, TypeAlias, TypeGuard
+from typing import TYPE_CHECKING, Any, Callable, Type, TypeAlias, TypeGuard, cast
 
 import dill
 from pyarrow.lib import ArrowInvalid, ArrowTypeError
@@ -716,7 +716,7 @@ def _output_to_dataset(  # noqa: C901
         set_progress=set_progress,
         set_progress_rows=set_progress_rows,
         get_pickled=get_pickled,
-        value=value,
+        value=cast(Callable, value)() if output_queue else value,
     )
     if output_queue:
         if isinstance(output, tuple):

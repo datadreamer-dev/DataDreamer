@@ -86,6 +86,7 @@ class Step(metaclass=StepMeta):
         log_level: None | int = None,
         save_num_proc: None | int = None,
         save_num_shards: None | int = None,
+        background: bool = True,
     ):
         # Fill in default argument valu]es
         if not isinstance(args, dict):
@@ -127,6 +128,7 @@ class Step(metaclass=StepMeta):
         self.force = force
         self.save_num_proc = save_num_proc
         self.save_num_shards = save_num_shards
+        self.background = background
 
         # Initialize the logger
         self.verbose = verbose
@@ -227,11 +229,12 @@ class Step(metaclass=StepMeta):
         )
         metadata_path = os.path.join(self._output_folder_path, "step.json")
         dataset_path = os.path.join(self._output_folder_path, "dataset")
-        output.save_to_disk(
-            dataset_path,
-            num_proc=self.save_num_proc,
-            num_shards=self.save_num_shards,
-        )
+        if not self.background:
+            output.save_to_disk(
+                dataset_path,
+                num_proc=self.save_num_proc,
+                num_shards=self.save_num_shards,
+            )
         with open(metadata_path, "w+") as f:
             json.dump(
                 {
@@ -322,7 +325,10 @@ class Step(metaclass=StepMeta):
         # We still need to run this step
         logger.info(f"Step '{self.name}' is running. ⏳")
         if not hasattr(self.__class__, _INTERNAL_TEST_KEY):
-            self._set_output(self.run())
+            if self.background:
+                self._set_output(None, background_run_func=lambda: self.run())
+            else:
+                self._set_output(self.run())
 
     def register_arg(self, arg_name: str, help: None | str = None):
         if self._initialized:
@@ -475,12 +481,12 @@ class Step(metaclass=StepMeta):
     def _set_output(  # noqa: C901
         self,
         value: StepOutputType | LazyRows | LazyRowBatches,
+        background_run_func: None | Callable = None,
     ):
         if self.__output:
             raise StepOutputError("Step has already been run.")
         logger.debug(f"Step '{self.name}''s results are being processed.")
-        background = False
-        if background:
+        if background_run_func:
             p, output_queue = run_in_background(
                 _output_to_dataset,
                 step=self,
@@ -493,9 +499,10 @@ class Step(metaclass=StepMeta):
                     lambda self, rows: self._set_progress_rows(rows), self
                 ),
                 get_pickled=partial(lambda self: self._pickled, self),
-                value=value,
+                value=background_run_func,
             )
             self.__output = dill.loads(output_queue.get())
+            p.terminate()
         else:
             self.__output = _output_to_dataset(
                 output_queue=None,
