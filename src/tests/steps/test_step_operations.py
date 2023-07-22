@@ -239,3 +239,30 @@ class TestMap:
             assert isinstance(map_step, MapStep)
             assert isinstance(map_step.output, OutputIterableDataset)
             assert list(map_step.output["out1"])[2] == set(["c", 2])
+
+    def test_map_add_remove_columns(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            step._set_output({"out1": [1, 2, 3]})
+            map_step = step.map(
+                lambda row: {"out1": row["out1"], "out2": row["out1"] * 2}
+            )
+            assert isinstance(map_step, MapStep)
+            assert isinstance(map_step.output, OutputDataset)
+            assert map_step.output["out1"][2] == 3
+            assert map_step.output["out2"][2] == 6
+
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step", inputs=None, output_names=["out1", "out2"]
+            )
+            step._set_output({"out1": [1, 2, 3], "out2": ["a", "b", "c"]})
+            map_step = step.map(
+                lambda row: {"out1": row["out2"]}, remove_columns=["out2"]
+            )
+            assert isinstance(map_step, MapStep)
+            assert isinstance(map_step.output, OutputDataset)
+            assert set(map_step.output.column_names) == set(["out1"])
+            assert map_step.output["out1"][2] == "c"

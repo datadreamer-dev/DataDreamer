@@ -47,7 +47,6 @@ def dataset_zip(
     return smallest_dataset.map(
         partial(merge_rows, datasets),
         with_indices=True,
-        remove_columns=get_column_names(smallest_dataset),
         desc="Zipping datasets together",
         writer_batch_size=writer_batch_size,
         num_proc=num_proc,

@@ -108,8 +108,10 @@ def _create_save_step(
 def _create_map_step(
     function: Callable,
     with_indices: bool,
+    input_columns: None | str | list[str],
     batched: bool,
     batch_size: int,
+    remove_columns: None | str | list[str],
     writer_batch_size: None | int,
     name: None | str,
     save_num_proc: None | int,
@@ -128,8 +130,10 @@ def _create_map_step(
             return step.output.dataset.map(
                 map_transform,
                 with_indices=with_indices,
+                input_columns=input_columns,
                 batched=batched,
                 batch_size=batch_size,
+                remove_columns=remove_columns,
                 writer_batch_size=writer_batch_size,
                 num_proc=save_num_proc,
                 desc=self.name,
@@ -139,8 +143,10 @@ def _create_map_step(
                 step.output.dataset.map(
                     map_transform,
                     with_indices=with_indices,
+                    input_columns=input_columns,
                     batched=batched,
                     batch_size=batch_size,
+                    remove_columns=remove_columns,
                 ),
                 total_num_rows=step.output.total_num_rows,
             )
@@ -157,8 +163,10 @@ def _create_map_step(
                 step.fingerprint,
                 function,
                 with_indices,
+                input_columns,
                 batched,
                 batch_size,
+                remove_columns,
             ]
         },
         save_num_proc=save_num_proc,
