@@ -387,7 +387,7 @@ class TestProgress:
         next(iter(step.output))
         assert step.progress == 1.0 / 3.0
 
-    def test_auto_progress_step_operation(
+    def test_auto_progress_step_operation_shuffle(
         self, create_datadreamer, create_test_step: Callable[..., Step], caplog
     ):
         with create_datadreamer():
@@ -408,7 +408,7 @@ class TestProgress:
         assert any(["Step 'my-step (shuffle)' progress: 66% 🔄" in log for log in logs])
         assert any(["Step 'my-step (shuffle)' progress: 100% 🔄" in log for log in logs])
 
-    def test_auto_progress_rows_step_operation(
+    def test_auto_progress_rows_step_operation_shuffle(
         self, create_datadreamer, create_test_step: Callable[..., Step], caplog
     ):
         with create_datadreamer():
@@ -435,6 +435,51 @@ class TestProgress:
         assert any(
             ["Step 'my-step (shuffle)' progress: 3 row(s) 🔄" in log for log in logs]
         )
+        assert not any(["Step 'my-step' progress: 100% 🔄" in log for log in logs])
+        assert len(logs) == 13
+
+    def test_auto_progress_step_operation_map(
+        self, create_datadreamer, create_test_step: Callable[..., Step], caplog
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step", inputs=None, output_names="out1", progress_interval=0
+            )
+
+            def dataset_generator():
+                yield {"out1": "a"}
+                yield {"out1": "b"}
+                yield {"out1": "c"}
+
+            step._set_output(LazyRows(dataset_generator, total_num_rows=3))
+            step.map(lambda x: x, lazy=False, batched=True, batch_size=1)
+        logs = [rec.message for rec in caplog.records]
+        caplog.clear()
+        assert any(["Step 'my-step (map)' progress: 33% 🔄" in log for log in logs])
+        assert any(["Step 'my-step (map)' progress: 66% 🔄" in log for log in logs])
+        assert any(["Step 'my-step (map)' progress: 100% 🔄" in log for log in logs])
+
+    def test_auto_progress_rows_step_operation_map(
+        self, create_datadreamer, create_test_step: Callable[..., Step], caplog
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step", inputs=None, output_names="out1", progress_interval=0
+            )
+
+            def dataset_generator():
+                yield {"out1": "a"}
+                yield {"out1": "b"}
+                yield {"out1": "c"}
+
+            with pytest.warns(UserWarning):
+                step._set_output(LazyRows(dataset_generator))
+            step.map(lambda x: x, lazy=False)
+        logs = [rec.message for rec in caplog.records]
+        caplog.clear()
+        assert any(["Step 'my-step (map)' progress: 1 row(s) 🔄" in log for log in logs])
+        assert any(["Step 'my-step (map)' progress: 2 row(s) 🔄" in log for log in logs])
+        assert any(["Step 'my-step (map)' progress: 3 row(s) 🔄" in log for log in logs])
         assert not any(["Step 'my-step' progress: 100% 🔄" in log for log in logs])
         assert len(logs) == 13
 
