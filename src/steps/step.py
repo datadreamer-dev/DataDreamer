@@ -6,7 +6,7 @@ from datetime import datetime
 from functools import cached_property, partial
 from logging import Logger
 from time import time
-from typing import Any
+from typing import Any, Callable
 
 from pandas import DataFrame
 
@@ -27,7 +27,11 @@ from ..pickling import unpickle as _unpickle
 from ..pickling.pickle import _INTERNAL_PICKLE_KEY, _pickle
 from ..project.environment import RUNNING_IN_PYTEST
 from ..utils.fs_utils import move_dir, safe_fn
-from .step_operations import _INTERNAL_STEP_OPERATION_KEY, _create_save_step
+from .step_operations import (
+    _INTERNAL_STEP_OPERATION_KEY,
+    _create_map_step,
+    _create_save_step,
+)
 from .step_output import LazyRowBatches, LazyRows, StepOutputType, _output_to_dataset
 
 _INTERNAL_HELP_KEY = "__DataDreamer__help__"
@@ -495,6 +499,30 @@ class Step(metaclass=StepMeta):
             step=self,
         )()
 
+    def map(
+        self,
+        function: Callable,
+        with_indices: bool = False,
+        batched: bool = False,
+        batch_size: int = 1000,
+        writer_batch_size: None | int = 1000,
+        name: None | str = None,
+        save_num_proc: None | int = None,
+        save_num_shards: None | int = None,
+    ):
+        return partial(
+            _create_map_step,
+            function=function,
+            with_indices=with_indices,
+            batched=batched,
+            batch_size=batch_size,
+            writer_batch_size=writer_batch_size,
+            name=name,
+            save_num_proc=save_num_proc,
+            save_num_shards=save_num_shards,
+            step=self,
+        )()
+
     @cached_property
     def fingerprint(self) -> str:
         return Hasher.hash(
@@ -594,4 +622,8 @@ class SaveStep(Step):
     pass
 
 
-__all__ = ["LazyRowBatches", "LazyRows", "StepOutputType", "SaveStep"]
+class MapStep(Step):
+    pass
+
+
+__all__ = ["LazyRowBatches", "LazyRows", "StepOutputType", "SaveStep", "MapStep"]

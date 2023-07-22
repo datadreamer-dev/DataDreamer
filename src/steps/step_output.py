@@ -82,7 +82,9 @@ def _catch_type_error_apply_feature_types_on_example(example, *args, **kwargs):
         return _apply_feature_types_on_example(example, *args, **kwargs)
 
 
-def _catch_type_error_apply_feature_types_on_batch(batch, *args, **kwargs):
+def _catch_type_error_apply_feature_types_on_batch(
+    batch, *args, **kwargs
+):  # pragma: no cover
     if type(batch) is dict and _CATCH_TYPE_ERRORS_KEY in batch:
         del batch[_CATCH_TYPE_ERRORS_KEY]
         try:
@@ -517,8 +519,10 @@ def _output_to_dataset(  # noqa: C901
             )
             if _is_iterable(first_row) and not isinstance(first_row, Sequence):
                 first_row = list(first_row)
-            if isinstance(first_row, dict) and set(output_names) != set(
-                first_row.keys()
+            if (
+                isinstance(first_row, dict)
+                and set(output_names) != set(first_row.keys())
+                and not hasattr(step.__class__, _INTERNAL_STEP_OPERATION_KEY)
             ):
                 raise StepOutputError(
                     f"Expected {output_names} dict keys from generator"

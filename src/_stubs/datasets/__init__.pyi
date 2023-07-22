@@ -32,10 +32,13 @@ class Dataset:
         self,
         function: None | Callable = None,
         with_indices: bool = False,
+        input_columns: None | str | list[str] = None,
+        batched: bool = False,
+        batch_size: int = 1000,
         remove_columns: None | str | list[str] = None,
-        desc: None | str = None,
         writer_batch_size: None | int = 1000,
         num_proc: None | int = None,
+        desc: None | str = None,
     ): ...
     def shuffle(
         self,
@@ -71,6 +74,9 @@ class IterableDataset:
         self,
         function: None | Callable = None,
         with_indices: bool = False,
+        input_columns: None | str | list[str] = None,
+        batched: bool = False,
+        batch_size: int = 1000,
         remove_columns: None | str | list[str] = None,
     ): ...
     def shuffle(

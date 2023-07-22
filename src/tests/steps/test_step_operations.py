@@ -4,9 +4,9 @@ from typing import Callable
 from datasets import Dataset
 
 from ... import DataDreamer
-from ...datasets import OutputDataset
+from ...datasets import OutputDataset, OutputIterableDataset
 from ...steps import LazyRows, Step
-from ...steps.step import SaveStep
+from ...steps.step import MapStep, SaveStep
 
 
 class TestSave:
@@ -185,3 +185,57 @@ class TestSave:
             assert os.path.isfile(
                 os.path.join(save_step_path, "dataset", "data-00000-of-00003.arrow")
             )
+
+
+class TestMap:
+    def test_map_on_dataset(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            step._set_output({"out1": [1, 2, 3]})
+            map_step = step.map(lambda row: {"out1": row["out1"] * 2})
+            assert isinstance(map_step, MapStep)
+            assert isinstance(map_step.output, OutputDataset)
+            assert map_step.output["out1"][2] == 6
+            resume_path = os.path.basename(DataDreamer.ctx.output_folder_path)
+
+        with create_datadreamer(resume_path):
+            step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            map_step = step.map(lambda row: {"out1": row["out1"] * 2})
+            assert map_step._resumed
+            assert map_step.output["out1"][2] == 6
+
+    def test_map_on_iterable_dataset(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            step._set_output(
+                LazyRows(
+                    Dataset.from_dict(
+                        {
+                            "out1": [
+                                step.pickle(set(["a"])),
+                                step.pickle(set(["b"])),
+                                step.pickle(set(["c"])),
+                            ]
+                        }
+                    ).to_iterable_dataset(),
+                    total_num_rows=3,
+                )
+            )
+            map_step = step.map(
+                lambda batch, idxs: {
+                    "out1": [
+                        row.add(idx) or step.pickle(row)
+                        for row, idx in zip(batch["out1"], idxs)
+                    ]
+                },
+                with_indices=True,
+                batched=True,
+                batch_size=3,
+            )
+            assert isinstance(map_step, MapStep)
+            assert isinstance(map_step.output, OutputIterableDataset)
+            assert list(map_step.output["out1"])[2] == set(["c", 2])

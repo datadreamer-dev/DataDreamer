@@ -7,6 +7,7 @@ from datasets import Dataset
 from .. import DataDreamer
 from ..datasets import OutputDataset
 from ..logging import logger
+from ..pickling import unpickle_transform
 
 if TYPE_CHECKING:  # pragma: no cover
     from .step import Step
@@ -19,13 +20,15 @@ def _create_step_operation_step(
     name: None | str,
     op_cls: Type["Step"],
     op_name: str,
-    setup: Callable,
     run: Callable,
+    setup: None | Callable = None,
     **kwargs,
 ) -> "Step":
     class _StepOpStep(op_cls):  # type:ignore[valid-type,misc]
         def setup(self):
-            return setup(self)
+            self.register_arg("fingerprint")
+            if callable(setup):
+                setup(self)  # pragma: no cover
 
         def run(self):
             run_output = run(self)
@@ -60,8 +63,7 @@ def _create_save_step(
     save_num_shards: None | int,
     step: "Step",
 ) -> "Step":
-    def setup(self):
-        self.register_arg("fingerprint")
+    from .step import SaveStep
 
     def run(self):
         output_folder_path = step._output_folder_path
@@ -90,15 +92,12 @@ def _create_save_step(
             self._pickled = step.output._pickled
             return dataset
 
-    from .step import SaveStep
-
     return partial(
         _create_step_operation_step,
         step=step,
         name=name,
         op_cls=SaveStep,
         op_name="save",
-        setup=setup,
         run=run,
         args={"fingerprint": step.fingerprint},
         save_num_proc=save_num_proc,
@@ -106,4 +105,65 @@ def _create_save_step(
     )()
 
 
-__all__ = ["_INTERNAL_STEP_OPERATION_KEY", "_create_save_step"]
+def _create_map_step(
+    function: Callable,
+    with_indices: bool,
+    batched: bool,
+    batch_size: int,
+    writer_batch_size: None | int,
+    name: None | str,
+    save_num_proc: None | int,
+    save_num_shards: None | int,
+    step: "Step",
+) -> "Step":
+    from .step import LazyRows, MapStep
+
+    def map_transform(x, *args, **kwargs):
+        if step.output._pickled or step.output._pickled_inferred:
+            x = unpickle_transform(x, features=step.output._features, batched=batched)
+        return function(x, *args, **kwargs)
+
+    def run(self):
+        if isinstance(step.output, OutputDataset):
+            return step.output.dataset.map(
+                map_transform,
+                with_indices=with_indices,
+                batched=batched,
+                batch_size=batch_size,
+                writer_batch_size=writer_batch_size,
+                num_proc=save_num_proc,
+                desc=self.name,
+            )
+        else:
+            return LazyRows(
+                step.output.dataset.map(
+                    map_transform,
+                    with_indices=with_indices,
+                    batched=batched,
+                    batch_size=batch_size,
+                ),
+                total_num_rows=step.output.total_num_rows,
+            )
+
+    return partial(
+        _create_step_operation_step,
+        step=step,
+        name=name,
+        op_cls=MapStep,
+        op_name="map",
+        run=run,
+        args={
+            "fingerprint": [
+                step.fingerprint,
+                function,
+                with_indices,
+                batched,
+                batch_size,
+            ]
+        },
+        save_num_proc=save_num_proc,
+        save_num_shards=save_num_shards,
+    )()
+
+
+__all__ = ["_INTERNAL_STEP_OPERATION_KEY", "_create_save_step", "_create_map_step"]
