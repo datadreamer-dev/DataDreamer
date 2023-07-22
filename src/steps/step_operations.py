@@ -1,4 +1,5 @@
 import os
+from collections.abc import Iterable
 from functools import partial
 from typing import TYPE_CHECKING, Callable, Type
 
@@ -15,6 +16,82 @@ if TYPE_CHECKING:  # pragma: no cover
 
 _INTERNAL_STEP_OPERATION_KEY = "__DataDreamer__step_operation__"
 _INTERNAL_STEP_OPERATION_NO_SAVE_KEY = "__DataDreamer__step_operation_no_save__"
+
+
+##################################
+# Helpers step operations
+##################################
+
+
+def _iterable_dataset_to_dataset(
+    self,
+    step: "Step",
+    dataset: IterableDataset,
+    writer_batch_size: None | int,
+    save_num_proc: None | int,
+) -> Dataset:
+    output_folder_path = step._output_folder_path
+    if not output_folder_path:  # pragma: no cover
+        raise RuntimeError("You must run the Step in a DataDreamer() context.")
+
+    def dataset_generator(dataset):
+        i = None
+        for i, row in enumerate(dataset):
+            if step.output.num_rows is not None:
+                self.progress = (i + 1) / step.output.num_rows
+            else:
+                self._set_progress_rows(i + 1)
+            yield row
+        if i is not None:
+            self._set_progress_rows(i + 1)
+        self.progress = 1.0
+
+    logger.debug(
+        f"Iterating through all of '{step.name}''s lazy results in"
+        " preparation for saving."
+    )
+    cache_path = os.path.join(output_folder_path, "cache")
+    try:
+        dataset = Dataset.from_generator(
+            partial(dataset_generator, dataset),
+            features=step.output._features,
+            cache_dir=cache_path,
+            writer_batch_size=writer_batch_size,
+            num_proc=save_num_proc,
+        )
+    except DatasetGenerationError as e:
+        raise e.__cause__
+    self._pickled = step.output._pickled
+    return dataset
+
+
+def _user_transform(
+    self,
+    step: "Step",
+    function: Callable,
+    with_indices: bool,
+    batched: bool,
+    x: dict,
+    idx,
+    *args,
+    **kwargs,
+):
+    finished_idx = min(idx) if isinstance(idx, Iterable) else idx
+    if step.output.num_rows is not None:
+        self.progress = (finished_idx) / step.output.num_rows
+    else:
+        self._set_progress_rows(finished_idx)
+    if step.output._pickled or step.output._pickled_inferred:
+        x = unpickle_transform(x, features=step.output._features, batched=batched)
+    if with_indices:
+        return function(x, idx, *args, **kwargs)
+    else:
+        return function(x, *args, **kwargs)
+
+
+##################################
+# Constructors for step operations
+##################################
 
 
 def _create_step_operation_step(
@@ -80,53 +157,6 @@ def _create_step_operation_step(
     )
 
 
-##################################
-# Constructors for step operations
-##################################
-
-
-def _iterable_dataset_to_dataset(
-    self,
-    step: "Step",
-    dataset: IterableDataset,
-    writer_batch_size: None | int,
-    save_num_proc: None | int,
-) -> Dataset:
-    output_folder_path = step._output_folder_path
-    if not output_folder_path:  # pragma: no cover
-        raise RuntimeError("You must run the Step in a DataDreamer() context.")
-
-    def dataset_generator(dataset):
-        i = None
-        for i, row in enumerate(dataset):
-            if step.output.num_rows is not None:
-                self.progress = (i + 1) / step.output.num_rows
-            else:
-                self._set_progress_rows(i + 1)
-            yield row
-        if i is not None:
-            self._set_progress_rows(i + 1)
-        self.progress = 1.0
-
-    logger.debug(
-        f"Iterating through all of '{step.name}''s lazy results in"
-        " preparation for saving."
-    )
-    cache_path = os.path.join(output_folder_path, "cache")
-    try:
-        dataset = Dataset.from_generator(
-            partial(dataset_generator, dataset),
-            features=step.output._features,
-            cache_dir=cache_path,
-            writer_batch_size=writer_batch_size,
-            num_proc=save_num_proc,
-        )
-    except DatasetGenerationError as e:
-        raise e.__cause__
-    self._pickled = step.output._pickled
-    return dataset
-
-
 def _create_save_step(
     name: None | str,
     progress_interval: None | int,
@@ -179,11 +209,6 @@ def _create_map_step(
 ) -> "Step":
     from .step import MapStep
 
-    def map_transform(x, *args, **kwargs):
-        if step.output._pickled or step.output._pickled_inferred:
-            x = unpickle_transform(x, features=step.output._features, batched=batched)
-        return function(x, *args, **kwargs)
-
     def run(self):
         dataset: Dataset | IterableDataset
         if isinstance(step.output, OutputDataset) and lazy:
@@ -192,8 +217,15 @@ def _create_map_step(
             dataset = step.output.dataset
         if isinstance(dataset, Dataset):
             return dataset.map(
-                map_transform,
-                with_indices=with_indices,
+                partial(
+                    _user_transform,
+                    self,
+                    step,
+                    function,
+                    with_indices,
+                    batched,
+                ),
+                with_indices=True,
                 input_columns=input_columns,
                 batched=batched,
                 batch_size=batch_size,
@@ -204,8 +236,15 @@ def _create_map_step(
             )
         else:
             return dataset.map(
-                map_transform,
-                with_indices=with_indices,
+                partial(
+                    _user_transform,
+                    self,
+                    step,
+                    function,
+                    with_indices,
+                    batched,
+                ),
+                with_indices=True,
                 input_columns=input_columns,
                 batched=batched,
                 batch_size=batch_size,

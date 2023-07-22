@@ -404,7 +404,7 @@ class Step(metaclass=StepMeta):
     @progress.setter
     def progress(self, value: float):
         prev_progress = self.__progress or 0.0
-        if isinstance(self.__output, Dataset):
+        if isinstance(self.__output, OutputDataset):
             value = 1.0
         value = max(min(value, 1.0), prev_progress)
         should_log = False
@@ -421,7 +421,11 @@ class Step(metaclass=StepMeta):
             logger.info(
                 f"Step '{self.name}' progress:" f" {self.__get_progress_string()} 🔄"
             )
-        if self.__progress == 1.0 and self.__progress > prev_progress:
+        if (
+            self.__progress == 1.0
+            and self.__progress > prev_progress
+            and isinstance(self.__output, OutputIterableDataset)
+        ):
             logger.info(f"Step '{self.name}' finished running lazily. 🎉")
 
     def _set_progress_rows(self, value: int):

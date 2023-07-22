@@ -318,7 +318,8 @@ class TestProgress:
         assert step.progress is None
         dataset_dict = {"out1": ["a", "b", "c"]}
         dataset = Dataset.from_dict(dataset_dict)
-        step._Step__output = dataset  # type: ignore[attr-defined]
+        output = OutputDataset(step, dataset, pickled=False)
+        step._Step__output = output  # type: ignore[attr-defined]
         assert step.progress is None
         step.progress = 0.5
         assert step.progress == 1.0
@@ -435,7 +436,7 @@ class TestProgress:
             ["Step 'my-step (shuffle)' progress: 3 row(s) 🔄" in log for log in logs]
         )
         assert not any(["Step 'my-step' progress: 100% 🔄" in log for log in logs])
-        assert len(logs) == 14
+        assert len(logs) == 13
 
 
 class TestEmptyOutput:

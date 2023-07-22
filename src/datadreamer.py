@@ -3,6 +3,10 @@ import os
 import threading
 from typing import TYPE_CHECKING
 
+from transformers import logging as transformers_logging
+
+from datasets.utils import logging as datasets_logging
+
 from .logging import DATEFMT, DATETIME_FORMAT, STANDARD_FORMAT, logger
 from .utils.fs_utils import safe_fn
 
@@ -19,6 +23,7 @@ class DataDreamer:
         verbose: bool = True,
         log_level: None | int = None,
         log_date: bool = False,
+        hf_log=False,
     ):
         if os.path.isfile(output_folder_path):
             raise ValueError(
@@ -43,6 +48,19 @@ class DataDreamer:
             logger.setLevel(logging.CRITICAL + 1)
 
         logger.info(f"Intialized. 🚀 Dreaming to folder: {self.output_folder_path}")
+
+        # Take over HF loggers to prevent them from spewing logs
+        DataDreamer.ctx.hf_log = hf_log
+        DataDreamer.ctx._hf_datasets_prog_bar = (
+            datasets_logging.is_progress_bar_enabled()
+        )
+        DataDreamer.ctx._hf_datasets_verbosity = datasets_logging.get_verbosity()
+        DataDreamer.ctx._hf_transformers_verbosity = (
+            transformers_logging.get_verbosity()
+        )
+        if not DataDreamer.ctx.hf_log:
+            DataDreamer._disable_hf_datasets_logging()
+            DataDreamer._disable_hf_transformers_logging()
 
     @staticmethod
     def initialized() -> bool:
@@ -72,6 +90,36 @@ class DataDreamer:
             new_name = f"{old_name} ({transform} #{i})"
         return new_name
 
+    @staticmethod
+    def _enable_hf_datasets_logging(logs=False, progress_bars=True):
+        if hasattr(DataDreamer.ctx, "hf_log") and not DataDreamer.ctx.hf_log:
+            if logs:
+                datasets_logging.set_verbosity(DataDreamer.ctx._hf_datasets_verbosity)
+            if progress_bars:
+                if DataDreamer.ctx._hf_datasets_prog_bar:
+                    datasets_logging.enable_progress_bar()
+                else:
+                    datasets_logging.disable_progress_bar()
+
+    @staticmethod
+    def _disable_hf_datasets_logging():
+        if hasattr(DataDreamer.ctx, "hf_log") and not DataDreamer.ctx.hf_log:
+            datasets_logging.set_verbosity_error()
+            datasets_logging.disable_progress_bar()
+
+    @staticmethod
+    def _enable_hf_transformers_logging(logs=False):
+        if hasattr(DataDreamer.ctx, "hf_log") and not DataDreamer.ctx.hf_log:
+            if logs:
+                transformers_logging.set_verbosity(
+                    DataDreamer.ctx._hf_transformers_verbosity
+                )
+
+    @staticmethod
+    def _disable_hf_transformers_logging():
+        if hasattr(DataDreamer.ctx, "hf_log") and not DataDreamer.ctx.hf_log:
+            transformers_logging.set_verbosity_error()
+
     def __enter__(self):
         if hasattr(DataDreamer.ctx, "steps"):
             raise RuntimeError("Cannot nest DataDreamer() context managers.")
@@ -82,5 +130,8 @@ class DataDreamer:
         DataDreamer.ctx.initialized = True
 
     def __exit__(self, exc_type, exc_value, exc_tb):
+        if not DataDreamer.ctx.hf_log:
+            DataDreamer._enable_hf_datasets_logging(logs=True, progress_bars=True)
+            DataDreamer._enable_hf_transformers_logging(logs=True)
         DataDreamer.ctx = threading.local()
         logger.info(f"Done. ✨ Results in folder: {self.output_folder_path}")
