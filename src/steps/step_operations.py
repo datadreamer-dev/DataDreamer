@@ -94,7 +94,7 @@ def _user_transform(
 ##################################
 
 
-def _create_step_operation_step(
+def _create_step_operation_step(  # noqa: C901
     step: "Step",
     name: None | str,
     op_cls: Type["Step"],
@@ -116,6 +116,8 @@ def _create_step_operation_step(
         kwargs["save_num_proc"] = step.save_num_proc
     if kwargs.get("save_num_shards", None) is None:
         kwargs["save_num_shards"] = step.save_num_shards
+    if kwargs.get("background", None) is None:
+        kwargs["background"] = step.background
 
     class _StepOpStep(op_cls):  # type:ignore[valid-type,misc]
         def setup(self):
@@ -164,6 +166,7 @@ def _create_save_step(
     writer_batch_size: None | int,
     save_num_proc: None | int,
     save_num_shards: None | int,
+    background: bool,
     step: "Step",
 ) -> "Step":
     from .step import SaveStep
@@ -188,6 +191,7 @@ def _create_save_step(
         writer_batch_size=writer_batch_size,
         save_num_proc=save_num_proc,
         save_num_shards=save_num_shards,
+        background=background,
     )()
 
 
@@ -205,6 +209,7 @@ def _create_map_step(
     writer_batch_size: None | int,
     save_num_proc: None | int,
     save_num_shards: None | int,
+    background: bool,
     step: "Step",
 ) -> "Step":
     from .step import MapStep
@@ -275,6 +280,7 @@ def _create_map_step(
         writer_batch_size=writer_batch_size,
         save_num_proc=save_num_proc,
         save_num_shards=save_num_shards,
+        background=background,
     )()
 
 
@@ -288,6 +294,7 @@ def _create_shuffle_step(
     writer_batch_size: None | int,
     save_num_proc: None | int,
     save_num_shards: None | int,
+    background: bool,
     step: "Step",
 ) -> "Step":
     from .step import ShuffleStep
@@ -329,6 +336,7 @@ def _create_shuffle_step(
         writer_batch_size=writer_batch_size,
         save_num_proc=save_num_proc,
         save_num_shards=save_num_shards,
+        background=background,
     )()
 
 

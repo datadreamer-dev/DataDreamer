@@ -656,7 +656,9 @@ def __output_to_dataset(  # noqa: C901
         except StopIteration:
             pass
 
-    # Return a Dataset or IterableDataset
+    # TODO: This type can be misleading, but __output will only ever be a Dataset
+    # or a generator function (which later will become an IterableDataset). We never
+    # return an IterableDataset here.
     __output: Dataset | IterableDataset | Callable
 
     if _is_dataset_type(_value, is_lazy) or (is_lazy and callable(_value)):
@@ -718,12 +720,16 @@ def _output_to_dataset(  # noqa: C901
         get_pickled=get_pickled,
         value=cast(Callable, value)() if output_queue else value,
     )
-    if output_queue:
+    if output_queue:  # Check if we are running in the background or not
         if isinstance(output, tuple):
             _value, features, total_num_rows = output
+
             # Wrapping the generator like this make it pickle-able to be returned
-            # from the process
+            # from the process, this way, every time the generator is called from the
+            # parent process, it spawns a child process that runs the generation.
             _value = partial(get_generator_in_background, _value)
+
+            # Convert the background-process generator to IterableDataset
             __output = _catch_type_error(
                 IterableDataset.from_generator, _value, features=features
             )
@@ -743,7 +749,9 @@ def _output_to_dataset(  # noqa: C901
             return iterable_return_val  # Meaningless, see: output_queue.put()
         else:
             # Saving the data to disk makes the OutputDataset pickle-able to be returned
-            # from the process
+            # from the child process. By saving to disk, we pickle an OutputDataset that
+            # holds a memory-mapped Dataset, which is very memory-cheap to pickle and
+            # send back to the parent process.
             step._save_output_to_disk(output)
             try:
                 return_val = output
@@ -754,6 +762,8 @@ def _output_to_dataset(  # noqa: C901
     else:
         if isinstance(output, tuple):
             _value, features, total_num_rows = output
+
+            # Convert generator to IterableDataset
             __output = _catch_type_error(
                 IterableDataset.from_generator, _value, features=features
             )

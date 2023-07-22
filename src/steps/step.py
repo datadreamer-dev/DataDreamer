@@ -5,6 +5,7 @@ from collections import defaultdict
 from datetime import datetime
 from functools import cached_property, partial
 from logging import Logger
+from multiprocessing import Process
 from time import time
 from typing import Any, Callable
 
@@ -36,7 +37,13 @@ from .step_operations import (
     _create_save_step,
     _create_shuffle_step,
 )
-from .step_output import LazyRowBatches, LazyRows, StepOutputType, _output_to_dataset
+from .step_output import (
+    LazyRowBatches,
+    LazyRows,
+    StepOutputType,
+    _monkey_patch_iterable_dataset_apply_feature_types,
+    _output_to_dataset,
+)
 
 _INTERNAL_HELP_KEY = "__DataDreamer__help__"
 _INTERNAL_TEST_KEY = "__DataDreamer__test__"
@@ -86,7 +93,7 @@ class Step(metaclass=StepMeta):
         log_level: None | int = None,
         save_num_proc: None | int = None,
         save_num_shards: None | int = None,
-        background: bool = True,
+        background: bool = False,
     ):
         # Fill in default argument valu]es
         if not isinstance(args, dict):
@@ -129,6 +136,7 @@ class Step(metaclass=StepMeta):
         self.save_num_proc = save_num_proc
         self.save_num_shards = save_num_shards
         self.background = background
+        self.background_process: None | Process = None
 
         # Initialize the logger
         self.verbose = verbose
@@ -229,12 +237,11 @@ class Step(metaclass=StepMeta):
         )
         metadata_path = os.path.join(self._output_folder_path, "step.json")
         dataset_path = os.path.join(self._output_folder_path, "dataset")
-        if not self.background:
-            output.save_to_disk(
-                dataset_path,
-                num_proc=self.save_num_proc,
-                num_shards=self.save_num_shards,
-            )
+        output.save_to_disk(
+            dataset_path,
+            num_proc=self.save_num_proc,
+            num_shards=self.save_num_shards,
+        )
         with open(metadata_path, "w+") as f:
             json.dump(
                 {
@@ -258,7 +265,8 @@ class Step(metaclass=StepMeta):
         if isinstance(self.__output, OutputDataset) and not hasattr(
             self.__class__, _INTERNAL_STEP_OPERATION_NO_SAVE_KEY
         ):
-            self._save_output_to_disk(self.__output)
+            if not self.background:
+                self._save_output_to_disk(self.__output)
             logger.info(f"Step '{self.name}' finished and is saved to disk. 🎉")
         elif isinstance(self.__output, OutputIterableDataset) or hasattr(
             self.__class__, _INTERNAL_STEP_OPERATION_NO_SAVE_KEY
@@ -487,6 +495,7 @@ class Step(metaclass=StepMeta):
             raise StepOutputError("Step has already been run.")
         logger.debug(f"Step '{self.name}''s results are being processed.")
         if background_run_func:
+            _monkey_patch_iterable_dataset_apply_feature_types()
             p, output_queue = run_in_background(
                 _output_to_dataset,
                 step=self,
@@ -537,6 +546,7 @@ class Step(metaclass=StepMeta):
         writer_batch_size: None | int = 1000,
         save_num_proc: None | int = None,
         save_num_shards: None | int = None,
+        background: bool = False,
     ) -> "Step":
         return partial(
             _create_save_step,
@@ -546,6 +556,7 @@ class Step(metaclass=StepMeta):
             writer_batch_size=writer_batch_size,
             save_num_proc=save_num_proc,
             save_num_shards=save_num_shards,
+            background=background,
             step=self,
         )()
 
@@ -564,6 +575,7 @@ class Step(metaclass=StepMeta):
         writer_batch_size: None | int = 1000,
         save_num_proc: None | int = None,
         save_num_shards: None | int = None,
+        background: bool = False,
     ):
         return partial(
             _create_map_step,
@@ -580,6 +592,7 @@ class Step(metaclass=StepMeta):
             writer_batch_size=writer_batch_size,
             save_num_proc=save_num_proc,
             save_num_shards=save_num_shards,
+            background=background,
             step=self,
         )()
 
@@ -594,6 +607,7 @@ class Step(metaclass=StepMeta):
         writer_batch_size: None | int = 1000,
         save_num_proc: None | int = None,
         save_num_shards: None | int = None,
+        background: bool = False,
     ):
         return partial(
             _create_shuffle_step,
@@ -606,6 +620,7 @@ class Step(metaclass=StepMeta):
             writer_batch_size=writer_batch_size,
             save_num_proc=save_num_proc,
             save_num_shards=save_num_shards,
+            background=background,
             step=self,
         )()
 
@@ -697,6 +712,10 @@ class Step(metaclass=StepMeta):
             f"{output_repr}"
             ")"
         )
+
+    def __del__(self):
+        if self.background_process:
+            self.background_process.terminate()
 
 
 #############################
