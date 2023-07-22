@@ -3,8 +3,6 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Any, Callable
 
-import numpy
-
 from datasets.features.features import Features
 
 class Dataset:
@@ -43,8 +41,7 @@ class Dataset:
     def shuffle(
         self,
         seed=None,
-        generator: None | numpy.random._generator.Generator = None,
-        buffer_size: int = 1000,
+        writer_batch_size: None | int = 1000,
     ) -> Dataset: ...
     def take(self, n: int) -> Dataset: ...
     def select_columns(
@@ -82,7 +79,6 @@ class IterableDataset:
     def shuffle(
         self,
         seed=None,
-        generator: None | numpy.random._generator.Generator = None,
         buffer_size: int = 1000,
     ) -> IterableDataset: ...
     def take(self, n: int) -> IterableDataset: ...

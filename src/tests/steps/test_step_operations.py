@@ -6,7 +6,7 @@ from datasets import Dataset
 from ... import DataDreamer
 from ...datasets import OutputDataset, OutputIterableDataset
 from ...steps import LazyRows, Step
-from ...steps.step import MapStep, SaveStep
+from ...steps.step import MapStep, SaveStep, ShuffleStep
 
 
 class TestSave:
@@ -196,15 +196,14 @@ class TestMap:
             step._set_output({"out1": [1, 2, 3]})
             map_step = step.map(lambda row: {"out1": row["out1"] * 2})
             assert isinstance(map_step, MapStep)
-            assert isinstance(map_step.output, OutputDataset)
-            assert map_step.output["out1"][2] == 6
+            assert isinstance(map_step.output, OutputIterableDataset)
+            assert list(map_step.output["out1"])[2] == 6
             resume_path = os.path.basename(DataDreamer.ctx.output_folder_path)
 
         with create_datadreamer(resume_path):
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
             map_step = step.map(lambda row: {"out1": row["out1"] * 2})
-            assert map_step._resumed
-            assert map_step.output["out1"][2] == 6
+            assert list(map_step.output["out1"])[2] == 6
 
     def test_map_on_iterable_dataset(
         self, create_datadreamer, create_test_step: Callable[..., Step]
@@ -247,7 +246,7 @@ class TestMap:
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
             step._set_output({"out1": [1, 2, 3]})
             map_step = step.map(
-                lambda row: {"out1": row["out1"], "out2": row["out1"] * 2}
+                lambda row: {"out1": row["out1"], "out2": row["out1"] * 2}, lazy=False
             )
             assert isinstance(map_step, MapStep)
             assert isinstance(map_step.output, OutputDataset)
@@ -260,9 +259,116 @@ class TestMap:
             )
             step._set_output({"out1": [1, 2, 3], "out2": ["a", "b", "c"]})
             map_step = step.map(
-                lambda row: {"out1": row["out2"]}, remove_columns=["out2"]
+                lambda row: {"out1": row["out2"]},
+                remove_columns=["out2"],
+                lazy=False,
             )
             assert isinstance(map_step, MapStep)
             assert isinstance(map_step.output, OutputDataset)
             assert set(map_step.output.column_names) == set(["out1"])
             assert map_step.output["out1"][2] == "c"
+
+
+class TestShuffle:
+    def test_dataset_lazy(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            step._set_output({"out1": [1, 2, 3]})
+            shuffle_step = step.shuffle(seed=42)
+            assert isinstance(shuffle_step, ShuffleStep)
+            assert (
+                shuffle_step.output.dataset._indices  # type:ignore[union-attr]
+                is not None
+            )
+            assert shuffle_step.output["out1"][0] == 3
+            resume_path = os.path.basename(DataDreamer.ctx.output_folder_path)
+
+        with create_datadreamer(resume_path):
+            step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            shuffle_step = step.shuffle(seed=42)
+            assert not shuffle_step._resumed
+            assert shuffle_step.output.dataset._indices is not None
+            assert shuffle_step.output["out1"][0] == 3
+
+    def test_iterable_dataset_lazy(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            step._set_output(
+                LazyRows(
+                    Dataset.from_dict({"out1": [1, 2, 3]}).to_iterable_dataset(),
+                    total_num_rows=3,
+                )
+            )
+            shuffle_step = step.shuffle(seed=42, buffer_size=100)
+            assert isinstance(shuffle_step, ShuffleStep)
+            assert isinstance(shuffle_step.output, OutputIterableDataset)
+            assert list(shuffle_step.output["out1"]) == [3, 2, 1]
+            resume_path = os.path.basename(DataDreamer.ctx.output_folder_path)
+
+        with create_datadreamer(resume_path):
+            step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            step._set_output(
+                LazyRows(
+                    Dataset.from_dict({"out1": [1, 2, 3]}).to_iterable_dataset(),
+                    total_num_rows=3,
+                )
+            )
+            shuffle_step = step.shuffle(seed=42)
+            assert not shuffle_step._resumed
+            assert isinstance(shuffle_step.output, OutputIterableDataset)
+            assert list(shuffle_step.output["out1"]) == [3, 2, 1]
+
+    def test_dataset(self, create_datadreamer, create_test_step: Callable[..., Step]):
+        with create_datadreamer():
+            step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            step._set_output({"out1": [1, 2, 3]})
+            shuffle_step = step.shuffle(seed=42, lazy=False)
+            assert isinstance(shuffle_step, ShuffleStep)
+            assert (
+                shuffle_step.output.dataset._indices is None  # type:ignore[union-attr]
+            )
+            assert shuffle_step.output["out1"][0] == 3
+            resume_path = os.path.basename(DataDreamer.ctx.output_folder_path)
+
+        with create_datadreamer(resume_path):
+            step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            shuffle_step = step.shuffle(seed=42, lazy=False)
+            assert shuffle_step._resumed
+            assert shuffle_step.output.dataset._indices is None
+            assert shuffle_step.output["out1"][0] == 3
+
+    def test_iterable_dataset(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            step._set_output(
+                LazyRows(
+                    Dataset.from_dict({"out1": [1, 2, 3]}).to_iterable_dataset(),
+                    total_num_rows=3,
+                )
+            )
+            shuffle_step = step.shuffle(seed=42, lazy=False)
+            assert isinstance(shuffle_step, ShuffleStep)
+            assert (
+                shuffle_step.output.dataset._indices is None  # type:ignore[union-attr]
+            )
+            assert shuffle_step.output["out1"][0] == 3
+            resume_path = os.path.basename(DataDreamer.ctx.output_folder_path)
+
+        with create_datadreamer(resume_path):
+            step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            step._set_output(
+                LazyRows(
+                    Dataset.from_dict({"out1": [1, 2, 3]}).to_iterable_dataset(),
+                    total_num_rows=3,
+                )
+            )
+            shuffle_step = step.shuffle(seed=42, lazy=False)
+            assert shuffle_step._resumed
+            assert shuffle_step.output.dataset._indices is None
+            assert shuffle_step.output["out1"][0] == 3

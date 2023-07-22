@@ -29,8 +29,10 @@ from ..project.environment import RUNNING_IN_PYTEST
 from ..utils.fs_utils import move_dir, safe_fn
 from .step_operations import (
     _INTERNAL_STEP_OPERATION_KEY,
+    _INTERNAL_STEP_OPERATION_NO_SAVE_KEY,
     _create_map_step,
     _create_save_step,
+    _create_shuffle_step,
 )
 from .step_output import LazyRowBatches, LazyRows, StepOutputType, _output_to_dataset
 
@@ -125,6 +127,8 @@ class Step(metaclass=StepMeta):
         self.save_num_shards = save_num_shards
 
         # Initialize the logger
+        self.verbose = verbose
+        self.log_level = log_level
         self.logger: Logger
         if not hasattr(self.__class__, _INTERNAL_HELP_KEY):
             stderr_handler = logging.StreamHandler()
@@ -143,8 +147,8 @@ class Step(metaclass=StepMeta):
             formatter = logging.Formatter(log_format, datefmt=DATEFMT, validate=False)
             stderr_handler.setFormatter(formatter)
             self.logger.addHandler(stderr_handler)
-            if verbose:
-                self.logger.setLevel(log_level or max(logger.level, logging.INFO))
+            if self.verbose:
+                self.logger.setLevel(self.log_level or max(logger.level, logging.INFO))
             else:
                 self.logger.setLevel(logging.CRITICAL + 1)
 
@@ -216,7 +220,9 @@ class Step(metaclass=StepMeta):
     def _save_to_disk(self):
         if not self._output_folder_path:
             return
-        if isinstance(self.__output, OutputDataset):
+        if isinstance(self.__output, OutputDataset) and not hasattr(
+            self.__class__, _INTERNAL_STEP_OPERATION_NO_SAVE_KEY
+        ):
             logger.debug(
                 f"Step '{self.name}' is being saved to disk: {self._output_folder_path}."
             )
@@ -246,7 +252,9 @@ class Step(metaclass=StepMeta):
                 f"Step '{self.name}' is now saved to disk: {self._output_folder_path}."
             )
             logger.info(f"Step '{self.name}' finished and is saved to disk. 🎉")
-        elif isinstance(self.__output, OutputIterableDataset):
+        elif isinstance(self.__output, OutputIterableDataset) or hasattr(
+            self.__class__, _INTERNAL_STEP_OPERATION_NO_SAVE_KEY
+        ):
             logger.info(f"Step '{self.name}' will run lazily. 🥱")
 
     def _setup_folder_and_resume(self):
@@ -413,7 +421,7 @@ class Step(metaclass=StepMeta):
                 f"Step '{self.name}' progress:" f" {self.__get_progress_string()} 🔄"
             )
 
-    def __set_progress_rows(self, value: int):
+    def _set_progress_rows(self, value: int):
         value = max(value, self.__progress_rows or 0)
         should_log = False
         if (
@@ -467,7 +475,7 @@ class Step(metaclass=StepMeta):
                 lambda self, progress: setattr(self, "progress", progress), self
             ),
             set_progress_rows=partial(
-                lambda self, rows: self.__set_progress_rows(rows), self
+                lambda self, rows: self._set_progress_rows(rows), self
             ),
             get_pickled=partial(lambda self: self._pickled, self),
             value=value,
@@ -485,15 +493,19 @@ class Step(metaclass=StepMeta):
 
     def save(
         self,
-        writer_batch_size: None | int = 1000,
         name: None | str = None,
+        progress_interval: None | int = None,
+        force: bool = False,
+        writer_batch_size: None | int = 1000,
         save_num_proc: None | int = None,
         save_num_shards: None | int = None,
     ) -> "Step":
         return partial(
             _create_save_step,
-            writer_batch_size=writer_batch_size,
             name=name,
+            progress_interval=progress_interval,
+            force=force,
+            writer_batch_size=writer_batch_size,
             save_num_proc=save_num_proc,
             save_num_shards=save_num_shards,
             step=self,
@@ -507,8 +519,11 @@ class Step(metaclass=StepMeta):
         batched: bool = False,
         batch_size: int = 1000,
         remove_columns: None | str | list[str] = None,
-        writer_batch_size: None | int = 1000,
+        lazy: bool = True,
         name: None | str = None,
+        progress_interval: None | int = None,
+        force: bool = False,
+        writer_batch_size: None | int = 1000,
         save_num_proc: None | int = None,
         save_num_shards: None | int = None,
     ):
@@ -520,8 +535,37 @@ class Step(metaclass=StepMeta):
             batched=batched,
             batch_size=batch_size,
             remove_columns=remove_columns,
-            writer_batch_size=writer_batch_size,
+            lazy=lazy,
             name=name,
+            progress_interval=progress_interval,
+            force=force,
+            writer_batch_size=writer_batch_size,
+            save_num_proc=save_num_proc,
+            save_num_shards=save_num_shards,
+            step=self,
+        )()
+
+    def shuffle(
+        self,
+        seed: None | int = None,
+        buffer_size: int = 1000,
+        lazy: bool = True,
+        name: None | str = None,
+        progress_interval: None | int = 60,
+        force: bool = False,
+        writer_batch_size: None | int = 1000,
+        save_num_proc: None | int = None,
+        save_num_shards: None | int = None,
+    ):
+        return partial(
+            _create_shuffle_step,
+            seed=seed,
+            buffer_size=buffer_size,
+            lazy=lazy,
+            name=name,
+            progress_interval=progress_interval,
+            force=force,
+            writer_batch_size=writer_batch_size,
             save_num_proc=save_num_proc,
             save_num_shards=save_num_shards,
             step=self,
@@ -630,4 +674,15 @@ class MapStep(Step):
     pass
 
 
-__all__ = ["LazyRowBatches", "LazyRows", "StepOutputType", "SaveStep", "MapStep"]
+class ShuffleStep(Step):
+    pass
+
+
+__all__ = [
+    "LazyRowBatches",
+    "LazyRows",
+    "StepOutputType",
+    "SaveStep",
+    "MapStep",
+    "ShuffleStep",
+]
