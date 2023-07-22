@@ -215,49 +215,52 @@ class Step(metaclass=StepMeta):
         if DataDreamer.initialized():
             # Register the Step in the context
             DataDreamer._add_step(self)
-            self._setup_folder_and_resume()
+            self.__setup_folder_and_resume()
 
-    def _save_to_disk(self):
+    def __save_output_to_disk(self, output: OutputDataset):
         if not self._output_folder_path:
             return
+        logger.debug(
+            f"Step '{self.name}' is being saved to disk: {self._output_folder_path}."
+        )
+        metadata_path = os.path.join(self._output_folder_path, "step.json")
+        dataset_path = os.path.join(self._output_folder_path, "dataset")
+        output.save_to_disk(
+            dataset_path,
+            num_proc=self.save_num_proc,
+            num_shards=self.save_num_shards,
+        )
+        with open(metadata_path, "w+") as f:
+            json.dump(
+                {
+                    "__version__": __version__,
+                    "datetime": datetime.now().isoformat(),
+                    "type": type(self).__name__,
+                    "name": self.name,
+                    "version": self.version,
+                    "fingerprint": self.fingerprint,
+                    "pickled": output._pickled,
+                    "trace_info": self.trace_info,
+                },
+                f,
+                indent=4,
+            )
+        logger.debug(
+            f"Step '{self.name}' is now saved to disk: {self._output_folder_path}."
+        )
+
+    def __save_to_disk(self):
         if isinstance(self.__output, OutputDataset) and not hasattr(
             self.__class__, _INTERNAL_STEP_OPERATION_NO_SAVE_KEY
         ):
-            logger.debug(
-                f"Step '{self.name}' is being saved to disk: {self._output_folder_path}."
-            )
-            metadata_path = os.path.join(self._output_folder_path, "step.json")
-            dataset_path = os.path.join(self._output_folder_path, "dataset")
-            self.__output.save_to_disk(
-                dataset_path,
-                num_proc=self.save_num_proc,
-                num_shards=self.save_num_shards,
-            )
-            with open(metadata_path, "w+") as f:
-                json.dump(
-                    {
-                        "__version__": __version__,
-                        "datetime": datetime.now().isoformat(),
-                        "type": type(self).__name__,
-                        "name": self.name,
-                        "version": self.version,
-                        "fingerprint": self.fingerprint,
-                        "pickled": self.__output._pickled,
-                        "trace_info": self.trace_info,
-                    },
-                    f,
-                    indent=4,
-                )
-            logger.debug(
-                f"Step '{self.name}' is now saved to disk: {self._output_folder_path}."
-            )
+            self.__save_output_to_disk(self.__output)
             logger.info(f"Step '{self.name}' finished and is saved to disk. 🎉")
         elif isinstance(self.__output, OutputIterableDataset) or hasattr(
             self.__class__, _INTERNAL_STEP_OPERATION_NO_SAVE_KEY
         ):
             logger.info(f"Step '{self.name}' will run lazily. 🥱")
 
-    def _setup_folder_and_resume(self):
+    def __setup_folder_and_resume(self):
         # Create an output folder for the step
         self._output_folder_path = os.path.join(
             DataDreamer.ctx.output_folder_path, safe_fn(self.name)
@@ -487,7 +490,7 @@ class Step(metaclass=StepMeta):
             get_pickled=partial(lambda self: self._pickled, self),
             value=value,
         )
-        self._save_to_disk()
+        self.__save_to_disk()
 
     def head(self, n=5, shuffle=False, seed=None, buffer_size=1000) -> DataFrame:
         return self.output.head(
