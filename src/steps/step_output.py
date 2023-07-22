@@ -4,6 +4,7 @@ from copy import deepcopy
 from functools import partial
 from typing import TYPE_CHECKING, Any, Callable, Type, TypeAlias, TypeGuard
 
+import dill
 from pyarrow.lib import ArrowInvalid, ArrowTypeError
 
 from datasets import Dataset, IterableDataset, iterable_dataset
@@ -26,6 +27,7 @@ from ..datasets.utils import (
     iterable_dataset_zip,
 )
 from ..errors import StepOutputError, StepOutputTypeError
+from ..utils.background_utils import get_generator_in_background
 from .step_operations import _INTERNAL_STEP_OPERATION_KEY
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -270,7 +272,7 @@ class LazyRowBatches:
         return self.__value
 
 
-def _output_to_dataset(  # noqa: C901
+def __output_to_dataset(  # noqa: C901
     step: "Step",
     output_names: tuple[str, ...],
     output_name_mapping: dict[str, str],
@@ -278,7 +280,7 @@ def _output_to_dataset(  # noqa: C901
     set_progress_rows: Callable[[float], None],
     get_pickled: Callable[[], bool],
     value: StepOutputType | LazyRows | LazyRowBatches,
-) -> OutputDataset | OutputIterableDataset:
+) -> OutputDataset | tuple[Callable, Features, None | int]:
     # Set progress to 0.0
     set_progress(0.0)
 
@@ -508,6 +510,7 @@ def _output_to_dataset(  # noqa: C901
         )
 
     # Create an IterableDataset if given a generator function of dicts
+    features = Features([(n, None) for n in output_names])
     if is_lazy and _is_lazy_type(_value):
         # Make sure the generator returns a dict and the keys are correct
         try:
@@ -651,16 +654,12 @@ def _output_to_dataset(  # noqa: C901
                 Dataset.from_list, [next(_value_preview())]
             ).info.features
         except StopIteration:
-            features = Features([(n, None) for n in output_names])
-        _value = _catch_type_error(
-            IterableDataset.from_generator, _value, features=features
-        )
-        _monkey_patch_iterable_dataset_apply_feature_types()
+            pass
 
     # Return a Dataset or IterableDataset
-    __output: Dataset | IterableDataset
+    __output: Dataset | IterableDataset | Callable
 
-    if _is_dataset_type(_value, is_lazy):
+    if _is_dataset_type(_value, is_lazy) or (is_lazy and callable(_value)):
         __output = _value
         if isinstance(_value, Dataset):
             set_progress(1.0)
@@ -690,18 +689,88 @@ def _output_to_dataset(  # noqa: C901
     else:
         raise StepOutputError(f"Invalid output type: {type(_value)}.")
 
-    # Rename columns and create OutputDataset or OutputIterableDataset
-    rename_mapping = {k: v for k, v in output_name_mapping.items() if k != v}
-    __output = __output.rename_columns(rename_mapping)
-    if isinstance(__output, IterableDataset):
-        return OutputIterableDataset(
-            step=step,
-            dataset=__output,
-            pickled=get_pickled(),
-            total_num_rows=total_num_rows,
-        )
+    if callable(__output):
+        return __output, features, total_num_rows
     else:
+        # Rename columns and create OutputDataset
+        rename_mapping = {k: v for k, v in output_name_mapping.items() if k != v}
+        __output = __output.rename_columns(rename_mapping)
+        assert isinstance(__output, Dataset)
         return OutputDataset(step=step, dataset=__output, pickled=get_pickled())
+
+
+def _output_to_dataset(  # noqa: C901
+    output_queue: Any,
+    step: "Step",
+    output_names: tuple[str, ...],
+    output_name_mapping: dict[str, str],
+    set_progress: Callable[[float], None],
+    set_progress_rows: Callable[[float], None],
+    get_pickled: Callable[[], bool],
+    value: StepOutputType | LazyRows | LazyRowBatches,
+) -> OutputDataset | OutputIterableDataset:
+    output = __output_to_dataset(
+        step=step,
+        output_names=output_names,
+        output_name_mapping=output_name_mapping,
+        set_progress=set_progress,
+        set_progress_rows=set_progress_rows,
+        get_pickled=get_pickled,
+        value=value,
+    )
+    if output_queue:
+        if isinstance(output, tuple):
+            _value, features, total_num_rows = output
+            # Wrapping the generator like this make it pickle-able to be returned
+            # from the process
+            _value = partial(get_generator_in_background, _value)
+            __output = _catch_type_error(
+                IterableDataset.from_generator, _value, features=features
+            )
+            _monkey_patch_iterable_dataset_apply_feature_types()
+
+            # Rename columns and create OutputIterableDataset
+            rename_mapping = {k: v for k, v in output_name_mapping.items() if k != v}
+            __output = __output.rename_columns(rename_mapping)
+            assert isinstance(__output, IterableDataset)
+            iterable_return_val = OutputIterableDataset(
+                step=step,
+                dataset=__output,
+                pickled=get_pickled(),
+                total_num_rows=total_num_rows,
+            )
+            output_queue.put(dill.dumps(iterable_return_val))
+            return iterable_return_val  # Meaningless, see: output_queue.put()
+        else:
+            # Saving the data to disk makes the OutputDataset pickle-able to be returned
+            # from the process
+            step._save_output_to_disk(output)
+            try:
+                return_val = output
+                output_queue.put(dill.dumps(return_val))
+                return return_val  # Meaningless, see: output_queue.put()
+            except dill.PicklingError as e:
+                raise StepOutputTypeError(str(e))
+    else:
+        if isinstance(output, tuple):
+            _value, features, total_num_rows = output
+            __output = _catch_type_error(
+                IterableDataset.from_generator, _value, features=features
+            )
+            _monkey_patch_iterable_dataset_apply_feature_types()
+
+            # Rename columns and create OutputIterableDataset
+            rename_mapping = {k: v for k, v in output_name_mapping.items() if k != v}
+            __output = __output.rename_columns(rename_mapping)
+            assert isinstance(__output, IterableDataset)
+            return OutputIterableDataset(
+                step=step,
+                dataset=__output,
+                pickled=get_pickled(),
+                total_num_rows=total_num_rows,
+            )
+        else:
+            return output
 
 
 __all__ = ["LazyRowBatches", "LazyRows", "StepOutputType", "_output_to_dataset"]

@@ -8,6 +8,7 @@ from logging import Logger
 from time import time
 from typing import Any, Callable
 
+import dill
 from pandas import DataFrame
 
 from datasets import Dataset
@@ -26,6 +27,7 @@ from ..logging import DATEFMT, STANDARD_FORMAT, logger
 from ..pickling import unpickle as _unpickle
 from ..pickling.pickle import _INTERNAL_PICKLE_KEY, _pickle
 from ..project.environment import RUNNING_IN_PYTEST
+from ..utils.background_utils import run_in_background
 from ..utils.fs_utils import move_dir, safe_fn
 from .step_operations import (
     _INTERNAL_STEP_OPERATION_KEY,
@@ -217,7 +219,7 @@ class Step(metaclass=StepMeta):
             DataDreamer._add_step(self)
             self.__setup_folder_and_resume()
 
-    def __save_output_to_disk(self, output: OutputDataset):
+    def _save_output_to_disk(self, output: OutputDataset):
         if not self._output_folder_path:
             return
         logger.debug(
@@ -253,7 +255,7 @@ class Step(metaclass=StepMeta):
         if isinstance(self.__output, OutputDataset) and not hasattr(
             self.__class__, _INTERNAL_STEP_OPERATION_NO_SAVE_KEY
         ):
-            self.__save_output_to_disk(self.__output)
+            self._save_output_to_disk(self.__output)
             logger.info(f"Step '{self.name}' finished and is saved to disk. 🎉")
         elif isinstance(self.__output, OutputIterableDataset) or hasattr(
             self.__class__, _INTERNAL_STEP_OPERATION_NO_SAVE_KEY
@@ -477,19 +479,38 @@ class Step(metaclass=StepMeta):
         if self.__output:
             raise StepOutputError("Step has already been run.")
         logger.debug(f"Step '{self.name}''s results are being processed.")
-        self.__output = _output_to_dataset(
-            step=self,
-            output_names=tuple(self.__registered["outputs"]),
-            output_name_mapping=self.output_name_mapping,
-            set_progress=partial(
-                lambda self, progress: setattr(self, "progress", progress), self
-            ),
-            set_progress_rows=partial(
-                lambda self, rows: self._set_progress_rows(rows), self
-            ),
-            get_pickled=partial(lambda self: self._pickled, self),
-            value=value,
-        )
+        background = False
+        if background:
+            p, output_queue = run_in_background(
+                _output_to_dataset,
+                step=self,
+                output_names=tuple(self.__registered["outputs"]),
+                output_name_mapping=self.output_name_mapping,
+                set_progress=partial(
+                    lambda self, progress: setattr(self, "progress", progress), self
+                ),
+                set_progress_rows=partial(
+                    lambda self, rows: self._set_progress_rows(rows), self
+                ),
+                get_pickled=partial(lambda self: self._pickled, self),
+                value=value,
+            )
+            self.__output = dill.loads(output_queue.get())
+        else:
+            self.__output = _output_to_dataset(
+                output_queue=None,
+                step=self,
+                output_names=tuple(self.__registered["outputs"]),
+                output_name_mapping=self.output_name_mapping,
+                set_progress=partial(
+                    lambda self, progress: setattr(self, "progress", progress), self
+                ),
+                set_progress_rows=partial(
+                    lambda self, rows: self._set_progress_rows(rows), self
+                ),
+                get_pickled=partial(lambda self: self._pickled, self),
+                value=value,
+            )
         self.__save_to_disk()
 
     def head(self, n=5, shuffle=False, seed=None, buffer_size=1000) -> DataFrame:
