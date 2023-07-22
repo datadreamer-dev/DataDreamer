@@ -3,6 +3,7 @@ from functools import partial
 from typing import TYPE_CHECKING, Callable, Type
 
 from datasets import Dataset, IterableDataset
+from datasets.builder import DatasetGenerationError
 
 from .. import DataDreamer
 from ..datasets import OutputDataset, OutputIterableDataset
@@ -112,13 +113,16 @@ def _iterable_dataset_to_dataset(
         " preparation for saving."
     )
     cache_path = os.path.join(output_folder_path, "cache")
-    dataset = Dataset.from_generator(
-        partial(dataset_generator, dataset),
-        features=step.output._features,
-        cache_dir=cache_path,
-        writer_batch_size=writer_batch_size,
-        num_proc=save_num_proc,
-    )
+    try:
+        dataset = Dataset.from_generator(
+            partial(dataset_generator, dataset),
+            features=step.output._features,
+            cache_dir=cache_path,
+            writer_batch_size=writer_batch_size,
+            num_proc=save_num_proc,
+        )
+    except DatasetGenerationError as e:
+        raise e.__cause__
     self._pickled = step.output._pickled
     return dataset
 

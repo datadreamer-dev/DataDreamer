@@ -203,6 +203,35 @@ class TestErrors:
         with pytest.warns(UserWarning):
             _pickle(5)
 
+    def test_exceptions_propagate(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+
+            def dataset_generator():
+                yield ["a"]
+                yield ["b"]
+                raise ReferenceError("Custom Error")
+                yield ["b"]
+
+            step = create_test_step(name="my-step", inputs=None, output_names="out1")
+            step._set_output(LazyRows(dataset_generator, total_num_rows=3))
+            with pytest.raises(ReferenceError):
+                list(step.output)
+
+        with create_datadreamer():
+
+            def dataset_generator():
+                yield ["a"]
+                yield ["b"]
+                raise ReferenceError("Custom Error")
+                yield ["b"]
+
+            step = create_test_step(name="my-step", inputs=None, output_names="out1")
+            step._set_output(LazyRows(dataset_generator, total_num_rows=3))
+            with pytest.raises(ReferenceError):
+                step.shuffle(seed=42, lazy=False)
+
 
 class TestProgress:
     def test_before_output(self, create_test_step: Callable[..., Step]):
