@@ -125,8 +125,8 @@ class TestFunctionality:
 
     def test_creates_folder(self, create_datadreamer):
         with create_datadreamer():
-            assert os.path.exists(DataDreamer.ctx.output_folder_path)
-            assert os.path.isdir(DataDreamer.ctx.output_folder_path)
+            assert os.path.exists(DataDreamer.get_output_folder_path())
+            assert os.path.isdir(DataDreamer.get_output_folder_path())
             assert DataDreamer.ctx.steps == []
 
     def test_ctx_clears(self, create_datadreamer):
@@ -163,7 +163,7 @@ class TestFunctionality:
             step._set_output({"out1": ["a", "b", "c"]})
             assert step.fingerprint == "ed3426fd675eff03"
             del step
-            step_path = os.path.join(DataDreamer.ctx.output_folder_path, "my-step")
+            step_path = os.path.join(DataDreamer.get_output_folder_path(), "my-step")
             assert os.path.isdir(step_path)
             assert os.path.isfile(os.path.join(step_path, "step.json"))
             with open(os.path.join(step_path, "step.json"), "r") as f:
@@ -183,7 +183,7 @@ class TestFunctionality:
             assert os.path.isfile(
                 os.path.join(step_path, "dataset", "data-00000-of-00001.arrow")
             )
-            resume_path = os.path.basename(DataDreamer.ctx.output_folder_path)
+            resume_path = os.path.basename(DataDreamer.get_output_folder_path())
 
         with create_datadreamer(resume_path):
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
@@ -202,14 +202,14 @@ class TestFunctionality:
             step = create_test_step(name="my-step", inputs=None, output_names=["out2"])
             with pytest.raises(StepOutputError):
                 step.output
-            step_path = os.path.join(DataDreamer.ctx.output_folder_path, "my-step")
+            step_path = os.path.join(DataDreamer.get_output_folder_path(), "my-step")
             assert os.path.isdir(step_path)
             assert not os.path.exists(os.path.join(step_path, "step.json"))
             assert not os.path.exists(
                 os.path.join(step_path, "dataset", "dataset_info.json")
             )
             backup_path = os.path.join(
-                DataDreamer.ctx.output_folder_path,
+                DataDreamer.get_output_folder_path(),
                 ".backups",
                 "my-step",
                 "ed3426fd675eff03",
@@ -226,7 +226,7 @@ class TestFunctionality:
             assert not step._resumed
             step._set_output({"out1": ["a", "b", "c"]})
             assert step.fingerprint == "ed3426fd675eff03"
-            resume_path = os.path.basename(DataDreamer.ctx.output_folder_path)
+            resume_path = os.path.basename(DataDreamer.get_output_folder_path())
 
         with create_datadreamer(resume_path):
             step = create_test_step(
@@ -237,7 +237,7 @@ class TestFunctionality:
                 step.output
             assert os.path.isdir(
                 os.path.join(
-                    DataDreamer.ctx.output_folder_path,
+                    DataDreamer.get_output_folder_path(),
                     ".backups",
                     "my-step",
                     "ed3426fd675eff03",
@@ -258,11 +258,11 @@ class TestFunctionality:
             )
             assert step.fingerprint == "ed3426fd675eff03"
             del step
-            step_path = os.path.join(DataDreamer.ctx.output_folder_path, "my-step")
+            step_path = os.path.join(DataDreamer.get_output_folder_path(), "my-step")
             assert os.path.isdir(step_path)
             assert not os.path.exists(os.path.join(step_path, "step.json"))
             assert not os.path.exists(os.path.join(step_path, "dataset"))
-            resume_path = os.path.basename(DataDreamer.ctx.output_folder_path)
+            resume_path = os.path.basename(DataDreamer.get_output_folder_path())
 
         with create_datadreamer(resume_path):
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
@@ -286,7 +286,7 @@ class TestFunctionality:
                 }
             )
             del step
-            resume_path = os.path.basename(DataDreamer.ctx.output_folder_path)
+            resume_path = os.path.basename(DataDreamer.get_output_folder_path())
 
         with create_datadreamer(resume_path):
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
@@ -307,7 +307,7 @@ class TestFunctionality:
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
             run_output_folder_path = step.get_run_output_folder_path()
             assert os.path.isdir(run_output_folder_path)
-            assert os.path.join(DataDreamer.ctx.output_folder_path, "run_output")
+            assert os.path.join(DataDreamer.get_output_folder_path(), "run_output")
 
     def test_trace_info_propogates(
         self, create_datadreamer, create_test_step: Callable[..., Step]
@@ -361,7 +361,7 @@ class TestFunctionality:
                 save_num_shards=3,
             )
             step._set_output({"out1": ["a", "b", "c"]})
-            step_path = os.path.join(DataDreamer.ctx.output_folder_path, "my-step")
+            step_path = os.path.join(DataDreamer.get_output_folder_path(), "my-step")
             assert os.path.isfile(
                 os.path.join(step_path, "dataset", "data-00000-of-00003.arrow")
             )

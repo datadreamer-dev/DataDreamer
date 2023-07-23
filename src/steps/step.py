@@ -223,7 +223,7 @@ class Step(metaclass=StepMeta):
         )
 
         # Initialize from/to the context
-        self._output_folder_path = None
+        self._output_folder_path: None | str = None
         if DataDreamer.initialized():
             # Register the Step in the context
             DataDreamer._add_step(self)
@@ -276,7 +276,7 @@ class Step(metaclass=StepMeta):
     def __setup_folder_and_resume(self):
         # Create an output folder for the step
         self._output_folder_path = os.path.join(
-            DataDreamer.ctx.output_folder_path, safe_fn(self.name)
+            DataDreamer.get_output_folder_path(), safe_fn(self.name)
         )
         if self._output_folder_path is None:
             return  # pragma: no cover
@@ -317,7 +317,7 @@ class Step(metaclass=StepMeta):
                 " It will be re-run."
             )
             backup_path = os.path.join(
-                DataDreamer.ctx.output_folder_path,
+                DataDreamer.get_output_folder_path(),
                 ".backups",
                 safe_fn(self.name),
                 prev_fingerprint,

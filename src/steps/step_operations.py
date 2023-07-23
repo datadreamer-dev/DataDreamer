@@ -27,7 +27,7 @@ _INTERNAL_STEP_OPERATION_NO_SAVE_KEY = "__DataDreamer__step_operation_no_save__"
 def _iterable_dataset_to_dataset(
     self,
     step: "Step",
-    dataset: IterableDataset,
+    iterable_dataset: IterableDataset,
     writer_batch_size: None | int,
     save_num_proc: None | int,
 ) -> Dataset:
@@ -35,9 +35,9 @@ def _iterable_dataset_to_dataset(
     if not output_folder_path:  # pragma: no cover
         raise RuntimeError("You must run the Step in a DataDreamer() context.")
 
-    def dataset_generator(dataset):
+    def dataset_generator(iterable_dataset):
         i = None
-        for i, row in enumerate(dataset):
+        for i, row in enumerate(iterable_dataset):
             if step.output.num_rows is not None:
                 self.progress = (i + 1) / step.output.num_rows
             else:
@@ -54,7 +54,7 @@ def _iterable_dataset_to_dataset(
     cache_path = os.path.join(output_folder_path, "cache")
     try:
         dataset = Dataset.from_generator(
-            partial(dataset_generator, dataset),
+            partial(dataset_generator, iterable_dataset),
             features=step.output._features,
             cache_dir=cache_path,
             writer_batch_size=writer_batch_size,
@@ -130,7 +130,7 @@ def _create_step_operation_step(  # noqa: C901
                 run_output = _iterable_dataset_to_dataset(
                     self=self,
                     step=step,
-                    dataset=run_output,
+                    iterable_dataset=run_output,
                     writer_batch_size=writer_batch_size,
                     save_num_proc=kwargs["save_num_proc"],
                 )
@@ -305,7 +305,7 @@ def _create_shuffle_step(
             dataset = _iterable_dataset_to_dataset(
                 self=self,
                 step=step,
-                dataset=step.output.dataset,
+                iterable_dataset=step.output.dataset,
                 writer_batch_size=writer_batch_size,
                 save_num_proc=save_num_proc,
             )

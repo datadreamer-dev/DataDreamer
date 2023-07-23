@@ -40,6 +40,10 @@ class DataDreamer:
         return hasattr(DataDreamer.ctx, "initialized")
 
     @staticmethod
+    def get_output_folder_path() -> str:
+        return DataDreamer.ctx.output_folder_path
+
+    @staticmethod
     def _has_step_name(name: str) -> bool:
         return (
             name in DataDreamer.ctx.step_names

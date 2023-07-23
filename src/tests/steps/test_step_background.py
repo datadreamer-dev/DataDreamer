@@ -25,7 +25,7 @@ class TestBackground:
             assert isinstance(step.output, OutputDataset)
             assert step.output._pickled is True
             assert len(step.output["out1"]) == 3
-            step_path = os.path.join(DataDreamer.ctx.output_folder_path, "my-step")
+            step_path = os.path.join(DataDreamer.get_output_folder_path(), "my-step")
             assert os.path.isfile(
                 os.path.join(step_path, "dataset", "dataset_info.json")
             )
@@ -51,7 +51,7 @@ class TestBackground:
             assert isinstance(step.output, OutputDataset)
             assert step.output._pickled is True
             assert len(step.output["out1"]) == 3
-            step_path = os.path.join(DataDreamer.ctx.output_folder_path, "my-step")
+            step_path = os.path.join(DataDreamer.get_output_folder_path(), "my-step")
             assert os.path.isfile(
                 os.path.join(step_path, "dataset", "dataset_info.json")
             )
@@ -90,7 +90,7 @@ class TestBackground:
             assert isinstance(step.output, OutputIterableDataset)
             assert step.output._pickled is True
             assert step.output["out1"].num_rows == 3
-            step_path = os.path.join(DataDreamer.ctx.output_folder_path, "my-step")
+            step_path = os.path.join(DataDreamer.get_output_folder_path(), "my-step")
             assert not os.path.exists(
                 os.path.join(step_path, "dataset", "dataset_info.json")
             )

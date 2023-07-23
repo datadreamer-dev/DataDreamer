@@ -27,10 +27,10 @@ class TestSave:
             save_step_1 = step.save()
             save_step_2 = step.save()
             save_step_1_path = os.path.join(
-                DataDreamer.ctx.output_folder_path, "my-step-save"
+                DataDreamer.get_output_folder_path(), "my-step-save"
             )
             save_step_2_path = os.path.join(
-                DataDreamer.ctx.output_folder_path, "my-step-save-2"
+                DataDreamer.get_output_folder_path(), "my-step-save-2"
             )
             assert save_step_1.name == "my-step (save)"
             assert save_step_2.name == "my-step (save #2)"
@@ -56,18 +56,18 @@ class TestSave:
             assert isinstance(save_step, SaveStep)
             assert isinstance(save_step.output, OutputDataset)
             save_step_path = os.path.join(
-                DataDreamer.ctx.output_folder_path, "my-step-save"
+                DataDreamer.get_output_folder_path(), "my-step-save"
             )
             assert os.path.isdir(save_step_path)
             assert os.path.isfile(
                 os.path.join(
-                    DataDreamer.ctx.output_folder_path,
+                    DataDreamer.get_output_folder_path(),
                     "my-step-save",
                     "dataset",
                     "dataset_info.json",
                 )
             )
-            resume_path = os.path.basename(DataDreamer.ctx.output_folder_path)
+            resume_path = os.path.basename(DataDreamer.get_output_folder_path())
 
         with create_datadreamer(resume_path):
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
@@ -97,24 +97,24 @@ class TestSave:
                 )
             )
             save_step = step.save(name="save-step", writer_batch_size=1000)
-            step_path = os.path.join(DataDreamer.ctx.output_folder_path, "my-step")
+            step_path = os.path.join(DataDreamer.get_output_folder_path(), "my-step")
             assert os.path.isdir(os.path.join(step_path, "cache", "generator"))
             assert type(save_step).__name__ == "SaveStep"
             assert isinstance(save_step, SaveStep)
             assert isinstance(save_step.output, OutputDataset)
             save_step_path = os.path.join(
-                DataDreamer.ctx.output_folder_path, "save-step"
+                DataDreamer.get_output_folder_path(), "save-step"
             )
             assert os.path.isdir(save_step_path)
             assert os.path.isfile(
                 os.path.join(
-                    DataDreamer.ctx.output_folder_path,
+                    DataDreamer.get_output_folder_path(),
                     "save-step",
                     "dataset",
                     "dataset_info.json",
                 )
             )
-            resume_path = os.path.basename(DataDreamer.ctx.output_folder_path)
+            resume_path = os.path.basename(DataDreamer.get_output_folder_path())
 
         with create_datadreamer(resume_path):
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
@@ -151,7 +151,7 @@ class TestSave:
             )
             step.save()
             save_step_path = os.path.join(
-                DataDreamer.ctx.output_folder_path, "my-step-save"
+                DataDreamer.get_output_folder_path(), "my-step-save"
             )
             assert os.path.isfile(
                 os.path.join(save_step_path, "dataset", "data-00000-of-00003.arrow")
@@ -180,7 +180,7 @@ class TestSave:
                 save_num_shards=3,
             )
             save_step_path = os.path.join(
-                DataDreamer.ctx.output_folder_path, "save-step"
+                DataDreamer.get_output_folder_path(), "save-step"
             )
             assert os.path.isfile(
                 os.path.join(save_step_path, "dataset", "data-00000-of-00003.arrow")
@@ -198,7 +198,7 @@ class TestMap:
             assert isinstance(map_step, MapStep)
             assert isinstance(map_step.output, OutputIterableDataset)
             assert list(map_step.output["out1"])[2] == 6
-            resume_path = os.path.basename(DataDreamer.ctx.output_folder_path)
+            resume_path = os.path.basename(DataDreamer.get_output_folder_path())
 
         with create_datadreamer(resume_path):
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
@@ -283,7 +283,7 @@ class TestShuffle:
                 is not None
             )
             assert shuffle_step.output["out1"][0] == 3
-            resume_path = os.path.basename(DataDreamer.ctx.output_folder_path)
+            resume_path = os.path.basename(DataDreamer.get_output_folder_path())
 
         with create_datadreamer(resume_path):
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
@@ -307,7 +307,7 @@ class TestShuffle:
             assert isinstance(shuffle_step, ShuffleStep)
             assert isinstance(shuffle_step.output, OutputIterableDataset)
             assert list(shuffle_step.output["out1"]) == [3, 2, 1]
-            resume_path = os.path.basename(DataDreamer.ctx.output_folder_path)
+            resume_path = os.path.basename(DataDreamer.get_output_folder_path())
 
         with create_datadreamer(resume_path):
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
@@ -332,7 +332,7 @@ class TestShuffle:
                 shuffle_step.output.dataset._indices is None  # type:ignore[union-attr]
             )
             assert shuffle_step.output["out1"][0] == 3
-            resume_path = os.path.basename(DataDreamer.ctx.output_folder_path)
+            resume_path = os.path.basename(DataDreamer.get_output_folder_path())
 
         with create_datadreamer(resume_path):
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
@@ -358,7 +358,7 @@ class TestShuffle:
                 shuffle_step.output.dataset._indices is None  # type:ignore[union-attr]
             )
             assert shuffle_step.output["out1"][0] == 3
-            resume_path = os.path.basename(DataDreamer.ctx.output_folder_path)
+            resume_path = os.path.basename(DataDreamer.get_output_folder_path())
 
         with create_datadreamer(resume_path):
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
