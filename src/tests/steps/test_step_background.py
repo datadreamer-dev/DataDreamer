@@ -1,11 +1,12 @@
 import os
+from functools import partial
 
 import pytest
 
 from ... import DataDreamer
 from ...datasets import OutputDataset, OutputIterableDataset
 from ...errors import StepOutputError
-from ...steps import LazyRows, Step, wait
+from ...steps import LazyRows, Step, concurrent, wait
 
 
 class TestBackground:
@@ -112,3 +113,26 @@ class TestBackground:
             shuffle_step = step.shuffle(seed=42)
             assert isinstance(shuffle_step.output, OutputDataset)
             assert shuffle_step.output["out1"][0] == 3
+
+    def test_concurrent_step_operations(self, create_datadreamer, caplog):
+        class TestStep(Step):
+            def setup(self):
+                self.register_output("out1")
+
+            def run(self):
+                return [1, 2, 3]
+
+        with create_datadreamer():
+
+            def create_step_and_shuffle(i):
+                step = TestStep(name=f"my-step-{i}", background=True)
+                shuffle_step = step.shuffle(seed=42)
+                return shuffle_step
+
+            shuffle_step_1, shuffle_step_2 = concurrent(
+                partial(create_step_and_shuffle, 1), partial(create_step_and_shuffle, 2)
+            )
+            assert isinstance(shuffle_step_1.output, OutputDataset)
+            assert isinstance(shuffle_step_2.output, OutputDataset)
+            assert shuffle_step_1.output["out1"][0] == 3
+            assert shuffle_step_2.output["out1"][0] == 3

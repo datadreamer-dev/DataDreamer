@@ -1,5 +1,6 @@
+from multiprocessing.dummy import Pool as ThreadPool
 from time import sleep
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 from ..errors import StepOutputError
 from ..utils.background_utils import run_in_background_thread
@@ -33,3 +34,11 @@ def wait(*steps: "Step", poll_interval=1.0):
         _waiter, steps_list, poll_interval=poll_interval
     )
     wait_thread.join()
+
+
+def concurrent(*funcs: Callable):
+    thread_pool = ThreadPool(len(funcs))
+    results = thread_pool.map(lambda func: func(), funcs)
+    thread_pool.close()
+    thread_pool.join()
+    return results

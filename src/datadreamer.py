@@ -1,7 +1,7 @@
 import logging
 import os
-import threading
-from typing import TYPE_CHECKING
+from collections import UserDict
+from typing import TYPE_CHECKING, Any
 
 from transformers import logging as transformers_logging
 
@@ -15,7 +15,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class DataDreamer:
-    ctx = threading.local()
+    ctx: Any = UserDict()
 
     def __init__(
         self,
@@ -150,5 +150,5 @@ class DataDreamer:
         if not DataDreamer.ctx.hf_log:
             DataDreamer._enable_hf_datasets_logging(logs=True, progress_bars=True)
             DataDreamer._enable_hf_transformers_logging(logs=True, progress_bars=True)
-        DataDreamer.ctx = threading.local()
+        DataDreamer.ctx = UserDict()
         logger.info(f"Done. ✨ Results in folder: {self.output_folder_path}")
