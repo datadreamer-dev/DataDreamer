@@ -50,6 +50,8 @@ class TestErrors:
         with pytest.raises(StepOutputError):
             step_multiple._set_output(5)  # type: ignore[arg-type]
         with pytest.raises(StepOutputError):
+            step_multiple._set_output(lambda x: x)  # type: ignore[arg-type]
+        with pytest.raises(StepOutputError):
             step_multiple._set_output(
                 LazyRows([iterable_dataset, [1, 2, 3]], total_num_rows=3)
             )

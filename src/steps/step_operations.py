@@ -116,8 +116,6 @@ def _create_step_operation_step(  # noqa: C901
         kwargs["save_num_proc"] = step.save_num_proc
     if kwargs.get("save_num_shards", None) is None:
         kwargs["save_num_shards"] = step.save_num_shards
-    if kwargs.get("background", None) is None:
-        kwargs["background"] = step.background
 
     class _StepOpStep(op_cls):  # type:ignore[valid-type,misc]
         def setup(self):

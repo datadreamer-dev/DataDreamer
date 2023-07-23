@@ -721,16 +721,18 @@ def _output_to_dataset(  # noqa: C901
     value: StepOutputType | LazyRows | LazyRowBatches,
     save_output_to_disk: Callable[[OutputDataset], None],
 ) -> OutputDataset | OutputIterableDataset:
-    output = __output_to_dataset(
-        step=step,
-        output_names=output_names,
-        output_name_mapping=output_name_mapping,
-        set_progress=set_progress,
-        set_progress_rows=set_progress_rows,
-        get_pickled=get_pickled,
-        value=cast(Callable, value)() if pipe else value,
-    )
-    if pipe:  # Check if we are running in the background or not
+    # Check whether we are running in the background or not
+    if pipe:  # pragma: no cover
+        # We are running in the background
+        output = __output_to_dataset(
+            step=step,
+            output_names=output_names,
+            output_name_mapping=output_name_mapping,
+            set_progress=set_progress,
+            set_progress_rows=set_progress_rows,
+            get_pickled=get_pickled,
+            value=cast(Callable, value)(),  # Here: value = the run() function itself
+        )
         if isinstance(output, tuple):
             _value, features, total_num_rows = output
 
@@ -770,6 +772,16 @@ def _output_to_dataset(  # noqa: C901
             except dill.PicklingError as e:
                 raise StepOutputTypeError(str(e))
     else:
+        # We are not running in the background
+        output = __output_to_dataset(
+            step=step,
+            output_names=output_names,
+            output_name_mapping=output_name_mapping,
+            set_progress=set_progress,
+            set_progress_rows=set_progress_rows,
+            get_pickled=get_pickled,
+            value=value,  # Here: value = the result of the run() function
+        )
         if isinstance(output, tuple):
             _value, features, total_num_rows = output
 

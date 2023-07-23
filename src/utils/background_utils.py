@@ -14,7 +14,7 @@ def _thread_func_wrapper(func: Callable, kwargs, *args):
     return func(*args, **kwargs)
 
 
-def _process_func_wrapper(func: Callable, pipe: Any, kwargs, *args):
+def _process_func_wrapper(func: Callable, pipe: Any, kwargs, *args):  # pragma: no cover
     kwargs = dill.loads(kwargs)
     return func(pipe, *args, **kwargs)
 
@@ -70,7 +70,7 @@ def run_in_background_process_no_block(
     )
 
 
-def _generator_in_background(generator_pipe, generator: Callable):
+def _generator_in_background(generator_pipe, generator: Callable):  # pragma: no cover
     for _v in dill.loads(generator)():
         generator_pipe.put(_v)
     generator_pipe.put(EOD())
