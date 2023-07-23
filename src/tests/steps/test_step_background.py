@@ -1,8 +1,11 @@
 import os
 
+import pytest
+
 from ... import DataDreamer
 from ...datasets import OutputDataset, OutputIterableDataset
-from ...steps import LazyRows, Step
+from ...errors import StepOutputError
+from ...steps import LazyRows, Step, wait
 
 
 class TestBackground:
@@ -40,6 +43,9 @@ class TestBackground:
 
         with create_datadreamer():
             step = TestStep(name="my-step", background=True)
+            with pytest.raises(StepOutputError):
+                step.output
+            wait(step)
             assert set(step.output.column_names) == set(["out1"])
             assert isinstance(step.output, OutputDataset)
             assert step.output._pickled is True
@@ -76,6 +82,9 @@ class TestBackground:
 
         with create_datadreamer():
             step = TestStep(name="my-step", background=True)
+            with pytest.raises(StepOutputError):
+                step.output
+            wait(step)
             assert set(step.output.column_names) == set(["out1"])
             assert isinstance(step.output, OutputIterableDataset)
             assert step.output._pickled is True

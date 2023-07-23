@@ -5,7 +5,7 @@ from collections import defaultdict
 from datetime import datetime
 from functools import cached_property, partial
 from logging import Logger
-from multiprocessing import Process
+from threading import Thread
 from time import time
 from typing import Any, Callable
 
@@ -28,7 +28,7 @@ from ..logging import DATEFMT, STANDARD_FORMAT, logger
 from ..pickling import unpickle as _unpickle
 from ..pickling.pickle import _INTERNAL_PICKLE_KEY, _pickle
 from ..project.environment import RUNNING_IN_PYTEST
-from ..utils.background_utils import run_in_background
+from ..utils.background_utils import run_in_background_process_no_block
 from ..utils.fs_utils import move_dir, safe_fn
 from .step_operations import (
     _INTERNAL_STEP_OPERATION_KEY,
@@ -136,7 +136,7 @@ class Step(metaclass=StepMeta):
         self.save_num_proc = save_num_proc
         self.save_num_shards = save_num_shards
         self.background = background
-        self.background_process: None | Process = None
+        self.background_thread: None | Thread = None
 
         # Initialize the logger
         self.verbose = verbose
@@ -476,8 +476,15 @@ class Step(metaclass=StepMeta):
     @property
     def output(self) -> OutputDataset | OutputIterableDataset:
         if self.__output is None:
-            if self.__progress is None:
+            if self.__progress is None and not self.background_thread:
                 raise StepOutputError("Step has not been run. Output is not available.")
+            elif self.background_thread:
+                raise StepOutputError(
+                    f"Step is still running in the background"
+                    f" ({self.__get_progress_string()})."
+                    " Output is not available yet. To wait for this step to finish, you"
+                    " can use the wait() utility function."
+                )
             else:
                 raise StepOutputError(
                     f"Step is still running ({self.__get_progress_string()})."
@@ -496,8 +503,14 @@ class Step(metaclass=StepMeta):
         logger.debug(f"Step '{self.name}''s results are being processed.")
         if background_run_func:
             _monkey_patch_iterable_dataset_apply_feature_types()
-            p, output_queue = run_in_background(
+
+            def with_result(self, output):
+                self.__output = dill.loads(output)
+                self.__save_to_disk()
+
+            self.background_thread = run_in_background_process_no_block(
                 _output_to_dataset,
+                result_func=partial(with_result, self),
                 step=self,
                 output_names=tuple(self.__registered["outputs"]),
                 output_name_mapping=self.output_name_mapping,
@@ -510,8 +523,6 @@ class Step(metaclass=StepMeta):
                 get_pickled=partial(lambda self: self._pickled, self),
                 value=background_run_func,
             )
-            self.__output = dill.loads(output_queue.get())
-            p.terminate()
         else:
             self.__output = _output_to_dataset(
                 output_queue=None,
@@ -527,7 +538,7 @@ class Step(metaclass=StepMeta):
                 get_pickled=partial(lambda self: self._pickled, self),
                 value=value,
             )
-        self.__save_to_disk()
+            self.__save_to_disk()
 
     def head(self, n=5, shuffle=False, seed=None, buffer_size=1000) -> DataFrame:
         return self.output.head(
@@ -712,10 +723,6 @@ class Step(metaclass=StepMeta):
             f"{output_repr}"
             ")"
         )
-
-    def __del__(self):
-        if self.background_process:
-            self.background_process.terminate()
 
 
 #############################
