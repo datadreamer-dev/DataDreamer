@@ -94,6 +94,15 @@ class Step(metaclass=StepMeta):
         save_num_shards: None | int = None,
         background: bool = False,
     ):
+        # Check pid
+        if DataDreamer.is_background_process():  # pragma: no cover
+            raise RuntimeError(
+                f"Steps must be initialized in the same process"
+                f" ({os.getpid()}) as the DataDreamer() context manager"
+                f" ({DataDreamer.ctx.pid}). Use background=True if you want to"
+                " run this step in a background process."
+            )
+
         # Fill in default argument valu]es
         if not isinstance(args, dict):
             args = {}
@@ -299,6 +308,8 @@ class Step(metaclass=StepMeta):
                 self._set_output(self.run())
 
     def __finish(self):
+        if DataDreamer.is_background_process():  # pragma: no cover
+            return
         if isinstance(self.__output, OutputIterableDataset) or hasattr(
             self.__class__, _INTERNAL_STEP_OPERATION_NO_SAVE_KEY
         ):

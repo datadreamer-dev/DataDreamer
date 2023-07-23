@@ -54,6 +54,10 @@ class DataDreamer:
         return DataDreamer.ctx.in_memory
 
     @staticmethod
+    def is_background_process() -> bool:
+        return DataDreamer.initialized() and DataDreamer.ctx.pid != os.getpid()
+
+    @staticmethod
     def get_output_folder_path() -> str:
         if hasattr(DataDreamer.ctx, "output_folder_path"):
             return DataDreamer.ctx.output_folder_path
@@ -147,6 +151,7 @@ class DataDreamer:
         DataDreamer.ctx.steps = []
         DataDreamer.ctx.step_names = set()
         DataDreamer.ctx.background_processes = []
+        DataDreamer.ctx.pid = os.getpid()
 
         # Setup logger
         if self.log_date:

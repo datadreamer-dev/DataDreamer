@@ -757,7 +757,21 @@ def _output_to_dataset(  # noqa: C901
                 pickled=get_pickled(),
                 total_num_rows=total_num_rows,
             )
+
+            # This sets a dummy output on the child process, but that doesn't really do
+            # anything. The only purpose for this is because we are logging progress
+            # from the child process, the logger needs to know if the output is an
+            # OutputIterableDataset.
+            def dummy_empty_generator():
+                return iter(())
+
+            step._set_output(
+                LazyRows(dummy_empty_generator, total_num_rows=total_num_rows)
+            )
+
+            # Send the pickled version of the OutputIterableDataset to the parent process
             pipe.put(dill.dumps(iterable_return_val))
+
             return iterable_return_val  # Meaningless, see: pipe.put()
         else:
             # Saving the data to disk makes the OutputDataset pickle-able to be returned
@@ -768,7 +782,10 @@ def _output_to_dataset(  # noqa: C901
                 save_output_to_disk(output)
             try:
                 return_val = output
+
+                # Send the pickled version of the OutputIterableDataset to the parent process
                 pipe.put(dill.dumps(return_val))
+
                 return return_val  # Meaningless, see: pipe.put()
             except dill.PicklingError as e:
                 raise StepOutputTypeError(str(e))
