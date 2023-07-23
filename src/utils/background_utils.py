@@ -40,17 +40,33 @@ def run_in_background_process(func: Callable, *args, **kwargs) -> tuple[Process,
 
 
 def run_in_background_process_no_block(
-    func: Callable, result_func: Callable, *args, **kwargs
-) -> Thread:
+    func: Callable,
+    result_process_func: Callable,
+    result_func: Callable,
+    *args,
+    **kwargs
+):
     def _run_in_background_process_no_block(
-        func: Callable, result_func: Callable, *args, **kwargs
+        func: Callable,
+        result_process_func: Callable,
+        result_func: Callable,
+        *args,
+        **kwargs
     ):
         p, output_queue = run_in_background_process(func, *args, **kwargs)
+        result_process_func(p)
         result_func(output_queue.get())
         p.terminate()
 
-    return run_in_background_thread(
-        partial(_run_in_background_process_no_block, func, result_func, *args, **kwargs)
+    run_in_background_thread(
+        partial(
+            _run_in_background_process_no_block,
+            func,
+            result_process_func,
+            result_func,
+            *args,
+            **kwargs
+        )
     )
 
 

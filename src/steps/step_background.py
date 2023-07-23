@@ -17,5 +17,7 @@ def _waiter(steps, poll_interval=1.0):
 
 def wait(*steps: Step, poll_interval=1.0):
     steps_list = list(steps)
-    wait_thread = run_in_background_thread(_waiter, steps_list, poll_interval=poll_interval)
+    wait_thread = run_in_background_thread(
+        _waiter, steps_list, poll_interval=poll_interval
+    )
     wait_thread.join()

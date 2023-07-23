@@ -5,7 +5,7 @@ from collections import defaultdict
 from datetime import datetime
 from functools import cached_property, partial
 from logging import Logger
-from threading import Thread
+from multiprocessing import Process
 from time import time
 from typing import Any, Callable
 
@@ -136,7 +136,7 @@ class Step(metaclass=StepMeta):
         self.save_num_proc = save_num_proc
         self.save_num_shards = save_num_shards
         self.background = background
-        self.background_thread: None | Thread = None
+        self.background_process: None | Process = None
 
         # Initialize the logger
         self.verbose = verbose
@@ -476,9 +476,9 @@ class Step(metaclass=StepMeta):
     @property
     def output(self) -> OutputDataset | OutputIterableDataset:
         if self.__output is None:
-            if self.__progress is None and not self.background_thread:
+            if self.__progress is None and not self.background_process:
                 raise StepOutputError("Step has not been run. Output is not available.")
-            elif self.background_thread:
+            elif self.background_process:
                 raise StepOutputError(
                     f"Step is still running in the background"
                     f" ({self.__get_progress_string()})."
@@ -504,12 +504,16 @@ class Step(metaclass=StepMeta):
         if background_run_func:
             _monkey_patch_iterable_dataset_apply_feature_types()
 
+            def with_result_process(self, process):
+                self.background_process = process
+
             def with_result(self, output):
                 self.__output = dill.loads(output)
                 self.__save_to_disk()
 
-            self.background_thread = run_in_background_process_no_block(
+            run_in_background_process_no_block(
                 _output_to_dataset,
+                result_process_func=partial(with_result_process, self),
                 result_func=partial(with_result, self),
                 step=self,
                 output_names=tuple(self.__registered["outputs"]),
@@ -723,6 +727,14 @@ class Step(metaclass=StepMeta):
             f"{output_repr}"
             ")"
         )
+
+    def __del__(self):
+        if (
+            hasattr(self, "background_process")
+            and self.background_process
+            and self.background_process.is_alive()
+        ):
+            self.background_process.terminate()
 
 
 #############################
