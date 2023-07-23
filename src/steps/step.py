@@ -314,6 +314,11 @@ class Step(metaclass=StepMeta):
                 self.__save_output_to_disk(self.__output)
             logger.info(f"Step '{self.name}' finished and is saved to disk. 🎉")
 
+        # Set output_names and output_name_mapping if step operation
+        if hasattr(self.__class__, _INTERNAL_STEP_OPERATION_KEY) and self.__output:
+            self.output_name_mapping = {n: n for n in self.__output.column_names}
+            self.output_names = tuple([o for o in self.output_name_mapping.values()])
+
     def __save_output_to_disk(self, output: OutputDataset):
         if not self._output_folder_path:  # pragma: no cover
             return
