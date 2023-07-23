@@ -16,12 +16,8 @@ from datasets.fingerprint import Hasher
 
 from .. import __version__
 from ..datadreamer import DataDreamer
-from ..datasets import (
-    OutputDataset,
-    OutputDatasetColumn,
-    OutputIterableDataset,
-    OutputIterableDatasetColumn,
-)
+from ..datasets import (OutputDataset, OutputDatasetColumn,
+                        OutputIterableDataset, OutputIterableDatasetColumn)
 from ..errors import StepOutputError
 from ..logging import DATEFMT, STANDARD_FORMAT, logger
 from ..pickling import unpickle as _unpickle
@@ -29,20 +25,13 @@ from ..pickling.pickle import _INTERNAL_PICKLE_KEY, _pickle
 from ..project.environment import RUNNING_IN_PYTEST
 from ..utils.background_utils import run_in_background_process_no_block
 from ..utils.fs_utils import move_dir, safe_fn
-from .step_operations import (
-    _INTERNAL_STEP_OPERATION_KEY,
-    _INTERNAL_STEP_OPERATION_NO_SAVE_KEY,
-    _create_map_step,
-    _create_save_step,
-    _create_shuffle_step,
-)
-from .step_output import (
-    LazyRowBatches,
-    LazyRows,
-    StepOutputType,
-    _monkey_patch_iterable_dataset_apply_feature_types,
-    _output_to_dataset,
-)
+from .step_operations import (_INTERNAL_STEP_OPERATION_KEY,
+                              _INTERNAL_STEP_OPERATION_NO_SAVE_KEY,
+                              _create_map_step, _create_save_step,
+                              _create_shuffle_step)
+from .step_output import (LazyRowBatches, LazyRows, StepOutputType,
+                          _monkey_patch_iterable_dataset_apply_feature_types,
+                          _output_to_dataset)
 
 _INTERNAL_HELP_KEY = "__DataDreamer__help__"
 _INTERNAL_TEST_KEY = "__DataDreamer__test__"
@@ -145,7 +134,7 @@ class Step(metaclass=StepMeta):
         if not hasattr(self.__class__, _INTERNAL_HELP_KEY):
             stderr_handler = logging.StreamHandler()
             stderr_handler.setLevel(logging.DEBUG)
-            self.logger = logging.getLogger(f"datadreamer.steps.{self.name}")
+            self.logger = logging.getLogger(f"datadreamer.steps.{safe_fn(self.name)}")
             if RUNNING_IN_PYTEST:
                 self.logger.propagate = True
             else:
