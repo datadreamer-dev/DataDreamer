@@ -1,21 +1,33 @@
 from time import sleep
+from typing import TYPE_CHECKING
 
 from ..errors import StepOutputError
 from ..utils.background_utils import run_in_background_thread
-from .step import Step
+
+if TYPE_CHECKING:  # pragma: no cover
+    from .step import Step
+
+
+def _check_step_output(step: "Step") -> bool:
+    try:
+        step.output
+        return True
+    except StepOutputError:
+        return False
 
 
 def _waiter(steps, poll_interval=1.0):
     while len(steps) > 0:
-        try:
-            step = steps[-1]
-            step.output
+        step = steps[-1]
+        if _check_step_output(step):
             steps.pop()
-        except StepOutputError:
+        else:
             sleep(poll_interval)
 
 
-def wait(*steps: Step, poll_interval=1.0):
+def wait(*steps: "Step", poll_interval=1.0):
+    if all([_check_step_output(step) for step in steps]):
+        return
     steps_list = list(steps)
     wait_thread = run_in_background_thread(
         _waiter, steps_list, poll_interval=poll_interval

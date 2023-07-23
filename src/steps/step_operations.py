@@ -10,6 +10,7 @@ from .. import DataDreamer
 from ..datasets import OutputDataset, OutputIterableDataset
 from ..logging import logger
 from ..pickling import unpickle_transform
+from .step_background import wait
 
 if TYPE_CHECKING:  # pragma: no cover
     from .step import Step
@@ -149,6 +150,7 @@ def _create_step_operation_step(  # noqa: C901
     _StepOpStep.__qualname__ = op_cls.__name__
     _StepOpStep.__module__ = op_cls.__module__
     final_name: str = name or DataDreamer._new_step_name(step.name, op_name)
+    wait(step)
     return _StepOpStep(
         name=final_name,
         verbose=step.verbose,

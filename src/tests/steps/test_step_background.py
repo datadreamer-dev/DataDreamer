@@ -98,3 +98,17 @@ class TestBackground:
             caplog.clear()
             assert any(["Step 'my-step' will run lazily. 🥱" in log for log in logs])
             assert len(logs) == 3
+
+    def test_step_operation_on_backgrounded_step(self, create_datadreamer, caplog):
+        class TestStep(Step):
+            def setup(self):
+                self.register_output("out1")
+
+            def run(self):
+                return [1, 2, 3]
+
+        with create_datadreamer():
+            step = TestStep(name="my-step", background=True)
+            shuffle_step = step.shuffle(seed=42)
+            assert isinstance(shuffle_step.output, OutputDataset)
+            assert shuffle_step.output["out1"][0] == 3
