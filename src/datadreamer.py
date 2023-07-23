@@ -58,6 +58,9 @@ class DataDreamer:
         DataDreamer.ctx._hf_transformers_verbosity = (
             transformers_logging.get_verbosity()
         )
+        DataDreamer.ctx._hf_transformers_prog_bar = (
+            transformers_logging.is_progress_bar_enabled()
+        )
         if not DataDreamer.ctx.hf_log:
             DataDreamer._disable_hf_datasets_logging()
             DataDreamer._disable_hf_transformers_logging()
@@ -108,17 +111,23 @@ class DataDreamer:
             datasets_logging.disable_progress_bar()
 
     @staticmethod
-    def _enable_hf_transformers_logging(logs=False):
+    def _enable_hf_transformers_logging(logs=False, progress_bars=True):
         if hasattr(DataDreamer.ctx, "hf_log") and not DataDreamer.ctx.hf_log:
             if logs:
                 transformers_logging.set_verbosity(
                     DataDreamer.ctx._hf_transformers_verbosity
                 )
+            if progress_bars:
+                if DataDreamer.ctx._hf_transformers_prog_bar:
+                    transformers_logging.enable_progress_bar()
+                else:
+                    transformers_logging.disable_progress_bar()
 
     @staticmethod
     def _disable_hf_transformers_logging():
         if hasattr(DataDreamer.ctx, "hf_log") and not DataDreamer.ctx.hf_log:
             transformers_logging.set_verbosity_error()
+            transformers_logging.disable_progress_bar()
 
     def __enter__(self):
         if hasattr(DataDreamer.ctx, "steps"):
@@ -132,6 +141,6 @@ class DataDreamer:
     def __exit__(self, exc_type, exc_value, exc_tb):
         if not DataDreamer.ctx.hf_log:
             DataDreamer._enable_hf_datasets_logging(logs=True, progress_bars=True)
-            DataDreamer._enable_hf_transformers_logging(logs=True)
+            DataDreamer._enable_hf_transformers_logging(logs=True, progress_bars=True)
         DataDreamer.ctx = threading.local()
         logger.info(f"Done. ✨ Results in folder: {self.output_folder_path}")
