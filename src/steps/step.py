@@ -532,7 +532,7 @@ class Step(metaclass=StepMeta):
             )
         else:
             self.__output = _output_to_dataset(
-                output_queue=None,
+                pipe=None,
                 step=self,
                 output_names=tuple(self.__registered["outputs"]),
                 output_name_mapping=self.output_name_mapping,

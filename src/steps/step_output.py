@@ -702,7 +702,7 @@ def __output_to_dataset(  # noqa: C901
 
 
 def _output_to_dataset(  # noqa: C901
-    output_queue: Any,
+    pipe: Any,
     step: "Step",
     output_names: tuple[str, ...],
     output_name_mapping: dict[str, str],
@@ -719,9 +719,9 @@ def _output_to_dataset(  # noqa: C901
         set_progress=set_progress,
         set_progress_rows=set_progress_rows,
         get_pickled=get_pickled,
-        value=cast(Callable, value)() if output_queue else value,
+        value=cast(Callable, value)() if pipe else value,
     )
-    if output_queue:  # Check if we are running in the background or not
+    if pipe:  # Check if we are running in the background or not
         if isinstance(output, tuple):
             _value, features, total_num_rows = output
 
@@ -746,8 +746,8 @@ def _output_to_dataset(  # noqa: C901
                 pickled=get_pickled(),
                 total_num_rows=total_num_rows,
             )
-            output_queue.put(dill.dumps(iterable_return_val))
-            return iterable_return_val  # Meaningless, see: output_queue.put()
+            pipe.put(dill.dumps(iterable_return_val))
+            return iterable_return_val  # Meaningless, see: pipe.put()
         else:
             # Saving the data to disk makes the OutputDataset pickle-able to be returned
             # from the child process. By saving to disk, we pickle an OutputDataset that
@@ -756,8 +756,8 @@ def _output_to_dataset(  # noqa: C901
             save_output_to_disk(output)
             try:
                 return_val = output
-                output_queue.put(dill.dumps(return_val))
-                return return_val  # Meaningless, see: output_queue.put()
+                pipe.put(dill.dumps(return_val))
+                return return_val  # Meaningless, see: pipe.put()
             except dill.PicklingError as e:
                 raise StepOutputTypeError(str(e))
     else:
