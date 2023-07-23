@@ -57,7 +57,12 @@ class TestBackground:
             assert step.output["out1"][0] != set([os.getpid()])
             logs = [rec.message for rec in caplog.records]
             caplog.clear()
-            assert any(["Step 'my-step' is running. ⏳" in log for log in logs])
+            assert any(
+                [
+                    "Step 'my-step' is running in the background. ⏳" in log
+                    for log in logs
+                ]
+            )
             assert any(
                 [
                     "Step 'my-step' finished and is saved to disk. 🎉" in log

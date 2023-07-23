@@ -31,10 +31,6 @@ def _iterable_dataset_to_dataset(
     writer_batch_size: None | int,
     save_num_proc: None | int,
 ) -> Dataset:
-    output_folder_path = step._output_folder_path
-    if not output_folder_path:  # pragma: no cover
-        raise RuntimeError("You must run the Step in a DataDreamer() context.")
-
     def dataset_generator(iterable_dataset):
         i = None
         for i, row in enumerate(iterable_dataset):
@@ -51,15 +47,19 @@ def _iterable_dataset_to_dataset(
         f"Iterating through all of '{step.name}''s lazy results in"
         " preparation for saving."
     )
-    cache_path = os.path.join(output_folder_path, "cache")
+
     try:
-        dataset = Dataset.from_generator(
-            partial(dataset_generator, iterable_dataset),
-            features=step.output._features,
-            cache_dir=cache_path,
-            writer_batch_size=writer_batch_size,
-            num_proc=save_num_proc,
-        )
+        if step._output_folder_path:
+            cache_path = os.path.join(step._output_folder_path, "cache")
+            dataset = Dataset.from_generator(
+                partial(dataset_generator, iterable_dataset),
+                features=step.output._features,
+                cache_dir=cache_path,
+                writer_batch_size=writer_batch_size,
+                num_proc=save_num_proc,
+            )
+        else:
+            dataset = Dataset.from_list(list(dataset_generator(iterable_dataset)))
     except DatasetGenerationError as e:
         raise e.__cause__
     self._pickled = step.output._pickled

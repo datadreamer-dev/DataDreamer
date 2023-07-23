@@ -12,6 +12,9 @@ def create_datadreamer() -> Callable[..., DataDreamer]:
     def _create_datadreamer(path: None | str = None, **kwargs) -> DataDreamer:
         if path is None:
             path = uuid.uuid4().hex[0:10]
-        return DataDreamer(os.path.join("./.tests_data", path), **kwargs)
+        if path == ":memory:":
+            return DataDreamer(path, **kwargs)
+        else:
+            return DataDreamer(os.path.join("./.tests_data", path), **kwargs)
 
     return _create_datadreamer

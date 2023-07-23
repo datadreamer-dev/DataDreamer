@@ -6,9 +6,10 @@ from typing import Callable
 import pytest
 
 from datasets import Dataset
+from datasets.fingerprint import is_caching_enabled
 
 from .. import DataDreamer, __version__
-from ..datasets import OutputDataset
+from ..datasets import OutputDataset, OutputIterableDataset
 from ..errors import StepOutputError
 from ..steps import LazyRows, Step, TraceInfoType
 
@@ -52,7 +53,7 @@ class TestFunctionality:
         ]
         logs = [rec.message for rec in caplog.records]
         caplog.clear()
-        assert logs[0].startswith("Intialized. 🚀 Dreaming to folder: ")
+        assert logs[0].startswith("Initialized. 🚀 Dreaming to folder: ")
         assert logs[1].startswith("Done. ✨ Results in folder:")
         assert not any(log_dates)
 
@@ -69,7 +70,7 @@ class TestFunctionality:
         ]
         logs = [rec.message for rec in caplog.records]
         caplog.clear()
-        assert logs[0].startswith("Intialized. 🚀 Dreaming to folder: ")
+        assert logs[0].startswith("Initialized. 🚀 Dreaming to folder: ")
         assert logs[1].startswith("Done. ✨ Results in folder:")
         assert all(log_dates)
 
@@ -315,6 +316,40 @@ class TestFunctionality:
             run_output_folder_path = step.get_run_output_folder_path()
             assert os.path.isdir(run_output_folder_path)
             assert os.path.join(DataDreamer.get_output_folder_path(), "run_output")
+
+    def test_in_memory(self, create_datadreamer, caplog):
+        class TestStep(Step):
+            def setup(self):
+                self.register_output("out1")
+
+            def run(self):
+                return [1, 2, 3]
+
+        class TestIterableStep(TestStep):
+            def run(self):
+                def data_generator():
+                    yield 1
+                    yield 2
+                    yield 3
+
+                return LazyRows(data_generator, total_num_rows=3)
+
+        with create_datadreamer(":memory:"):
+            step = TestStep(name="my-step", background=True).save()
+            shuffle_step_1 = step.shuffle(seed=42, lazy=False)
+            step_iterable = TestIterableStep(name="my-iterable-step", background=True)
+            shuffle_step_2 = step_iterable.shuffle(seed=42)
+            assert isinstance(shuffle_step_1.output, OutputDataset)
+            assert shuffle_step_1.output["out1"][0] == 3
+            assert isinstance(shuffle_step_2.output, OutputIterableDataset)
+            assert list(shuffle_step_2.output["out1"])[0] == 3
+            assert not is_caching_enabled()
+
+        logs = [rec.message for rec in caplog.records]
+        caplog.clear()
+        assert logs[0] == "Initialized. 🚀 Dreaming in-memory: 🧠"
+        assert logs[-1] == "Done. ✨"
+        assert len(logs) == 13
 
     def test_trace_info_propogates(
         self, create_datadreamer, create_test_step: Callable[..., Step]

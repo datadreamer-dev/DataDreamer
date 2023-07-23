@@ -1,11 +1,13 @@
 import logging
 import os
 from collections import UserDict
+from multiprocessing import Process
 from threading import Lock
 from typing import TYPE_CHECKING, Any
 
 from transformers import logging as transformers_logging
 
+from datasets.fingerprint import disable_caching, enable_caching, is_caching_enabled
 from datasets.utils import logging as datasets_logging
 
 from .logging import DATEFMT, DATETIME_FORMAT, STANDARD_FORMAT, logger
@@ -29,11 +31,15 @@ class DataDreamer:
         log_date: bool = False,
         hf_log=False,
     ):
-        if os.path.isfile(output_folder_path):
-            raise ValueError(
-                f"Expected path to folder, but file exists at path {output_folder_path}."
-            )
-        self.output_folder_path = output_folder_path
+        self.output_folder_path: None | str
+        if output_folder_path.strip().lower() in ":memory:":
+            self.output_folder_path = None
+        else:
+            if os.path.isfile(output_folder_path):
+                raise ValueError(
+                    f"Expected path to folder, but file exists at path {output_folder_path}."
+                )
+            self.output_folder_path = output_folder_path
         self.verbose = verbose
         self.log_level = log_level
         self.log_date = log_date
@@ -44,8 +50,15 @@ class DataDreamer:
         return hasattr(DataDreamer.ctx, "initialized")
 
     @staticmethod
+    def is_running_in_memory() -> bool:
+        return DataDreamer.ctx.in_memory
+
+    @staticmethod
     def get_output_folder_path() -> str:
-        return DataDreamer.ctx.output_folder_path
+        if hasattr(DataDreamer.ctx, "output_folder_path"):
+            return DataDreamer.ctx.output_folder_path
+        else:
+            raise RuntimeError("DataDreamer is running in-memory.")
 
     @staticmethod
     def _has_step_name(name: str) -> bool:
@@ -61,6 +74,10 @@ class DataDreamer:
             DataDreamer.ctx.steps.append(step)
             DataDreamer.ctx.step_names.add(step.name)
             DataDreamer.ctx.step_names.add(safe_fn(step.name))
+
+    @staticmethod
+    def _add_process(process: Process):
+        DataDreamer.ctx.background_processes.append(process)
 
     @staticmethod
     def _new_step_name(old_name: str, transform: None | str = None):
@@ -119,10 +136,17 @@ class DataDreamer:
 
         # Initialize
         _DATADREAMER_CTX_LOCK.acquire()
-        os.makedirs(self.output_folder_path, exist_ok=True)
-        DataDreamer.ctx.output_folder_path = self.output_folder_path
+        if self.output_folder_path:
+            DataDreamer.ctx.in_memory = False
+            os.makedirs(self.output_folder_path, exist_ok=True)
+            DataDreamer.ctx.output_folder_path = self.output_folder_path
+        else:
+            DataDreamer.ctx.in_memory = True
+            self._hf_datasets_caching = is_caching_enabled()
+            disable_caching()
         DataDreamer.ctx.steps = []
         DataDreamer.ctx.step_names = set()
+        DataDreamer.ctx.background_processes = []
 
         # Setup logger
         if self.log_date:
@@ -140,7 +164,10 @@ class DataDreamer:
         else:
             logger.setLevel(logging.CRITICAL + 1)
 
-        logger.info(f"Intialized. 🚀 Dreaming to folder: {self.output_folder_path}")
+        if self.output_folder_path:
+            logger.info(f"Initialized. 🚀 Dreaming to folder: {self.output_folder_path}")
+        else:
+            logger.info("Initialized. 🚀 Dreaming in-memory: 🧠")
 
         # Take over HF loggers to prevent them from spewing logs
         DataDreamer.ctx.hf_log = self.hf_log
@@ -165,6 +192,15 @@ class DataDreamer:
         if not DataDreamer.ctx.hf_log:
             DataDreamer._enable_hf_datasets_logging(logs=True, progress_bars=True)
             DataDreamer._enable_hf_transformers_logging(logs=True, progress_bars=True)
+        processes_to_terminate = DataDreamer.ctx.background_processes
         DataDreamer.ctx = UserDict()
-        logger.info(f"Done. ✨ Results in folder: {self.output_folder_path}")
+        if self.output_folder_path:
+            logger.info(f"Done. ✨ Results in folder: {self.output_folder_path}")
+        else:
+            if self._hf_datasets_caching:
+                enable_caching()
+            logger.info("Done. ✨")
         _DATADREAMER_CTX_LOCK.release()
+        for process in processes_to_terminate:
+            if process.is_alive():
+                process.terminate()

@@ -764,7 +764,8 @@ def _output_to_dataset(  # noqa: C901
             # from the child process. By saving to disk, we pickle an OutputDataset that
             # holds a memory-mapped Dataset, which is very memory-cheap to pickle and
             # send back to the parent process.
-            save_output_to_disk(output)
+            if step._output_folder_path:
+                save_output_to_disk(output)
             try:
                 return_val = output
                 pipe.put(dill.dumps(return_val))

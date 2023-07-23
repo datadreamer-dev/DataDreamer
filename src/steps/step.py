@@ -5,7 +5,6 @@ from collections import defaultdict
 from datetime import datetime
 from functools import cached_property, partial
 from logging import Logger
-from multiprocessing import Process
 from time import time
 from typing import Any, Callable
 
@@ -138,7 +137,6 @@ class Step(metaclass=StepMeta):
         self.save_num_proc = save_num_proc
         self.save_num_shards = save_num_shards
         self.background = background
-        self.background_process: None | Process = None
 
         # Initialize the logger
         self.verbose = verbose
@@ -229,6 +227,93 @@ class Step(metaclass=StepMeta):
         if DataDreamer.initialized():
             self.__setup_folder_and_resume()
 
+    def __setup_folder_and_resume(self):
+        if DataDreamer.is_running_in_memory():
+            self.__start()
+            return
+
+        # Create an output folder for the step
+        self._output_folder_path = os.path.join(
+            DataDreamer.get_output_folder_path(), safe_fn(self.name)
+        )
+        os.makedirs(self._output_folder_path, exist_ok=True)
+        assert self._output_folder_path is not None
+
+        # Check if we have already run this step previously and saved the results to
+        # disk
+        metadata_path = os.path.join(self._output_folder_path, "step.json")
+        dataset_path = os.path.join(self._output_folder_path, "dataset")
+        prev_fingerprint: None | str = None
+        try:
+            with open(metadata_path, "r") as f:
+                metadata = json.load(f)
+                prev_fingerprint = metadata["fingerprint"]
+        except FileNotFoundError:
+            pass
+
+        # We have already run this step
+        if prev_fingerprint == self.fingerprint and not self.force:
+            self.__output = OutputDataset(
+                self, Dataset.load_from_disk(dataset_path), pickled=metadata["pickled"]
+            )
+            self.progress = 1.0
+            self._pickled = metadata["pickled"]
+            self._resumed = True
+            logger.info(
+                f"Step '{self.name}' results loaded from disk. 🙌 It was previously run"
+                " and saved."
+            )
+        elif prev_fingerprint is not None and (
+            prev_fingerprint != self.fingerprint or self.force
+        ):
+            # ...but it was a different version, delete the results and we'll need
+            # to re-run this step
+            logger.info(
+                f"Step '{self.name}' was previously run and saved, but was outdated. 😞"
+                " It will be re-run."
+            )
+            backup_path = os.path.join(
+                DataDreamer.get_output_folder_path(),
+                ".backups",
+                safe_fn(self.name),
+                prev_fingerprint,
+            )
+            logger.debug(
+                f"Step '{self.name}''s outdated results are being backed up: {backup_path}"
+            )
+            move_dir(self._output_folder_path, backup_path)
+            logger.debug(
+                f"Step '{self.name}''s outdated results are backed up: {backup_path}"
+            )
+            self.__start()
+        else:
+            self.__start()
+
+    def __start(self):
+        if self.background:
+            logger.info(f"Step '{self.name}' is running in the background. ⏳")
+            self._set_output(None, background_run_func=lambda: self.run())
+        else:
+            logger.info(f"Step '{self.name}' is running. ⏳")
+            if not hasattr(self.__class__, _INTERNAL_TEST_KEY):
+                self._set_output(self.run())
+
+    def __finish(self):
+        if isinstance(self.__output, OutputIterableDataset) or hasattr(
+            self.__class__, _INTERNAL_STEP_OPERATION_NO_SAVE_KEY
+        ):
+            logger.info(f"Step '{self.name}' will run lazily. 🥱")
+        elif not self._output_folder_path:
+            logger.info(
+                f"Step '{self.name}' finished with results available in-memory. 🎉"
+            )
+        elif isinstance(self.__output, OutputDataset) and not hasattr(
+            self.__class__, _INTERNAL_STEP_OPERATION_NO_SAVE_KEY
+        ):
+            if not self.background:
+                self.__save_output_to_disk(self.__output)
+            logger.info(f"Step '{self.name}' finished and is saved to disk. 🎉")
+
     def __save_output_to_disk(self, output: OutputDataset):
         if not self._output_folder_path:
             return
@@ -260,83 +345,6 @@ class Step(metaclass=StepMeta):
         logger.debug(
             f"Step '{self.name}' is now saved to disk: {self._output_folder_path}."
         )
-
-    def __finish(self):
-        if isinstance(self.__output, OutputDataset) and not hasattr(
-            self.__class__, _INTERNAL_STEP_OPERATION_NO_SAVE_KEY
-        ):
-            if not self.background:
-                self.__save_output_to_disk(self.__output)
-            logger.info(f"Step '{self.name}' finished and is saved to disk. 🎉")
-        elif isinstance(self.__output, OutputIterableDataset) or hasattr(
-            self.__class__, _INTERNAL_STEP_OPERATION_NO_SAVE_KEY
-        ):
-            logger.info(f"Step '{self.name}' will run lazily. 🥱")
-
-    def __setup_folder_and_resume(self):
-        # Create an output folder for the step
-        self._output_folder_path = os.path.join(
-            DataDreamer.get_output_folder_path(), safe_fn(self.name)
-        )
-        if self._output_folder_path is None:
-            return  # pragma: no cover
-        os.makedirs(self._output_folder_path, exist_ok=True)
-
-        # Check if we have already run this step previously and saved the results to
-        # disk
-        metadata_path = os.path.join(self._output_folder_path, "step.json")
-        dataset_path = os.path.join(self._output_folder_path, "dataset")
-        prev_fingerprint: None | str = None
-        try:
-            with open(metadata_path, "r") as f:
-                metadata = json.load(f)
-                prev_fingerprint = metadata["fingerprint"]
-        except FileNotFoundError:
-            pass
-
-        # We have already run this step
-        if prev_fingerprint == self.fingerprint and not self.force:
-            self.__output = OutputDataset(
-                self, Dataset.load_from_disk(dataset_path), pickled=metadata["pickled"]
-            )
-            self.progress = 1.0
-            self._pickled = metadata["pickled"]
-            self._resumed = True
-            logger.info(
-                f"Step '{self.name}' results loaded from disk. 🙌 It was previously run"
-                " and saved."
-            )
-            return
-        elif prev_fingerprint is not None and (
-            prev_fingerprint != self.fingerprint or self.force
-        ):
-            # ...but it was a different version, delete the results and we'll need
-            # to re-run this step
-            logger.info(
-                f"Step '{self.name}' was previously run and saved, but was outdated. 😞"
-                " It will be re-run."
-            )
-            backup_path = os.path.join(
-                DataDreamer.get_output_folder_path(),
-                ".backups",
-                safe_fn(self.name),
-                prev_fingerprint,
-            )
-            logger.debug(
-                f"Step '{self.name}''s outdated results are being backed up: {backup_path}"
-            )
-            move_dir(self._output_folder_path, backup_path)
-            logger.debug(
-                f"Step '{self.name}''s outdated results are backed up: {backup_path}"
-            )
-
-        # We still need to run this step
-        logger.info(f"Step '{self.name}' is running. ⏳")
-        if not hasattr(self.__class__, _INTERNAL_TEST_KEY):
-            if self.background:
-                self._set_output(None, background_run_func=lambda: self.run())
-            else:
-                self._set_output(self.run())
 
     def register_arg(self, arg_name: str, help: None | str = None):
         if self._initialized:
@@ -399,9 +407,12 @@ class Step(metaclass=StepMeta):
 
     def get_run_output_folder_path(self) -> str:
         if not self._output_folder_path:
-            raise RuntimeError(
-                "You must run the Step in a DataDreamer() context."
-            )  # pragma: no cover
+            if not DataDreamer.initialized():  # pragma: no cover
+                raise RuntimeError("You must run the Step in a DataDreamer() context.")
+            else:
+                raise RuntimeError(
+                    "No run output folder available. DataDreamer is running in-memory."
+                )
         run_output_folder_path = os.path.join(self._output_folder_path, "run_output")
         os.makedirs(run_output_folder_path, exist_ok=True)
         return run_output_folder_path
@@ -504,8 +515,8 @@ class Step(metaclass=StepMeta):
         if background_run_func:
             _monkey_patch_iterable_dataset_apply_feature_types()
 
-            def with_result_process(self, process):
-                self.background_process = process
+            def with_result_process(process):
+                DataDreamer._add_process(process)
 
             def with_result(self, output):
                 self.__output = dill.loads(output)
@@ -513,7 +524,7 @@ class Step(metaclass=StepMeta):
 
             run_in_background_process_no_block(
                 _output_to_dataset,
-                result_process_func=partial(with_result_process, self),
+                result_process_func=with_result_process,
                 result_func=partial(with_result, self),
                 step=self,
                 output_names=tuple(self.__registered["outputs"]),
@@ -733,14 +744,6 @@ class Step(metaclass=StepMeta):
             f"{output_repr}"
             ")"
         )
-
-    def __del__(self):  # pragma: no cover
-        if (
-            hasattr(self, "background_process")
-            and self.background_process
-            and self.background_process.is_alive()
-        ):
-            self.background_process.terminate()
 
 
 #############################
