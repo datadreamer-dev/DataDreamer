@@ -229,7 +229,7 @@ class Step(metaclass=StepMeta):
             DataDreamer._add_step(self)
             self.__setup_folder_and_resume()
 
-    def _save_output_to_disk(self, output: OutputDataset):
+    def __save_output_to_disk(self, output: OutputDataset):
         if not self._output_folder_path:
             return
         logger.debug(
@@ -261,12 +261,12 @@ class Step(metaclass=StepMeta):
             f"Step '{self.name}' is now saved to disk: {self._output_folder_path}."
         )
 
-    def __save_to_disk(self):
+    def __finish(self):
         if isinstance(self.__output, OutputDataset) and not hasattr(
             self.__class__, _INTERNAL_STEP_OPERATION_NO_SAVE_KEY
         ):
             if not self.background:
-                self._save_output_to_disk(self.__output)
+                self.__save_output_to_disk(self.__output)
             logger.info(f"Step '{self.name}' finished and is saved to disk. 🎉")
         elif isinstance(self.__output, OutputIterableDataset) or hasattr(
             self.__class__, _INTERNAL_STEP_OPERATION_NO_SAVE_KEY
@@ -509,7 +509,7 @@ class Step(metaclass=StepMeta):
 
             def with_result(self, output):
                 self.__output = dill.loads(output)
-                self.__save_to_disk()
+                self.__finish()
 
             run_in_background_process_no_block(
                 _output_to_dataset,
@@ -526,6 +526,9 @@ class Step(metaclass=StepMeta):
                 ),
                 get_pickled=partial(lambda self: self._pickled, self),
                 value=background_run_func,
+                save_output_to_disk=partial(
+                    lambda self, output: self.__save_output_to_disk(output), self
+                ),
             )
         else:
             self.__output = _output_to_dataset(
@@ -541,8 +544,11 @@ class Step(metaclass=StepMeta):
                 ),
                 get_pickled=partial(lambda self: self._pickled, self),
                 value=value,
+                save_output_to_disk=partial(
+                    lambda self, output: self.__save_output_to_disk(output), self
+                ),
             )
-            self.__save_to_disk()
+            self.__finish()
 
     def head(self, n=5, shuffle=False, seed=None, buffer_size=1000) -> DataFrame:
         return self.output.head(

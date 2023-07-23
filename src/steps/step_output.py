@@ -710,6 +710,7 @@ def _output_to_dataset(  # noqa: C901
     set_progress_rows: Callable[[float], None],
     get_pickled: Callable[[], bool],
     value: StepOutputType | LazyRows | LazyRowBatches,
+    save_output_to_disk: Callable[[OutputDataset], None],
 ) -> OutputDataset | OutputIterableDataset:
     output = __output_to_dataset(
         step=step,
@@ -752,7 +753,7 @@ def _output_to_dataset(  # noqa: C901
             # from the child process. By saving to disk, we pickle an OutputDataset that
             # holds a memory-mapped Dataset, which is very memory-cheap to pickle and
             # send back to the parent process.
-            step._save_output_to_disk(output)
+            save_output_to_disk(output)
             try:
                 return_val = output
                 output_queue.put(dill.dumps(return_val))
