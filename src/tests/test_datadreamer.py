@@ -9,7 +9,7 @@ from datasets import Dataset
 from datasets.fingerprint import is_caching_enabled
 
 from .. import DataDreamer, __version__
-from ..datasets import OutputDataset, OutputIterableDataset
+from ..datasets import OutputDataset
 from ..errors import StepOutputError
 from ..steps import LazyRows, Step, TraceInfoType
 
@@ -335,21 +335,27 @@ class TestFunctionality:
                 return LazyRows(data_generator, total_num_rows=3)
 
         with create_datadreamer(":memory:"):
+            with pytest.raises(RuntimeError):
+                DataDreamer.get_output_folder_path()
             step = TestStep(name="my-step", background=True).save()
+            with pytest.raises(RuntimeError):
+                step.get_run_output_folder_path()
             shuffle_step_1 = step.shuffle(seed=42, lazy=False)
             step_iterable = TestIterableStep(name="my-iterable-step", background=True)
-            shuffle_step_2 = step_iterable.shuffle(seed=42)
+            with pytest.raises(RuntimeError):
+                step_iterable.get_run_output_folder_path()
+            shuffle_step_2 = step_iterable.shuffle(seed=42, lazy=False)
             assert isinstance(shuffle_step_1.output, OutputDataset)
             assert shuffle_step_1.output["out1"][0] == 3
-            assert isinstance(shuffle_step_2.output, OutputIterableDataset)
-            assert list(shuffle_step_2.output["out1"])[0] == 3
+            assert isinstance(shuffle_step_2.output, OutputDataset)
+            assert shuffle_step_2.output["out1"][0] == 3
             assert not is_caching_enabled()
 
         logs = [rec.message for rec in caplog.records]
         caplog.clear()
         assert logs[0] == "Initialized. 🚀 Dreaming in-memory: 🧠"
         assert logs[-1] == "Done. ✨"
-        assert len(logs) == 13
+        assert len(logs) == 12
 
     def test_trace_info_propogates(
         self, create_datadreamer, create_test_step: Callable[..., Step]

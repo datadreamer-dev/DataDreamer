@@ -203,4 +203,4 @@ class DataDreamer:
         _DATADREAMER_CTX_LOCK.release()
         for process in processes_to_terminate:
             if process.is_alive():
-                process.terminate()
+                process.terminate()  # pragma: no cover
