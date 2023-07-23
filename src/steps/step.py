@@ -476,9 +476,9 @@ class Step(metaclass=StepMeta):
     @property
     def output(self) -> OutputDataset | OutputIterableDataset:
         if self.__output is None:
-            if self.__progress is None and not self.background_process:
+            if self.__progress is None and not self.background:
                 raise StepOutputError("Step has not been run. Output is not available.")
-            elif self.background_process:
+            elif self.background:
                 raise StepOutputError(
                     f"Step is still running in the background"
                     f" ({self.__get_progress_string()})."
@@ -734,7 +734,7 @@ class Step(metaclass=StepMeta):
             ")"
         )
 
-    def __del__(self):
+    def __del__(self):  # pragma: no cover
         if (
             hasattr(self, "background_process")
             and self.background_process
