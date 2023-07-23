@@ -689,7 +689,16 @@ def __output_to_dataset(  # noqa: C901
         )
         set_progress(1.0)
     else:
-        raise StepOutputError(f"Invalid output type: {type(_value)}.")
+        if callable(_value) or isinstance(
+            _value,
+            (OutputIterableDatasetColumn, OutputIterableDataset, IterableDataset),
+        ):
+            raise StepOutputError(
+                f"Invalid output type: {type(_value)}."
+                " You may want to use LazyRows() or LazyRowBatches()."
+            )
+        else:
+            raise StepOutputError(f"Invalid output type: {type(_value)}.")
 
     if callable(__output):
         return __output, features, total_num_rows
