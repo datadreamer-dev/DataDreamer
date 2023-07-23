@@ -1,6 +1,7 @@
 import logging
 import os
 from collections import UserDict
+from threading import Lock
 from typing import TYPE_CHECKING, Any
 
 from transformers import logging as transformers_logging
@@ -12,6 +13,9 @@ from .utils.fs_utils import safe_fn
 
 if TYPE_CHECKING:  # pragma: no cover
     from .steps import Step
+
+_DATADREAMER_CTX_LOCK = Lock()
+_ADD_STEP_LOCK = Lock()
 
 
 class DataDreamer:
@@ -52,19 +56,25 @@ class DataDreamer:
 
     @staticmethod
     def _add_step(step: "Step"):
-        if DataDreamer._has_step_name(step.name):
-            raise ValueError(f"A step already exists with the name: {step.name}")
-        DataDreamer.ctx.steps.append(step)
-        DataDreamer.ctx.step_names.add(step.name)
-        DataDreamer.ctx.step_names.add(safe_fn(step.name))
+        with _ADD_STEP_LOCK:
+            step.name = DataDreamer._new_step_name(step.name)
+            DataDreamer.ctx.steps.append(step)
+            DataDreamer.ctx.step_names.add(step.name)
+            DataDreamer.ctx.step_names.add(safe_fn(step.name))
 
     @staticmethod
-    def _new_step_name(old_name: str, transform: str):
+    def _new_step_name(old_name: str, transform: None | str = None):
         i = 1
-        new_name = f"{old_name} ({transform})"
+        if transform:
+            new_name = f"{old_name} ({transform})"
+        else:
+            new_name = f"{old_name}"
         while DataDreamer._has_step_name(new_name):
             i += 1
-            new_name = f"{old_name} ({transform} #{i})"
+            if transform:
+                new_name = f"{old_name} ({transform} #{i})"
+            else:
+                new_name = f"{old_name} #{i}"
         return new_name
 
     @staticmethod
@@ -108,6 +118,7 @@ class DataDreamer:
             raise RuntimeError("Cannot nest DataDreamer() context managers.")
 
         # Initialize
+        _DATADREAMER_CTX_LOCK.acquire()
         os.makedirs(self.output_folder_path, exist_ok=True)
         DataDreamer.ctx.output_folder_path = self.output_folder_path
         DataDreamer.ctx.steps = []
@@ -156,3 +167,4 @@ class DataDreamer:
             DataDreamer._enable_hf_transformers_logging(logs=True, progress_bars=True)
         DataDreamer.ctx = UserDict()
         logger.info(f"Done. ✨ Results in folder: {self.output_folder_path}")
+        _DATADREAMER_CTX_LOCK.release()

@@ -1,5 +1,4 @@
 import os
-from functools import partial
 
 import pytest
 
@@ -124,13 +123,14 @@ class TestBackground:
 
         with create_datadreamer():
 
-            def create_step_and_shuffle(i):
-                step = TestStep(name=f"my-step-{i}", background=True)
+            def create_step_and_shuffle():
+                step = TestStep(name="my-step", background=True)
                 shuffle_step = step.shuffle(seed=42)
                 return shuffle_step
 
             shuffle_step_1, shuffle_step_2 = concurrent(
-                partial(create_step_and_shuffle, 1), partial(create_step_and_shuffle, 2)
+                create_step_and_shuffle,
+                create_step_and_shuffle,
             )
             assert isinstance(shuffle_step_1.output, OutputDataset)
             assert isinstance(shuffle_step_2.output, OutputDataset)

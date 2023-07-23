@@ -29,11 +29,18 @@ class TestErrors:
         self, create_datadreamer, create_test_step: Callable[..., Step]
     ):
         with create_datadreamer():
-            create_test_step(name="my-step", inputs=None, output_names=["out1"])
-            with pytest.raises(ValueError):
-                create_test_step(name="my-step", inputs=None, output_names=["out1"])
-            with pytest.raises(ValueError):
-                create_test_step(name="my-step:::", inputs=None, output_names=["out1"])
+            step_1 = create_test_step(
+                name="my-step", inputs=None, output_names=["out1"]
+            )
+            step_2 = create_test_step(
+                name="my-step", inputs=None, output_names=["out1"]
+            )
+            step_3 = create_test_step(
+                name="my-step:::", inputs=None, output_names=["out1"]
+            )
+            assert step_1.name == "my-step"
+            assert step_2.name == "my-step #2"
+            assert step_3.name == "my-step::: #3"
 
 
 class TestFunctionality:

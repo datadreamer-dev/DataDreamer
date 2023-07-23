@@ -113,6 +113,8 @@ class Step(metaclass=StepMeta):
         self.version: float = 1.0
         if len(self.name) == 0:
             raise ValueError("You must provide a name for the step.")
+        if DataDreamer.initialized():
+            DataDreamer._add_step(self)
         self.__progress: None | float = None
         self.__progress_rows: None | int = None
         self.__progress_logging_rows: bool = False
@@ -222,11 +224,9 @@ class Step(metaclass=StepMeta):
             [self.output_name_mapping[o] for o in self.__registered["outputs"]]
         )
 
-        # Initialize from/to the context
+        # Run (or resume) within the DataDreamer context
         self._output_folder_path: None | str = None
         if DataDreamer.initialized():
-            # Register the Step in the context
-            DataDreamer._add_step(self)
             self.__setup_folder_and_resume()
 
     def __save_output_to_disk(self, output: OutputDataset):
