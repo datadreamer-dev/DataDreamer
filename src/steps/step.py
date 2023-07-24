@@ -665,20 +665,23 @@ class Step(metaclass=StepMeta):
     def trace_info(self):
         return json.loads(json.dumps(self.__registered["trace_info"]))
 
-    def save(
+    def shuffle(
         self,
+        seed: None | int = None,
+        buffer_size: int = 1000,
         name: None | str = None,
+        lazy: bool = True,
         progress_interval: None | int = None,
         force: bool = False,
         writer_batch_size: None | int = 1000,
         save_num_proc: None | int = None,
         save_num_shards: None | int = None,
         background: bool = False,
-    ) -> "Step":
+    ):
         kwargs = dict(locals())
         kwargs["step"] = self
         del kwargs["self"]
-        return partial(_create_save_step, **kwargs)()
+        return partial(_create_shuffle_step, **kwargs)()
 
     def map(
         self,
@@ -702,23 +705,20 @@ class Step(metaclass=StepMeta):
         del kwargs["self"]
         return partial(_create_map_step, **kwargs)()
 
-    def shuffle(
+    def save(
         self,
-        seed: None | int = None,
-        buffer_size: int = 1000,
         name: None | str = None,
-        lazy: bool = True,
         progress_interval: None | int = None,
         force: bool = False,
         writer_batch_size: None | int = 1000,
         save_num_proc: None | int = None,
         save_num_shards: None | int = None,
         background: bool = False,
-    ):
+    ) -> "Step":
         kwargs = dict(locals())
         kwargs["step"] = self
         del kwargs["self"]
-        return partial(_create_shuffle_step, **kwargs)()
+        return partial(_create_save_step, **kwargs)()
 
     @cached_property
     def fingerprint(self) -> str:
@@ -872,11 +872,19 @@ class ZippedStep(Step):
     pass
 
 
-class SaveStep(Step):
+class SelectStep(Step):
     pass
 
 
-class MapStep(Step):
+class SelectColumnsStep(Step):
+    pass
+
+
+class TakeStep(Step):
+    pass
+
+
+class SkipStep(Step):
     pass
 
 
@@ -884,15 +892,72 @@ class ShuffleStep(Step):
     pass
 
 
+class SortStep(Step):
+    pass
+
+
+class AddItemStep(Step):
+    pass
+
+
+class MapStep(Step):
+    pass
+
+
+class FilterStep(Step):
+    pass
+
+
+class RenameColumnStep(Step):
+    pass
+
+
+class RenameColumnsStep(Step):
+    pass
+
+
+class RemoveColumnsStep(Step):
+    pass
+
+
+class ShardStep(Step):
+    pass
+
+
+class ReverseStep(Step):
+    pass
+
+
+class SaveStep(Step):
+    pass
+
+
+class CopyStep(Step):
+    pass
+
+
 __all__ = [
     "LazyRowBatches",
     "LazyRows",
     "StepOutputType",
-    "ConcatStep",
-    "ZippedStep",
     "concat",
     "zipped",
-    "SaveStep",
-    "MapStep",
+    "ConcatStep",
+    "ZippedStep",
+    "SelectStep",
+    "SelectColumnsStep",
+    "TakeStep",
+    "SkipStep",
     "ShuffleStep",
+    "SortStep",
+    "AddItemStep",
+    "MapStep",
+    "FilterStep",
+    "RenameColumnStep",
+    "RenameColumnsStep",
+    "RemoveColumnsStep",
+    "ShardStep",
+    "ReverseStep",
+    "SaveStep",
+    "CopyStep",
 ]

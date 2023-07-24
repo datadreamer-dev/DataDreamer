@@ -244,21 +244,42 @@ def __concatenate(*steps: "Step", axis: int, **kwargs):  # noqa: C901
     return partial(__create_step_operation_step, **kwargs)()
 
 
-def _create_save_step(**kwargs) -> "Step":
-    step = kwargs["step"]
+def _create_shuffle_step(seed: None | int, buffer_size: int, **kwargs) -> "Step":
+    lazy, step = kwargs["lazy"], kwargs["step"]
+    kwargs["no_save"] = lazy
+    del kwargs["lazy"]
 
     def run(self):
-        if isinstance(step.output, OutputDataset):
-            return step.output
+        dataset: Dataset | IterableDataset
+        if not lazy and isinstance(step.output, OutputIterableDataset):
+            dataset = _iterable_dataset_to_dataset(
+                self=self,
+                step=step,
+                iterable_dataset=step.output.dataset,
+                writer_batch_size=kwargs["writer_batch_size"],
+                save_num_proc=kwargs["save_num_proc"],
+            )
         else:
-            return step.output.dataset
+            dataset = step.output.dataset
+        if isinstance(dataset, Dataset):
+            return dataset.shuffle(
+                seed=seed, writer_batch_size=kwargs["writer_batch_size"]
+            )
+        else:
+            return dataset.shuffle(seed=seed, buffer_size=buffer_size)
 
-    from .step import SaveStep
+    from .step import ShuffleStep
 
-    kwargs["op_cls"] = SaveStep
-    kwargs["op_name"] = "save"
-    kwargs["no_save"] = False
-    kwargs["args"] = {"fingerprint": step.fingerprint}
+    kwargs["op_cls"] = ShuffleStep
+    kwargs["op_name"] = "shuffle"
+    kwargs["no_save"] = lazy
+    kwargs["args"] = {
+        "fingerprint": [
+            step.fingerprint,
+            seed,
+            buffer_size,
+        ]
+    }
     kwargs["run"] = run
     return partial(__create_step_operation_step, **kwargs)()
 
@@ -338,42 +359,21 @@ def _create_map_step(
     return partial(__create_step_operation_step, **kwargs)()
 
 
-def _create_shuffle_step(seed: None | int, buffer_size: int, **kwargs) -> "Step":
-    lazy, step = kwargs["lazy"], kwargs["step"]
-    kwargs["no_save"] = lazy
-    del kwargs["lazy"]
+def _create_save_step(**kwargs) -> "Step":
+    step = kwargs["step"]
 
     def run(self):
-        dataset: Dataset | IterableDataset
-        if not lazy and isinstance(step.output, OutputIterableDataset):
-            dataset = _iterable_dataset_to_dataset(
-                self=self,
-                step=step,
-                iterable_dataset=step.output.dataset,
-                writer_batch_size=kwargs["writer_batch_size"],
-                save_num_proc=kwargs["save_num_proc"],
-            )
+        if isinstance(step.output, OutputDataset):
+            return step.output
         else:
-            dataset = step.output.dataset
-        if isinstance(dataset, Dataset):
-            return dataset.shuffle(
-                seed=seed, writer_batch_size=kwargs["writer_batch_size"]
-            )
-        else:
-            return dataset.shuffle(seed=seed, buffer_size=buffer_size)
+            return step.output.dataset
 
-    from .step import ShuffleStep
+    from .step import SaveStep
 
-    kwargs["op_cls"] = ShuffleStep
-    kwargs["op_name"] = "shuffle"
-    kwargs["no_save"] = lazy
-    kwargs["args"] = {
-        "fingerprint": [
-            step.fingerprint,
-            seed,
-            buffer_size,
-        ]
-    }
+    kwargs["op_cls"] = SaveStep
+    kwargs["op_name"] = "save"
+    kwargs["no_save"] = False
+    kwargs["args"] = {"fingerprint": step.fingerprint}
     kwargs["run"] = run
     return partial(__create_step_operation_step, **kwargs)()
 
