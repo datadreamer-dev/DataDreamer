@@ -535,7 +535,8 @@ class TestConcat:
                         ).to_iterable_dataset(),
                     )
                 )
-            concat_step = concat(step, iterable_step)
+            with pytest.warns(UserWarning):
+                concat_step = concat(step, iterable_step)
             isinstance(concat_step.output, OutputIterableDataset)
             assert concat_step.output.num_rows is None
             assert list(concat_step.output["out1"])[-1] == set(["g"])
