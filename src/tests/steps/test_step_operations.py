@@ -327,7 +327,10 @@ class TestShuffle:
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
             shuffle_step = step.shuffle(seed=42)
             assert not shuffle_step._resumed
-            assert shuffle_step.output.dataset._indices is not None
+            assert (
+                shuffle_step.output.dataset._indices  # type:ignore[union-attr]
+                is not None
+            )
             assert shuffle_step.output["out1"][0] == 3
 
     def test_iterable_dataset_lazy(
@@ -376,7 +379,9 @@ class TestShuffle:
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
             shuffle_step = step.shuffle(seed=42, lazy=False)
             assert shuffle_step._resumed
-            assert shuffle_step.output.dataset._indices is None
+            assert (
+                shuffle_step.output.dataset._indices is None  # type:ignore[union-attr]
+            )
             assert shuffle_step.output["out1"][0] == 3
 
     def test_iterable_dataset(
@@ -408,7 +413,9 @@ class TestShuffle:
             )
             shuffle_step = step.shuffle(seed=42, lazy=False)
             assert shuffle_step._resumed
-            assert shuffle_step.output.dataset._indices is None
+            assert (
+                shuffle_step.output.dataset._indices is None  # type:ignore[union-attr]
+            )
             assert shuffle_step.output["out1"][0] == 3
 
 
@@ -499,7 +506,7 @@ class TestConcat:
             isinstance(concat_step, ConcatStep)
             isinstance(concat_step.output, OutputDataset)
             assert concat_step._pickled is True
-            assert len(concat_step.output) == 7
+            assert len(concat_step.output) == 7  # type:ignore[arg-type]
             assert concat_step.output["out1"][0] == set(["a"])
             assert concat_step.output["out1"][-1] == set(["g"])
 
@@ -556,7 +563,7 @@ class TestConcat:
             )
             step_2._set_output({"out2": ["d", "e", "f"]})
             concat_step = concat(step_1, step_2, lazy=False)
-            assert len(concat_step.output) == 6
+            assert len(concat_step.output) == 6  # type:ignore[arg-type]
             assert concat_step.output[0] == {"out1": "a", "out2": None}
 
 
@@ -628,7 +635,7 @@ class TestZipped:
             isinstance(zipped_step, ZippedStep)
             isinstance(zipped_step.output, OutputDataset)
             assert zipped_step._pickled is True
-            assert len(zipped_step.output) == 3
+            assert len(zipped_step.output) == 3  # type:ignore[arg-type]
             assert zipped_step.output[0] == {"out1": "a", "out2": set(["d"])}
 
     def test_zipped_lazy_with_no_num_rows(

@@ -1,7 +1,7 @@
 import os
 from collections.abc import Iterable
 from functools import partial
-from typing import TYPE_CHECKING, Callable, Type, cast
+from typing import TYPE_CHECKING, Callable, Sequence, Type, cast
 
 from pyarrow.lib import ArrowInvalid, ArrowTypeError
 
@@ -244,6 +244,102 @@ def __concatenate(*steps: "Step", axis: int, **kwargs):  # noqa: C901
     return partial(__create_step_operation_step, **kwargs)()
 
 
+def _create_select_step(indices: Iterable, **kwargs):
+    lazy, step = kwargs["lazy"], kwargs["step"]
+    kwargs["no_save"] = lazy
+    del kwargs["lazy"]
+
+    def run(self):
+        dataset: Dataset
+        if isinstance(step.output, OutputIterableDataset):
+            dataset = _iterable_dataset_to_dataset(
+                self=self,
+                step=step,
+                iterable_dataset=step.output.dataset,
+                writer_batch_size=kwargs["writer_batch_size"],
+                save_num_proc=kwargs["save_num_proc"],
+            )
+        else:
+            dataset = step.output.dataset
+        return dataset.select(
+            indices=indices, writer_batch_size=kwargs["writer_batch_size"]
+        )
+
+    from .step import SelectStep
+
+    kwargs["op_cls"] = SelectStep
+    kwargs["op_name"] = "select"
+    kwargs["no_save"] = lazy
+    kwargs["args"] = {
+        "fingerprint": [
+            step.fingerprint,
+            list(indices),
+        ]
+    }
+    kwargs["run"] = run
+    return partial(__create_step_operation_step, **kwargs)()
+
+
+def _create_select_columns_step(*args, **kwargs):
+    pass
+
+
+def _create_take_step(n: int, **kwargs):
+    lazy, step = kwargs["lazy"], kwargs["step"]
+    kwargs["no_save"] = lazy
+    del kwargs["lazy"]
+
+    def run(self):
+        dataset: Dataset | IterableDataset = step.output.dataset
+
+        if isinstance(dataset, Dataset):
+            return dataset[:n]
+        elif isinstance(dataset, IterableDataset):
+            return dataset.take(n)
+
+    from .step import TakeStep
+
+    kwargs["op_cls"] = TakeStep
+    kwargs["op_name"] = "take"
+    kwargs["no_save"] = lazy
+    kwargs["args"] = {
+        "fingerprint": [
+            step.fingerprint,
+            n,
+        ]
+    }
+    kwargs["run"] = run
+    return partial(__create_step_operation_step, **kwargs)()
+
+
+def _create_skip_step(n: int, **kwargs):
+    lazy, step = kwargs["lazy"], kwargs["step"]
+    kwargs["no_save"] = lazy
+    del kwargs["lazy"]
+
+    def run(self):
+        dataset: Dataset | IterableDataset = step.output.dataset
+
+        if isinstance(dataset, Dataset):
+            return dataset[n:]
+        elif isinstance(dataset, IterableDataset):
+            return dataset.skip(n)
+
+    from .step import SkipStep
+
+    kwargs["op_cls"] = SkipStep
+    kwargs["op_name"] = "skip"
+    kwargs["no_save"] = lazy
+    kwargs["args"] = {
+        "fingerprint": [
+            step.fingerprint,
+            n,
+        ]
+    }
+    kwargs["run"] = run
+    return partial(__create_step_operation_step, **kwargs)()
+
+
 def _create_shuffle_step(seed: None | int, buffer_size: int, **kwargs) -> "Step":
     lazy, step = kwargs["lazy"], kwargs["step"]
     kwargs["no_save"] = lazy
@@ -278,6 +374,83 @@ def _create_shuffle_step(seed: None | int, buffer_size: int, **kwargs) -> "Step"
             step.fingerprint,
             seed,
             buffer_size,
+        ]
+    }
+    kwargs["run"] = run
+    return partial(__create_step_operation_step, **kwargs)()
+
+
+def _create_sort_step(
+    column_names: str | Sequence[str],
+    reverse: bool | Sequence[bool],
+    null_placement,
+    **kwargs,
+):
+    step = kwargs["step"]
+
+    def run(self):
+        dataset: Dataset
+        if isinstance(step.output, OutputIterableDataset):
+            dataset = _iterable_dataset_to_dataset(
+                self=self,
+                step=step,
+                iterable_dataset=step.output.dataset,
+                writer_batch_size=kwargs["writer_batch_size"],
+                save_num_proc=kwargs["save_num_proc"],
+            )
+        else:
+            dataset = step.output.dataset
+        return dataset.sort(
+            column_names=column_names, reverse=reverse, null_placement=null_placement
+        )
+
+    from .step import SortStep
+
+    kwargs["op_cls"] = SortStep
+    kwargs["op_name"] = "sort"
+    kwargs["no_save"] = False
+    kwargs["args"] = {
+        "fingerprint": [
+            step.fingerprint,
+            column_names,
+            reverse,
+            null_placement,
+        ]
+    }
+    kwargs["run"] = run
+    return partial(__create_step_operation_step, **kwargs)()
+
+
+def _create_add_item_step(item: dict, **kwargs):
+    lazy, step = kwargs["lazy"], kwargs["step"]
+    kwargs["no_save"] = lazy
+    del kwargs["lazy"]
+
+    def run(self):
+        dataset: Dataset | IterableDataset = step.output.dataset
+
+        if isinstance(dataset, Dataset):
+            return dataset.add_item(item)
+        elif isinstance(dataset, IterableDataset):
+
+            def add_item_generator(dataset):
+                for row in dataset:
+                    yield row
+                yield item
+
+            return IterableDataset.from_generator(
+                partial(add_item_generator, dataset), features=step.output._features
+            )
+
+    from .step import AddItemStep
+
+    kwargs["op_cls"] = AddItemStep
+    kwargs["op_name"] = "add_item"
+    kwargs["no_save"] = lazy
+    kwargs["args"] = {
+        "fingerprint": [
+            step.fingerprint,
+            item,
         ]
     }
     kwargs["run"] = run
@@ -359,6 +532,161 @@ def _create_map_step(
     return partial(__create_step_operation_step, **kwargs)()
 
 
+def _create_filter_step(
+    function: Callable,
+    with_indices: bool,
+    input_columns: None | str | list[str],
+    batched: bool,
+    batch_size: int,
+    **kwargs,
+) -> "Step":
+    lazy, step = kwargs["lazy"], kwargs["step"]
+    kwargs["no_save"] = lazy
+    del kwargs["lazy"]
+
+    def run(self):
+        dataset: Dataset | IterableDataset
+        if isinstance(step.output, OutputDataset) and lazy:
+            dataset = step.output.dataset.to_iterable_dataset()
+        else:
+            dataset = step.output.dataset
+        if isinstance(dataset, Dataset):
+            return dataset.filter(
+                partial(
+                    _user_transform,
+                    self,
+                    step,
+                    function,
+                    with_indices,
+                    batched,
+                ),
+                with_indices=True,
+                input_columns=input_columns,
+                batched=batched,
+                batch_size=batch_size,
+                writer_batch_size=kwargs["writer_batch_size"],
+                num_proc=kwargs["save_num_proc"],
+                desc=self.name,
+            )
+        else:
+            return dataset.filter(
+                partial(
+                    _user_transform,
+                    self,
+                    step,
+                    function,
+                    with_indices,
+                    batched,
+                ),
+                with_indices=True,
+                input_columns=input_columns,
+                batched=batched,
+                batch_size=batch_size,
+            )
+
+    from .step import FilterStep
+
+    kwargs["op_cls"] = FilterStep
+    kwargs["op_name"] = "filter"
+    kwargs["no_save"] = lazy
+    kwargs["args"] = {
+        "fingerprint": [
+            step.fingerprint,
+            function,
+            with_indices,
+            input_columns,
+            batched,
+            batch_size,
+        ]
+    }
+    kwargs["run"] = run
+    return partial(__create_step_operation_step, **kwargs)()
+
+
+def _create_rename_column_step(indices: Iterable, **kwargs):
+    pass
+
+
+def _create_rename_columns_step(*args, **kwargs):
+    pass
+
+
+def _create_remove_columns_step(*args, **kwargs):
+    pass
+
+
+def _create_shard_step(num_shards: int, index: int, contiguous: bool, **kwargs):
+    step = kwargs["step"]
+
+    def run(self):
+        dataset: Dataset
+        if isinstance(step.output, OutputIterableDataset):
+            dataset = _iterable_dataset_to_dataset(
+                self=self,
+                step=step,
+                iterable_dataset=step.output.dataset,
+                writer_batch_size=kwargs["writer_batch_size"],
+                save_num_proc=kwargs["save_num_proc"],
+            )
+        else:
+            dataset = step.output.dataset
+        return dataset.shard(
+            num_shards=num_shards,
+            index=index,
+            contiguous=contiguous,
+            writer_batch_size=kwargs["writer_batch_size"],
+        )
+
+    from .step import ShardStep
+
+    kwargs["op_cls"] = ShardStep
+    kwargs["op_name"] = "shard"
+    kwargs["no_save"] = False
+    kwargs["args"] = {"fingerprint": [step.fingerprint, num_shards, index, contiguous]}
+    kwargs["run"] = run
+    return partial(__create_step_operation_step, **kwargs)()
+
+
+def _create_reverse_step(**kwargs):
+    lazy, step = kwargs["lazy"], kwargs["step"]
+    kwargs["no_save"] = lazy
+    del kwargs["lazy"]
+
+    def run(self):
+        dataset: Dataset
+        if isinstance(step.output, OutputIterableDataset):
+            dataset = _iterable_dataset_to_dataset(
+                self=self,
+                step=step,
+                iterable_dataset=step.output.dataset,
+                writer_batch_size=kwargs["writer_batch_size"],
+                save_num_proc=kwargs["save_num_proc"],
+            )
+        else:
+            dataset = step.output.dataset
+
+        def reverse_generator(dataset):
+            for row in reversed(dataset):
+                yield row
+
+        return IterableDataset.from_generator(
+            partial(reverse_generator, dataset), features=step.output._features
+        )
+
+    from .step import ReverseStep
+
+    kwargs["op_cls"] = ReverseStep
+    kwargs["op_name"] = "reverse"
+    kwargs["no_save"] = lazy
+    kwargs["args"] = {
+        "fingerprint": [
+            step.fingerprint,
+        ]
+    }
+    kwargs["run"] = run
+    return partial(__create_step_operation_step, **kwargs)()
+
+
 def _create_save_step(**kwargs) -> "Step":
     step = kwargs["step"]
 
@@ -380,7 +708,19 @@ def _create_save_step(**kwargs) -> "Step":
 
 __all__ = [
     "_INTERNAL_STEP_OPERATION_KEY",
-    "_create_save_step",
-    "_create_map_step",
+    "_create_select_step",
+    "_create_select_columns_step",
+    "_create_take_step",
+    "_create_skip_step",
     "_create_shuffle_step",
+    "_create_sort_step",
+    "_create_add_item_step",
+    "_create_map_step",
+    "_create_filter_step",
+    "_create_rename_column_step",
+    "_create_rename_columns_step",
+    "_create_remove_columns_step",
+    "_create_shard_step",
+    "_create_reverse_step",
+    "_create_save_step",
 ]

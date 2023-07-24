@@ -2,11 +2,12 @@ import json
 import logging
 import os
 from collections import defaultdict
+from collections.abc import Iterable
 from datetime import datetime
 from functools import cached_property, partial
 from logging import Logger
 from time import time
-from typing import Any, Callable
+from typing import Any, Callable, Sequence
 
 import dill
 from pandas import DataFrame
@@ -33,9 +34,21 @@ from .step_operations import (
     _INTERNAL_STEP_OPERATION_KEY,
     _INTERNAL_STEP_OPERATION_NO_SAVE_KEY,
     __concatenate,
+    _create_add_item_step,
+    _create_filter_step,
     _create_map_step,
+    _create_remove_columns_step,
+    _create_rename_column_step,
+    _create_rename_columns_step,
+    _create_reverse_step,
     _create_save_step,
+    _create_select_columns_step,
+    _create_select_step,
+    _create_shard_step,
     _create_shuffle_step,
+    _create_skip_step,
+    _create_sort_step,
+    _create_take_step,
 )
 from .step_output import (
     LazyRowBatches,
@@ -665,6 +678,74 @@ class Step(metaclass=StepMeta):
     def trace_info(self):
         return json.loads(json.dumps(self.__registered["trace_info"]))
 
+    def select(
+        self,
+        indices: Iterable,
+        name: None | str = None,
+        lazy: bool = True,
+        progress_interval: None | int = None,
+        force: bool = False,
+        writer_batch_size: None | int = 1000,
+        save_num_proc: None | int = None,
+        save_num_shards: None | int = None,
+        background: bool = False,
+    ) -> "Step":
+        kwargs = dict(locals())
+        kwargs["step"] = self
+        del kwargs["self"]
+        return partial(_create_select_step, **kwargs)()
+
+    def select_columns(
+        self,
+        column_names: str | list[str],
+        name: None | str = None,
+        lazy: bool = True,
+        progress_interval: None | int = None,
+        force: bool = False,
+        writer_batch_size: None | int = 1000,
+        save_num_proc: None | int = None,
+        save_num_shards: None | int = None,
+        background: bool = False,
+    ) -> "Step":
+        kwargs = dict(locals())
+        kwargs["step"] = self
+        del kwargs["self"]
+        return partial(_create_select_columns_step, **kwargs)()
+
+    def take(
+        self,
+        n: int,
+        name: None | str = None,
+        lazy: bool = True,
+        progress_interval: None | int = None,
+        force: bool = False,
+        writer_batch_size: None | int = 1000,
+        save_num_proc: None | int = None,
+        save_num_shards: None | int = None,
+        background: bool = False,
+    ) -> "Step":
+        kwargs = dict(locals())
+        kwargs["step"] = self
+        del kwargs["self"]
+        return partial(_create_take_step, **kwargs)()
+
+    def skip(
+        self,
+        n: int,
+        name: None | str = None,
+        lazy: bool = True,
+        progress_interval: None | int = None,
+        force: bool = False,
+        writer_batch_size: None | int = 1000,
+        save_num_proc: None | int = None,
+        save_num_shards: None | int = None,
+        background: bool = False,
+    ) -> "Step":
+        kwargs = dict(locals())
+        kwargs["step"] = self
+        del kwargs["self"]
+        return partial(_create_skip_step, **kwargs)()
+
     def shuffle(
         self,
         seed: None | int = None,
@@ -677,11 +758,46 @@ class Step(metaclass=StepMeta):
         save_num_proc: None | int = None,
         save_num_shards: None | int = None,
         background: bool = False,
-    ):
+    ) -> "Step":
         kwargs = dict(locals())
         kwargs["step"] = self
         del kwargs["self"]
         return partial(_create_shuffle_step, **kwargs)()
+
+    def sort(
+        self,
+        column_names: str | Sequence[str],
+        reverse: bool | Sequence[bool] = False,
+        null_placement: str = "at_end",
+        name: None | str = None,
+        progress_interval: None | int = None,
+        force: bool = False,
+        writer_batch_size: None | int = 1000,
+        save_num_proc: None | int = None,
+        save_num_shards: None | int = None,
+        background: bool = False,
+    ) -> "Step":
+        kwargs = dict(locals())
+        kwargs["step"] = self
+        del kwargs["self"]
+        return partial(_create_sort_step, **kwargs)()
+
+    def add_item(
+        self,
+        item: dict,
+        name: None | str = None,
+        lazy: bool = True,
+        progress_interval: None | int = None,
+        force: bool = False,
+        writer_batch_size: None | int = 1000,
+        save_num_proc: None | int = None,
+        save_num_shards: None | int = None,
+        background: bool = False,
+    ) -> "Step":
+        kwargs = dict(locals())
+        kwargs["step"] = self
+        del kwargs["self"]
+        return partial(_create_add_item_step, **kwargs)()
 
     def map(
         self,
@@ -699,11 +815,118 @@ class Step(metaclass=StepMeta):
         save_num_proc: None | int = None,
         save_num_shards: None | int = None,
         background: bool = False,
-    ):
+    ) -> "Step":
         kwargs = dict(locals())
         kwargs["step"] = self
         del kwargs["self"]
         return partial(_create_map_step, **kwargs)()
+
+    def filter(
+        self,
+        function: Callable,
+        with_indices: bool = False,
+        input_columns: None | str | list[str] = None,
+        batched: bool = False,
+        batch_size: int = 1000,
+        name: None | str = None,
+        lazy: bool = True,
+        progress_interval: None | int = None,
+        force: bool = False,
+        writer_batch_size: None | int = 1000,
+        save_num_proc: None | int = None,
+        save_num_shards: None | int = None,
+        background: bool = False,
+    ) -> "Step":
+        kwargs = dict(locals())
+        kwargs["step"] = self
+        del kwargs["self"]
+        return partial(_create_filter_step, **kwargs)()
+
+    def rename_column(
+        self,
+        orginal_column_name: str,
+        new_column_name: str,
+        name: None | str = None,
+        lazy: bool = True,
+        progress_interval: None | int = None,
+        force: bool = False,
+        writer_batch_size: None | int = 1000,
+        save_num_proc: None | int = None,
+        save_num_shards: None | int = None,
+        background: bool = False,
+    ) -> "Step":
+        kwargs = dict(locals())
+        kwargs["step"] = self
+        del kwargs["self"]
+        return partial(_create_rename_column_step, **kwargs)()
+
+    def rename_columns(
+        self,
+        column_mapping: dict[str, str],
+        name: None | str = None,
+        lazy: bool = True,
+        progress_interval: None | int = None,
+        force: bool = False,
+        writer_batch_size: None | int = 1000,
+        save_num_proc: None | int = None,
+        save_num_shards: None | int = None,
+        background: bool = False,
+    ) -> "Step":
+        kwargs = dict(locals())
+        kwargs["step"] = self
+        del kwargs["self"]
+        return partial(_create_rename_columns_step, **kwargs)()
+
+    def remove_columns(
+        self,
+        column_names: str | list[str],
+        name: None | str = None,
+        lazy: bool = True,
+        progress_interval: None | int = None,
+        force: bool = False,
+        writer_batch_size: None | int = 1000,
+        save_num_proc: None | int = None,
+        save_num_shards: None | int = None,
+        background: bool = False,
+    ) -> "Step":
+        kwargs = dict(locals())
+        kwargs["step"] = self
+        del kwargs["self"]
+        return partial(_create_remove_columns_step, **kwargs)()
+
+    def shard(
+        self,
+        num_shards: int,
+        index: int,
+        contiguous: bool = False,
+        name: None | str = None,
+        progress_interval: None | int = None,
+        force: bool = False,
+        writer_batch_size: None | int = 1000,
+        save_num_proc: None | int = None,
+        save_num_shards: None | int = None,
+        background: bool = False,
+    ) -> "Step":
+        kwargs = dict(locals())
+        kwargs["step"] = self
+        del kwargs["self"]
+        return partial(_create_shard_step, **kwargs)()
+
+    def reverse(
+        self,
+        name: None | str = None,
+        lazy: bool = True,
+        progress_interval: None | int = None,
+        force: bool = False,
+        writer_batch_size: None | int = 1000,
+        save_num_proc: None | int = None,
+        save_num_shards: None | int = None,
+        background: bool = False,
+    ) -> "Step":
+        kwargs = dict(locals())
+        kwargs["step"] = self
+        del kwargs["self"]
+        return partial(_create_reverse_step, **kwargs)()
 
     def save(
         self,
@@ -716,6 +939,25 @@ class Step(metaclass=StepMeta):
         background: bool = False,
     ) -> "Step":
         kwargs = dict(locals())
+        kwargs["step"] = self
+        del kwargs["self"]
+        return partial(_create_save_step, **kwargs)()
+
+    def copy(
+        self,
+        name: None | str = None,
+        lazy: bool = True,
+        progress_interval: None | int = None,
+        force: bool = False,
+        writer_batch_size: None | int = 1000,
+        save_num_proc: None | int = None,
+        save_num_shards: None | int = None,
+        background: bool = False,
+    ) -> "Step":
+        kwargs = dict(locals())
+        kwargs["name"] = kwargs["name"] or DataDreamer._new_step_name(
+            self.name, transform="copy"
+        )
         kwargs["step"] = self
         del kwargs["self"]
         return partial(_create_save_step, **kwargs)()
@@ -816,7 +1058,7 @@ class Step(metaclass=StepMeta):
 # Step utilities
 #############################
 def concat(
-    *steps: "Step",
+    *steps: Step,
     name: None | str = None,
     lazy: bool = True,
     progress_interval: None | int = None,
@@ -825,7 +1067,7 @@ def concat(
     save_num_proc: None | int = None,
     save_num_shards: None | int = None,
     background: bool = False,
-):
+) -> Step:
     kwargs = dict(locals())
     steps = kwargs["steps"]
     del kwargs["steps"]
@@ -838,7 +1080,7 @@ def concat(
 
 
 def zipped(
-    *steps: "Step",
+    *steps: Step,
     name: None | str = None,
     lazy: bool = True,
     progress_interval: None | int = None,
@@ -847,7 +1089,7 @@ def zipped(
     save_num_proc: None | int = None,
     save_num_shards: None | int = None,
     background: bool = False,
-):
+) -> Step:
     kwargs = dict(locals())
     steps = kwargs["steps"]
     del kwargs["steps"]
@@ -932,10 +1174,6 @@ class SaveStep(Step):
     pass
 
 
-class CopyStep(Step):
-    pass
-
-
 __all__ = [
     "LazyRowBatches",
     "LazyRows",
@@ -959,5 +1197,4 @@ __all__ = [
     "ShardStep",
     "ReverseStep",
     "SaveStep",
-    "CopyStep",
 ]
