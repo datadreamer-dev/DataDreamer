@@ -813,18 +813,8 @@ class Step(metaclass=StepMeta):
 
 
 #############################
-# Classes for step operations
+# Step utilities
 #############################
-
-
-class ConcatStep(Step):
-    pass
-
-
-class ZippedStep(Step):
-    pass
-
-
 def concat(
     *steps: "Step",
     name: None | str = None,
@@ -839,7 +829,6 @@ def concat(
     kwargs = dict(locals())
     steps = kwargs["steps"]
     del kwargs["steps"]
-    from .step import ConcatStep
 
     kwargs["op_cls"] = ConcatStep
     kwargs["op_name"] = "concat"
@@ -862,13 +851,25 @@ def zipped(
     kwargs = dict(locals())
     steps = kwargs["steps"]
     del kwargs["steps"]
-    from .step import ZippedStep
 
     kwargs["op_cls"] = ZippedStep
     kwargs["op_name"] = "zipped"
     kwargs["axis"] = 1
 
     return __concatenate(*steps, **kwargs)
+
+
+#############################
+# Classes for step operations
+#############################
+
+
+class ConcatStep(Step):
+    pass
+
+
+class ZippedStep(Step):
+    pass
 
 
 class SaveStep(Step):
