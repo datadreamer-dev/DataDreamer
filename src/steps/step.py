@@ -32,6 +32,7 @@ from ..utils.fs_utils import move_dir, safe_fn
 from .step_operations import (
     _INTERNAL_STEP_OPERATION_KEY,
     _INTERNAL_STEP_OPERATION_NO_SAVE_KEY,
+    __concatenate,
     _create_map_step,
     _create_save_step,
     _create_shuffle_step,
@@ -694,8 +695,8 @@ class Step(metaclass=StepMeta):
         batched: bool = False,
         batch_size: int = 1000,
         remove_columns: None | str | list[str] = None,
-        lazy: bool = True,
         name: None | str = None,
+        lazy: bool = True,
         progress_interval: None | int = None,
         force: bool = False,
         writer_batch_size: None | int = 1000,
@@ -711,8 +712,8 @@ class Step(metaclass=StepMeta):
             batched=batched,
             batch_size=batch_size,
             remove_columns=remove_columns,
-            lazy=lazy,
             name=name,
+            lazy=lazy,
             progress_interval=progress_interval,
             force=force,
             writer_batch_size=writer_batch_size,
@@ -726,8 +727,8 @@ class Step(metaclass=StepMeta):
         self,
         seed: None | int = None,
         buffer_size: int = 1000,
-        lazy: bool = True,
         name: None | str = None,
+        lazy: bool = True,
         progress_interval: None | int = None,
         force: bool = False,
         writer_batch_size: None | int = 1000,
@@ -739,8 +740,8 @@ class Step(metaclass=StepMeta):
             _create_shuffle_step,
             seed=seed,
             buffer_size=buffer_size,
-            lazy=lazy,
             name=name,
+            lazy=lazy,
             progress_interval=progress_interval,
             force=force,
             writer_batch_size=writer_batch_size,
@@ -847,6 +848,72 @@ class Step(metaclass=StepMeta):
 #############################
 
 
+class ConcatStep(Step):
+    pass
+
+
+class ZippedStep(Step):
+    pass
+
+
+def concat(
+    *steps: "Step",
+    name: None | str = None,
+    lazy: bool = True,
+    progress_interval: None | int = None,
+    force: bool = False,
+    writer_batch_size: None | int = 1000,
+    save_num_proc: None | int = None,
+    save_num_shards: None | int = None,
+    background: bool = False,
+):
+    from .step import ConcatStep
+
+    return __concatenate(
+        *steps,
+        name=name,
+        lazy=lazy,
+        progress_interval=progress_interval,
+        force=force,
+        writer_batch_size=writer_batch_size,
+        save_num_proc=save_num_proc,
+        save_num_shards=save_num_shards,
+        background=background,
+        op_cls=ConcatStep,
+        op_name="concat",
+        axis=0,
+    )
+
+
+def zipped(
+    *steps: "Step",
+    name: None | str = None,
+    lazy: bool = True,
+    progress_interval: None | int = None,
+    force: bool = False,
+    writer_batch_size: None | int = 1000,
+    save_num_proc: None | int = None,
+    save_num_shards: None | int = None,
+    background: bool = False,
+):
+    from .step import ZippedStep
+
+    return __concatenate(
+        *steps,
+        name=name,
+        lazy=lazy,
+        progress_interval=progress_interval,
+        force=force,
+        writer_batch_size=writer_batch_size,
+        save_num_proc=save_num_proc,
+        save_num_shards=save_num_shards,
+        background=background,
+        op_cls=ZippedStep,
+        op_name="zipped",
+        axis=1,
+    )
+
+
 class SaveStep(Step):
     pass
 
@@ -863,6 +930,10 @@ __all__ = [
     "LazyRowBatches",
     "LazyRows",
     "StepOutputType",
+    "ConcatStep",
+    "ZippedStep",
+    "concat",
+    "zipped",
     "SaveStep",
     "MapStep",
     "ShuffleStep",

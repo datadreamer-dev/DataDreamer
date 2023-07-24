@@ -8,8 +8,8 @@ from datasets import Dataset
 from ... import DataDreamer
 from ...datasets import OutputDataset, OutputIterableDataset
 from ...errors import StepOutputTypeError
-from ...steps import LazyRows, Step
-from ...steps.step import MapStep, SaveStep, ShuffleStep
+from ...steps import LazyRows, Step, concat
+from ...steps.step import ConcatStep, MapStep, SaveStep, ShuffleStep
 
 
 class TestSave:
@@ -410,3 +410,132 @@ class TestShuffle:
             assert shuffle_step._resumed
             assert shuffle_step.output.dataset._indices is None
             assert shuffle_step.output["out1"][0] == 3
+
+
+class TestConcat:
+    def test_concat_invalid_args(self):
+        with pytest.raises(ValueError):
+            concat()
+        with pytest.raises(TypeError):
+            concat(5)  # type: ignore[arg-type]
+
+    def test_concat_lazy(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1"]
+            )
+            step._set_output(
+                {
+                    "out1": [
+                        step.pickle(set(["a"])),
+                        step.pickle(set(["b"])),
+                        step.pickle(set(["c"])),
+                    ]
+                }
+            )
+            iterable_step = create_test_step(
+                name="my-step-2", inputs=None, output_names=["out1"]
+            )
+            iterable_step._set_output(
+                LazyRows(
+                    Dataset.from_dict(
+                        {
+                            "out1": [
+                                iterable_step.pickle(set(["d"])),
+                                iterable_step.pickle(set(["e"])),
+                                iterable_step.pickle(set(["f"])),
+                                iterable_step.pickle(set(["g"])),
+                            ]
+                        }
+                    ).to_iterable_dataset(),
+                    total_num_rows=4,
+                )
+            )
+            concat_step = concat(step, iterable_step)
+            assert concat_step.name == "concat(my-step-1, my-step-2)"
+            isinstance(concat_step, ConcatStep)
+            isinstance(concat_step.output, OutputIterableDataset)
+            assert concat_step.output.num_rows == 7
+            assert list(concat_step.output["out1"])[0] == set(["a"])
+            assert list(concat_step.output["out1"])[-1] == set(["g"])
+
+    def test_concat(self, create_datadreamer, create_test_step: Callable[..., Step]):
+        with create_datadreamer():
+            iterable_step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1"]
+            )
+            iterable_step._set_output(
+                LazyRows(
+                    Dataset.from_dict(
+                        {
+                            "out1": [
+                                iterable_step.pickle(set(["a"])),
+                                iterable_step.pickle(set(["b"])),
+                                iterable_step.pickle(set(["c"])),
+                                iterable_step.pickle(set(["d"])),
+                            ]
+                        }
+                    ).to_iterable_dataset(),
+                    total_num_rows=4,
+                )
+            )
+            step = create_test_step(
+                name="my-step-2", inputs=None, output_names=["out1"]
+            )
+            step._set_output(
+                {
+                    "out1": [
+                        step.pickle(set(["e"])),
+                        step.pickle(set(["f"])),
+                        step.pickle(set(["g"])),
+                    ]
+                }
+            )
+            concat_step = concat(iterable_step, step, lazy=False)
+            assert concat_step.name == "concat(my-step-1, my-step-2)"
+            isinstance(concat_step, ConcatStep)
+            isinstance(concat_step.output, OutputDataset)
+            assert len(concat_step.output) == 7
+            assert concat_step.output["out1"][0] == set(["a"])
+            assert concat_step.output["out1"][-1] == set(["g"])
+
+    def test_concat_lazy_with_no_num_rows(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1"]
+            )
+            step._set_output(
+                {
+                    "out1": [
+                        step.pickle(set(["a"])),
+                        step.pickle(set(["b"])),
+                        step.pickle(set(["c"])),
+                    ]
+                }
+            )
+            iterable_step = create_test_step(
+                name="my-step-2", inputs=None, output_names=["out1"]
+            )
+            with pytest.warns(UserWarning):
+                iterable_step._set_output(
+                    LazyRows(
+                        Dataset.from_dict(
+                            {
+                                "out1": [
+                                    iterable_step.pickle(set(["d"])),
+                                    iterable_step.pickle(set(["e"])),
+                                    iterable_step.pickle(set(["f"])),
+                                    iterable_step.pickle(set(["g"])),
+                                ]
+                            }
+                        ).to_iterable_dataset(),
+                    )
+                )
+            concat_step = concat(step, iterable_step)
+            isinstance(concat_step.output, OutputIterableDataset)
+            assert concat_step.output.num_rows is None
+            assert list(concat_step.output["out1"])[-1] == set(["g"])

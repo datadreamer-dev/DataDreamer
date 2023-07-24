@@ -1,11 +1,11 @@
 import os
 from collections.abc import Iterable
 from functools import partial
-from typing import TYPE_CHECKING, Callable, Type
+from typing import TYPE_CHECKING, Callable, Type, cast
 
 from pyarrow.lib import ArrowInvalid, ArrowTypeError
 
-from datasets import Dataset, IterableDataset
+from datasets import Dataset, IterableDataset, concatenate_datasets
 from datasets.builder import DatasetGenerationError
 from datasets.fingerprint import Hasher
 
@@ -99,7 +99,7 @@ def _user_transform(
 ##################################
 
 
-def _create_step_operation_step(  # noqa: C901
+def __create_step_operation_step(  # noqa: C901
     step: "Step",
     name: None | str,
     op_cls: Type["Step"],
@@ -136,6 +136,10 @@ def _create_step_operation_step(  # noqa: C901
                 run_output = run(self)
             except (ArrowInvalid, ArrowTypeError, ValueError, TypeError) as e:
                 raise StepOutputTypeError(str(e))
+
+            if isinstance(run_output, LazyRows):
+                return run_output
+
             if not no_save and isinstance(run_output, IterableDataset):
                 run_output = _iterable_dataset_to_dataset(
                     self=self,
@@ -169,6 +173,88 @@ def _create_step_operation_step(  # noqa: C901
     )
 
 
+def __concatenate(  # noqa: C901
+    *steps: "Step",
+    name: None | str,
+    lazy: bool,
+    progress_interval: None | int,
+    force: bool,
+    writer_batch_size: None | int,
+    save_num_proc: None | int,
+    save_num_shards: None | int,
+    background: bool,
+    op_cls: Type["Step"],
+    op_name: str,
+    axis: int,
+):
+    from .step import LazyRows, Step
+
+    if len(steps) == 0:
+        raise ValueError(f"You must provide at least one step to {op_name}().")
+    if not all([isinstance(step, Step) for step in steps]):
+        raise TypeError(f"All arguments to {op_name}() must be of type Step.")
+
+    if name is None:
+        step_names = ", ".join([step.name for step in steps])
+        name = DataDreamer._new_step_name(op_name + f"({step_names})")
+
+    def run(self):
+        datasets: list[Dataset | IterableDataset] = []
+        if not lazy:
+            for step in steps:
+                if step._pickled or step.output._pickled:
+                    self.pickle(True)
+                if isinstance(step.output, OutputDataset):
+                    datasets.append(step.output.dataset)
+                else:
+                    datasets.append(
+                        _iterable_dataset_to_dataset(
+                            self=self,
+                            step=step,
+                            iterable_dataset=step.output.dataset,
+                            writer_batch_size=writer_batch_size,
+                            save_num_proc=save_num_proc,
+                        )
+                    )
+            return concatenate_datasets(datasets, axis=axis)
+        else:
+            total_num_rows: None | int = 0
+            for step in steps:
+                if step._pickled or step.output._pickled:
+                    self.pickle(True)
+                if isinstance(step.output, OutputDataset):
+                    if total_num_rows is not None:
+                        total_num_rows += step.output.num_rows
+                    datasets.append(step.output.dataset.to_iterable_dataset())
+                else:
+                    if total_num_rows is not None and step.output.num_rows is not None:
+                        total_num_rows += step.output.num_rows
+                    elif step.output.num_rows is None:
+                        total_num_rows = None
+                    datasets.append(step.output.dataset)
+            return LazyRows(
+                cast(IterableDataset, concatenate_datasets(datasets, axis=axis)),
+                total_num_rows=total_num_rows,
+            )
+
+    return partial(
+        __create_step_operation_step,
+        step=steps[0],
+        name=name,
+        op_cls=op_cls,
+        op_name=op_name,
+        run=run,
+        no_save=lazy,
+        args={"fingerprint": [step.fingerprint for step in steps]},
+        progress_interval=progress_interval,
+        force=force,
+        writer_batch_size=writer_batch_size,
+        save_num_proc=save_num_proc,
+        save_num_shards=save_num_shards,
+        background=background,
+    )()
+
+
 def _create_save_step(
     name: None | str,
     progress_interval: None | int,
@@ -188,7 +274,7 @@ def _create_save_step(
             return step.output.dataset
 
     return partial(
-        _create_step_operation_step,
+        __create_step_operation_step,
         step=step,
         name=name,
         op_cls=SaveStep,
@@ -212,8 +298,8 @@ def _create_map_step(
     batched: bool,
     batch_size: int,
     remove_columns: None | str | list[str],
-    lazy: bool,
     name: None | str,
+    lazy: bool,
     progress_interval: None | int,
     force: bool,
     writer_batch_size: None | int,
@@ -267,7 +353,7 @@ def _create_map_step(
             )
 
     return partial(
-        _create_step_operation_step,
+        __create_step_operation_step,
         step=step,
         name=name,
         op_cls=MapStep,
@@ -297,8 +383,8 @@ def _create_map_step(
 def _create_shuffle_step(
     seed: None | int,
     buffer_size: int,
-    lazy: bool,
     name: None | str,
+    lazy: bool,
     progress_interval: None | int,
     force: bool,
     writer_batch_size: None | int,
@@ -327,7 +413,7 @@ def _create_shuffle_step(
             return dataset.shuffle(seed=seed, buffer_size=buffer_size)
 
     return partial(
-        _create_step_operation_step,
+        __create_step_operation_step,
         step=step,
         name=name,
         op_cls=ShuffleStep,
