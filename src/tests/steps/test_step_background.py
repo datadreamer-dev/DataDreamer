@@ -1,3 +1,4 @@
+import json
 import os
 
 import pytest
@@ -141,3 +142,54 @@ class TestBackground:
             assert isinstance(shuffle_step_2.output, OutputDataset)
             assert shuffle_step_1.output["out1"][0] == 3
             assert shuffle_step_2.output["out1"][0] == 3
+
+    def test_can_get_background_progress_in_foreground(self, create_datadreamer):
+        class TestStep(Step):
+            def setup(self):
+                self.register_output("out1")
+
+            def run(self):
+                def data_generator():
+                    for i in range(1000):
+                        yield i
+
+                return LazyRows(data_generator, total_num_rows=1000)
+
+        with create_datadreamer():
+            step = TestStep(name="my-step", background=True, progress_interval=0)
+            wait(step)
+            assert next(iter(step.output)) == {"out1": 0}
+            assert step.progress > 0.0  # type:ignore[operator]
+            assert step.progress < 1.0  # type:ignore[operator]
+            step_path = os.path.join(DataDreamer.get_output_folder_path(), "my-step")
+            assert os.path.isdir(step_path)
+            assert os.path.isfile(os.path.join(step_path, ".background_progress"))
+            with open(os.path.join(step_path, ".background_progress"), "r") as f:
+                progress_data = json.load(f)
+                assert step.progress == progress_data["progress"]
+
+    def test_can_get_background_progress_rows_in_foreground(self, create_datadreamer):
+        class TestStep(Step):
+            def setup(self):
+                self.register_output("out1")
+
+            def run(self):
+                def data_generator():
+                    for i in range(1000):
+                        yield i
+
+                return LazyRows(data_generator)
+
+        with create_datadreamer():
+            step = TestStep(name="my-step", background=True, progress_interval=0)
+            wait(step)
+            assert next(iter(step.output)) == {"out1": 0}
+            assert "row(s)" in step._Step__get_progress_string()  # type: ignore[attr-defined]
+            assert "row(s)" in str(step)
+            assert step._Step__progress_rows > 0  # type: ignore[attr-defined]
+            step_path = os.path.join(DataDreamer.get_output_folder_path(), "my-step")
+            assert os.path.isdir(step_path)
+            assert os.path.isfile(os.path.join(step_path, ".background_progress"))
+            with open(os.path.join(step_path, ".background_progress"), "r") as f:
+                progress_data = json.load(f)
+                assert step._Step__progress_rows == progress_data["progress_rows"]  # type: ignore[attr-defined]

@@ -16,12 +16,8 @@ from datasets.fingerprint import Hasher
 
 from .. import __version__
 from ..datadreamer import DataDreamer
-from ..datasets import (
-    OutputDataset,
-    OutputDatasetColumn,
-    OutputIterableDataset,
-    OutputIterableDatasetColumn,
-)
+from ..datasets import (OutputDataset, OutputDatasetColumn,
+                        OutputIterableDataset, OutputIterableDatasetColumn)
 from ..errors import StepOutputError
 from ..logging import DATEFMT, STANDARD_FORMAT, logger
 from ..pickling import unpickle as _unpickle
@@ -29,20 +25,13 @@ from ..pickling.pickle import _INTERNAL_PICKLE_KEY, _pickle
 from ..project.environment import RUNNING_IN_PYTEST
 from ..utils.background_utils import run_in_background_process_no_block
 from ..utils.fs_utils import move_dir, safe_fn
-from .step_operations import (
-    _INTERNAL_STEP_OPERATION_KEY,
-    _INTERNAL_STEP_OPERATION_NO_SAVE_KEY,
-    _create_map_step,
-    _create_save_step,
-    _create_shuffle_step,
-)
-from .step_output import (
-    LazyRowBatches,
-    LazyRows,
-    StepOutputType,
-    _monkey_patch_iterable_dataset_apply_feature_types,
-    _output_to_dataset,
-)
+from .step_operations import (_INTERNAL_STEP_OPERATION_KEY,
+                              _INTERNAL_STEP_OPERATION_NO_SAVE_KEY,
+                              _create_map_step, _create_save_step,
+                              _create_shuffle_step)
+from .step_output import (LazyRowBatches, LazyRows, StepOutputType,
+                          _monkey_patch_iterable_dataset_apply_feature_types,
+                          _output_to_dataset)
 
 _INTERNAL_HELP_KEY = "__DataDreamer__help__"
 _INTERNAL_TEST_KEY = "__DataDreamer__test__"
@@ -310,11 +299,19 @@ class Step(metaclass=StepMeta):
     def __finish(self):
         if DataDreamer.is_background_process():  # pragma: no cover
             return
-        if isinstance(self.__output, OutputIterableDataset) or hasattr(
+        if isinstance(self.__output, OutputDataset) and hasattr(
             self.__class__, _INTERNAL_STEP_OPERATION_NO_SAVE_KEY
         ):
+            self.__delete_progress_from_disk()
+            logger.info(f"Step '{self.name}' finished running lazily. 🎉")            
+        elif isinstance(self.__output, OutputIterableDataset) or hasattr(
+            self.__class__, _INTERNAL_STEP_OPERATION_NO_SAVE_KEY
+        ):
+            self.__delete_progress_from_disk()
             logger.info(f"Step '{self.name}' will run lazily. 🥱")
         elif not self._output_folder_path:
+            self.progress = 1.0
+            self.__delete_progress_from_disk()
             logger.info(
                 f"Step '{self.name}' finished with results available in-memory. 🎉"
             )
@@ -323,6 +320,8 @@ class Step(metaclass=StepMeta):
         ):
             if not self.background:
                 self.__save_output_to_disk(self.__output)
+            self.progress = 1.0
+            self.__delete_progress_from_disk()
             logger.info(f"Step '{self.name}' finished and is saved to disk. 🎉")
 
         # Set output_names and output_name_mapping if step operation
@@ -443,8 +442,99 @@ class Step(metaclass=StepMeta):
     def unpickle(self, value: bytes) -> Any:
         return _unpickle(value)
 
+    def __write_progress_to_disk(self):
+        # Write the progress to disk in the child process to share with the parent
+        if (
+            self.background
+            and DataDreamer.is_background_process()
+            and self._output_folder_path
+        ):  # pragma: no cover
+            background_progress_path = os.path.join(
+                self._output_folder_path, ".background_progress"
+            )
+            try:
+                with open(background_progress_path, "w+") as f:
+                    json.dump(
+                        {
+                            "progress": self.__progress,
+                            "progress_rows": self.__progress_rows,
+                        },
+                        f,
+                        indent=4,
+                    )
+            except (
+                AttributeError,
+                KeyError,
+                IndexError,
+                ValueError,
+                NameError,
+                SyntaxError,
+            ):
+                raise
+            except Exception:
+                pass
+
+    def __read_progress_from_disk(self):
+        # Read the progress from the disk in the parent process
+        if (
+            self.__progress != 1.0
+            and self.background
+            and not DataDreamer.is_background_process()
+            and self._output_folder_path
+        ):
+            background_progress_path = os.path.join(
+                self._output_folder_path, ".background_progress"
+            )
+            try:
+                with open(background_progress_path, "r") as f:
+                    progress_data = json.load(f)
+                    if progress_data.get("progress", None) is not None:
+                        self.__progress = max(
+                            progress_data["progress"], self.__progress or 0.0
+                        )
+                    if progress_data.get("progress_rows", None) is not None:
+                        self.__progress_rows = max(
+                            progress_data["progress_rows"], self.__progress_rows or 0
+                        )
+            except (
+                AttributeError,
+                KeyError,
+                IndexError,
+                ValueError,
+                NameError,
+                SyntaxError,
+            ):  # pragma: no cover
+                raise
+            except Exception:
+                pass
+
+    def __delete_progress_from_disk(self):
+        # Delete the progress from the disk once done
+        if (
+            self._output_folder_path
+            and self.background
+            and not DataDreamer.is_background_process()
+        ):
+            background_progress_path = os.path.join(
+                self._output_folder_path, ".background_progress"
+            )
+            try:
+                os.remove(background_progress_path)
+            except (
+                AttributeError,
+                KeyError,
+                IndexError,
+                ValueError,
+                NameError,
+                SyntaxError,
+            ):  # pragma: no cover
+                raise
+            except Exception:
+                pass
+
     @property
     def progress(self) -> None | float:
+        self.__read_progress_from_disk()
         return self.__progress
 
     @progress.setter
@@ -467,6 +557,7 @@ class Step(metaclass=StepMeta):
             logger.info(
                 f"Step '{self.name}' progress:" f" {self.__get_progress_string()} 🔄"
             )
+            self.__write_progress_to_disk()
         if (
             self.__progress == 1.0
             and self.__progress > prev_progress
@@ -492,10 +583,13 @@ class Step(metaclass=StepMeta):
             logger.info(
                 f"Step '{self.name}' progress:" f" {self.__progress_rows} row(s) 🔄"
             )
+            self.__write_progress_to_disk()
 
     def __get_progress_string(self):
-        if self.__progress is not None:
-            progress_int = int(self.__progress * 100)
+        if not self.progress and self.__progress_rows:
+            return f"{self.__progress_rows} row(s) processed"
+        elif self.progress is not None:
+            progress_int = int(self.progress * 100)
             return f"{progress_int}%"
         else:
             return "0%"
@@ -751,12 +845,14 @@ class Step(metaclass=StepMeta):
         inputs_repr = repr_dict_var("inputs", self.__registered["inputs"])
         outputs_repr = repr_dict_var("outputs", self.output_name_mapping, delim=" => ")
         output_repr = repr_var("output", self.__output)
+        progress_repr = repr_var("progress", self.__get_progress_string())
         return (
             f"{type(self).__name__}(\n"
             f"{name_repr}"
             f"{args_repr}"
             f"{inputs_repr}"
             f"{outputs_repr}"
+            f"{progress_repr}"
             f"{output_repr}"
             ")"
         )

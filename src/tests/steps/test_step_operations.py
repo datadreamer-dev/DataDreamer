@@ -282,6 +282,7 @@ class TestShuffle:
                 shuffle_step.output.dataset._indices  # type:ignore[union-attr]
                 is not None
             )
+            assert shuffle_step.progress == 1.0
             assert shuffle_step.output["out1"][0] == 3
             resume_path = os.path.basename(DataDreamer.get_output_folder_path())
 

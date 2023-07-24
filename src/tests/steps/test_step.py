@@ -168,7 +168,7 @@ class TestFunctionality:
         )
         assert (
             str(step)
-            == "TestStep(\n\tname='my-step',\n\targs={\n\t\t'arg1': 5\n\t},\n\tinputs={},\n\toutputs={\n\t\t'out1' => 'foo'\n\t},\n\toutput=None,\n)"  # noqa: B950
+            == "TestStep(\n\tname='my-step',\n\targs={\n\t\t'arg1': 5\n\t},\n\tinputs={},\n\toutputs={\n\t\t'out1' => 'foo'\n\t},\n\tprogress='0%',\n\toutput=None,\n)"  # noqa: B950
         )
 
         def setup_2(self):
@@ -180,7 +180,7 @@ class TestFunctionality:
         )
         step._set_output({"out1": ["a", "b", "c"], "out2": [1, 2, 3]})
         assert str(step).startswith(
-            "TestStep(\n\tname='my-step',\n\tinputs={},\n\toutputs={\n\t\t'out1' => 'foo',\n\t\t'out2' => 'out2'\n\t},\n\toutput=OutputDataset(column_names=['foo', 'out2'], num_rows=3, dataset=<Dataset @ "  # noqa: B950
+            "TestStep(\n\tname='my-step',\n\tinputs={},\n\toutputs={\n\t\t'out1' => 'foo',\n\t\t'out2' => 'out2'\n\t},\n\tprogress='100%',\n\toutput=OutputDataset(column_names=['foo', 'out2'], num_rows=3, dataset=<Dataset @ "  # noqa: B950
         )
         assert str(step).endswith(">),\n)")
 

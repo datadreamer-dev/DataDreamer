@@ -2,6 +2,7 @@ from collections import namedtuple
 from functools import partial
 from multiprocessing import Process, Queue
 from threading import Thread
+from time import sleep
 from typing import Any, Callable, Generator
 
 import dill
@@ -72,6 +73,8 @@ def run_in_background_process_no_block(
 
 def _generator_in_background(generator_pipe, generator: Callable):  # pragma: no cover
     for _v in dill.loads(generator)():
+        while generator_pipe.qsize() > 10:
+            sleep(0.3)
         generator_pipe.put(_v)
     generator_pipe.put(EOD())
 
