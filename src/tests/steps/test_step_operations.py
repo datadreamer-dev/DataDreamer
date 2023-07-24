@@ -543,6 +543,22 @@ class TestConcat:
             assert concat_step.output.num_rows is None
             assert list(concat_step.output["out1"])[-1] == set(["g"])
 
+    def test_concat_with_different_column_names(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step_1 = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1"]
+            )
+            step_1._set_output({"out1": ["a", "b", "c"]})
+            step_2 = create_test_step(
+                name="my-step-2", inputs=None, output_names=["out2"]
+            )
+            step_2._set_output({"out2": ["d", "e", "f"]})
+            concat_step = concat(step_1, step_2, lazy=False)
+            assert len(concat_step.output) == 6
+            assert concat_step.output[0] == {"out1": "a", "out2": None}
+
 
 class TestZipped:
     def test_zipped_invalid_args(self):
@@ -645,3 +661,23 @@ class TestZipped:
             isinstance(zipped_step.output, OutputIterableDataset)
             assert zipped_step.output.num_rows is None
             assert list(zipped_step.output)[0] == {"out1": "a", "out2": set(["d"])}
+
+    def test_zipped_with_different_lengths_error(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step_1 = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1"]
+            )
+            step_1._set_output({"out1": ["a", "b", "c"]})
+            step_2 = create_test_step(
+                name="my-step-2", inputs=None, output_names=["out2"]
+            )
+            step_2._set_output({"out2": ["d", "e", "f", "g"]})
+
+            with pytest.raises(StepOutputTypeError):
+                zipped_step = zipped(step_1, step_2, lazy=False)
+
+            with pytest.raises(StepOutputTypeError):
+                zipped_step = zipped(step_1, step_2, lazy=True)
+                assert list(zipped_step.output)[-1] == {"out1": None, "out2": "g"}
