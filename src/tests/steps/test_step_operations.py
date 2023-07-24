@@ -457,6 +457,7 @@ class TestConcat:
             assert concat_step.name == "concat(my-step-1, my-step-2)"
             isinstance(concat_step, ConcatStep)
             isinstance(concat_step.output, OutputIterableDataset)
+            assert concat_step._pickled is True
             assert concat_step.output.num_rows == 7
             assert list(concat_step.output["out1"])[0] == set(["a"])
             assert list(concat_step.output["out1"])[-1] == set(["g"])
@@ -497,6 +498,7 @@ class TestConcat:
             assert concat_step.name == "concat(my-step-1, my-step-2)"
             isinstance(concat_step, ConcatStep)
             isinstance(concat_step.output, OutputDataset)
+            assert concat_step._pickled is True
             assert len(concat_step.output) == 7
             assert concat_step.output["out1"][0] == set(["a"])
             assert concat_step.output["out1"][-1] == set(["g"])
@@ -578,6 +580,7 @@ class TestZipped:
             assert zipped_step.name == "zipped(my-step-1, my-step-2)"
             isinstance(zipped_step, ZippedStep)
             isinstance(zipped_step.output, OutputIterableDataset)
+            assert zipped_step._pickled is True
             assert zipped_step.output.num_rows == 3
             assert list(zipped_step.output)[0] == {"out1": "a", "out2": set(["d"])}
 
@@ -608,6 +611,7 @@ class TestZipped:
             assert zipped_step.name == "zipped(my-step-1, my-step-2)"
             isinstance(zipped_step, ZippedStep)
             isinstance(zipped_step.output, OutputDataset)
+            assert zipped_step._pickled is True
             assert len(zipped_step.output) == 3
             assert zipped_step.output[0] == {"out1": "a", "out2": set(["d"])}
 
