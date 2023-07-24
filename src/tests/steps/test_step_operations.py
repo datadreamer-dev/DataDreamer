@@ -1,10 +1,13 @@
 import os
 from typing import Callable
 
+import pytest
+
 from datasets import Dataset
 
 from ... import DataDreamer
 from ...datasets import OutputDataset, OutputIterableDataset
+from ...errors import StepOutputTypeError
 from ...steps import LazyRows, Step
 from ...steps.step import MapStep, SaveStep, ShuffleStep
 
@@ -267,6 +270,40 @@ class TestMap:
             assert isinstance(map_step.output, OutputDataset)
             assert set(map_step.output.column_names) == set(["out1"])
             assert map_step.output["out1"][2] == "c"
+
+    def test_map_pickle_error(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            step._set_output(
+                {
+                    "out1": [
+                        step.pickle(lambda x: x),
+                        step.pickle(lambda x: x),
+                        step.pickle(lambda x: x),
+                    ]
+                }
+            )
+            with pytest.raises(StepOutputTypeError):
+                step.map(lambda row: {"out1": row["out1"]}, lazy=False)
+
+    def test_map_lazy_pickle_error(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            step._set_output(
+                {
+                    "out1": [
+                        step.pickle(lambda x: x),
+                        step.pickle(lambda x: x),
+                        step.pickle(lambda x: x),
+                    ]
+                }
+            )
+            with pytest.raises(StepOutputTypeError):
+                list(step.map(lambda row: {"out1": row["out1"]}).output)
 
 
 class TestShuffle:

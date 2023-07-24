@@ -3,11 +3,14 @@ from collections.abc import Iterable
 from functools import partial
 from typing import TYPE_CHECKING, Callable, Type
 
+from pyarrow.lib import ArrowInvalid, ArrowTypeError
+
 from datasets import Dataset, IterableDataset
 from datasets.builder import DatasetGenerationError
 
 from .. import DataDreamer
 from ..datasets import OutputDataset, OutputIterableDataset
+from ..errors import StepOutputTypeError
 from ..logging import logger
 from ..pickling import unpickle_transform
 from .step_background import wait
@@ -125,7 +128,10 @@ def _create_step_operation_step(  # noqa: C901
                 setup(self)  # pragma: no cover
 
         def run(self):
-            run_output = run(self)
+            try:
+                run_output = run(self)
+            except (ArrowInvalid, ArrowTypeError, ValueError, TypeError) as e:
+                raise StepOutputTypeError(str(e))
             if not no_save and isinstance(run_output, IterableDataset):
                 run_output = _iterable_dataset_to_dataset(
                     self=self,

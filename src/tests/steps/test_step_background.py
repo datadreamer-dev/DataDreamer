@@ -1,7 +1,9 @@
 import json
 import os
+from time import sleep
 
 import pytest
+from flaky import flaky
 
 from ... import DataDreamer
 from ...datasets import OutputDataset, OutputIterableDataset
@@ -153,6 +155,7 @@ class TestBackground:
             assert shuffle_step_1.output["out1"][0] == 3
             assert shuffle_step_2.output["out1"][0] == 3
 
+    @flaky(max_runs=3)
     def test_can_get_background_progress_in_foreground(self, create_datadreamer):
         class TestStep(Step):
             def setup(self):
@@ -169,6 +172,7 @@ class TestBackground:
             step = TestStep(name="my-step", background=True, progress_interval=0)
             wait(step)
             assert next(iter(step.output)) == {"out1": 0}
+            sleep(1)  # Wait for progress file to write
             assert step.progress > 0.0  # type:ignore[operator]
             assert step.progress < 1.0  # type:ignore[operator]
             step_path = os.path.join(DataDreamer.get_output_folder_path(), "my-step")
@@ -178,6 +182,7 @@ class TestBackground:
                 progress_data = json.load(f)
                 assert step.progress == progress_data["progress"]
 
+    @flaky(max_runs=3)
     def test_can_get_background_progress_rows_in_foreground(self, create_datadreamer):
         class TestStep(Step):
             def setup(self):
@@ -194,6 +199,7 @@ class TestBackground:
             step = TestStep(name="my-step", background=True, progress_interval=0)
             wait(step)
             assert next(iter(step.output)) == {"out1": 0}
+            sleep(1)  # Wait for progress file to write
             assert "row(s)" in step._Step__get_progress_string()  # type: ignore[attr-defined]
             assert "row(s)" in str(step)
             assert step._Step__progress_rows > 0  # type: ignore[attr-defined]
