@@ -175,6 +175,7 @@ def __create_step_operation_step(  # noqa: C901
 
 def __concatenate(  # noqa: C901
     *steps: "Step",
+    axis: int,
     name: None | str,
     lazy: bool,
     progress_interval: None | int,
@@ -185,8 +186,11 @@ def __concatenate(  # noqa: C901
     background: bool,
     op_cls: Type["Step"],
     op_name: str,
-    axis: int,
 ):
+    kwargs = dict(locals())
+    steps = kwargs["steps"]
+    del kwargs["steps"]
+
     from .step import LazyRows, Step
 
     if len(steps) == 0:
@@ -195,9 +199,9 @@ def __concatenate(  # noqa: C901
         raise TypeError(f"All arguments to {op_name}() must be of type Step.")
     wait(*steps)
 
-    if name is None:
+    if kwargs["name"] is None:
         step_names = ", ".join([step.name for step in steps])
-        name = DataDreamer._new_step_name(op_name + f"({step_names})")
+        kwargs["name"] = DataDreamer._new_step_name(op_name + f"({step_names})")
 
     def run(self):
         datasets: list[Dataset | IterableDataset] = []
@@ -243,22 +247,13 @@ def __concatenate(  # noqa: C901
                 total_num_rows=min_total_num_rows if axis == 1 else total_num_rows,
             )
 
-    return partial(
-        __create_step_operation_step,
-        step=steps[0],
-        name=name,
-        op_cls=op_cls,
-        op_name=op_name,
-        run=run,
-        no_save=lazy,
-        args={"fingerprint": [step.fingerprint for step in steps]},
-        progress_interval=progress_interval,
-        force=force,
-        writer_batch_size=writer_batch_size,
-        save_num_proc=save_num_proc,
-        save_num_shards=save_num_shards,
-        background=background,
-    )()
+    for arg_name in ["axis", "lazy"]:
+        del kwargs[arg_name]
+    kwargs["step"] = steps[0]
+    kwargs["no_save"] = lazy
+    kwargs["args"] = {"fingerprint": [step.fingerprint for step in steps]}
+    kwargs["run"] = run
+    return partial(__create_step_operation_step, **kwargs)()
 
 
 def _create_save_step(
@@ -271,7 +266,7 @@ def _create_save_step(
     background: bool,
     step: "Step",
 ) -> "Step":
-    from .step import SaveStep
+    kwargs = dict(locals())
 
     def run(self):
         if isinstance(step.output, OutputDataset):
@@ -279,22 +274,14 @@ def _create_save_step(
         else:
             return step.output.dataset
 
-    return partial(
-        __create_step_operation_step,
-        step=step,
-        name=name,
-        op_cls=SaveStep,
-        op_name="save",
-        run=run,
-        no_save=False,
-        args={"fingerprint": step.fingerprint},
-        progress_interval=progress_interval,
-        force=force,
-        writer_batch_size=writer_batch_size,
-        save_num_proc=save_num_proc,
-        save_num_shards=save_num_shards,
-        background=background,
-    )()
+    from .step import SaveStep
+
+    kwargs["op_cls"] = SaveStep
+    kwargs["op_name"] = "save"
+    kwargs["no_save"] = False
+    kwargs["args"] = {"fingerprint": step.fingerprint}
+    kwargs["run"] = run
+    return partial(__create_step_operation_step, **kwargs)()
 
 
 def _create_map_step(
@@ -314,7 +301,7 @@ def _create_map_step(
     background: bool,
     step: "Step",
 ) -> "Step":
-    from .step import MapStep
+    kwargs = dict(locals())
 
     def run(self):
         dataset: Dataset | IterableDataset
@@ -358,32 +345,34 @@ def _create_map_step(
                 remove_columns=remove_columns,
             )
 
-    return partial(
-        __create_step_operation_step,
-        step=step,
-        name=name,
-        op_cls=MapStep,
-        op_name="map",
-        run=run,
-        no_save=lazy,
-        args={
-            "fingerprint": [
-                step.fingerprint,
-                function,
-                with_indices,
-                input_columns,
-                batched,
-                batch_size,
-                remove_columns,
-            ]
-        },
-        progress_interval=progress_interval,
-        force=force,
-        writer_batch_size=writer_batch_size,
-        save_num_proc=save_num_proc,
-        save_num_shards=save_num_shards,
-        background=background,
-    )()
+    for arg_name in [
+        "function",
+        "with_indices",
+        "input_columns",
+        "batched",
+        "batch_size",
+        "remove_columns",
+        "lazy",
+    ]:
+        del kwargs[arg_name]
+    from .step import MapStep
+
+    kwargs["op_cls"] = MapStep
+    kwargs["op_name"] = "map"
+    kwargs["no_save"] = lazy
+    kwargs["args"] = {
+        "fingerprint": [
+            step.fingerprint,
+            function,
+            with_indices,
+            input_columns,
+            batched,
+            batch_size,
+            remove_columns,
+        ]
+    }
+    kwargs["run"] = run
+    return partial(__create_step_operation_step, **kwargs)()
 
 
 def _create_shuffle_step(
@@ -399,7 +388,7 @@ def _create_shuffle_step(
     background: bool,
     step: "Step",
 ) -> "Step":
-    from .step import ShuffleStep
+    kwargs = dict(locals())
 
     def run(self):
         dataset: Dataset | IterableDataset
@@ -418,28 +407,22 @@ def _create_shuffle_step(
         else:
             return dataset.shuffle(seed=seed, buffer_size=buffer_size)
 
-    return partial(
-        __create_step_operation_step,
-        step=step,
-        name=name,
-        op_cls=ShuffleStep,
-        op_name="shuffle",
-        run=run,
-        no_save=lazy,
-        args={
-            "fingerprint": [
-                step.fingerprint,
-                seed,
-                buffer_size,
-            ]
-        },
-        progress_interval=progress_interval,
-        force=force,
-        writer_batch_size=writer_batch_size,
-        save_num_proc=save_num_proc,
-        save_num_shards=save_num_shards,
-        background=background,
-    )()
+    for arg_name in ["seed", "buffer_size", "lazy"]:
+        del kwargs[arg_name]
+    from .step import ShuffleStep
+
+    kwargs["op_cls"] = ShuffleStep
+    kwargs["op_name"] = "shuffle"
+    kwargs["no_save"] = lazy
+    kwargs["args"] = {
+        "fingerprint": [
+            step.fingerprint,
+            seed,
+            buffer_size,
+        ]
+    }
+    kwargs["run"] = run
+    return partial(__create_step_operation_step, **kwargs)()
 
 
 __all__ = [
