@@ -9,6 +9,16 @@ from ...errors import StepOutputError
 from ...steps import LazyRows, Step, concurrent, wait
 
 
+class TestErrors:
+    def test_wait_invalid_args(self):
+        with pytest.raises(TypeError):
+            wait(5)  # type: ignore[arg-type]
+
+    def test_concurrent_invalid_args(self):
+        with pytest.raises(TypeError):
+            concurrent(5)  # type: ignore[arg-type]
+
+
 class TestBackground:
     def test_step_without_background_runs_in_same_process(self, create_datadreamer):
         class TestStep(Step):

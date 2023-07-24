@@ -27,6 +27,10 @@ def _waiter(steps, poll_interval=1.0):
 
 
 def wait(*steps: "Step", poll_interval=1.0):
+    from ..steps import Step
+
+    if not all([isinstance(s, Step) for s in steps]):
+        raise TypeError("All arguments to wait() must be of type Step.")
     if all([_check_step_output(step) for step in steps]):
         return
     steps_list = list(steps)
@@ -37,6 +41,8 @@ def wait(*steps: "Step", poll_interval=1.0):
 
 
 def concurrent(*funcs: Callable):
+    if not all([callable(f) for f in funcs]):
+        raise TypeError("All arguments to concurrent() must be functions.")
     thread_pool = ThreadPool(len(funcs))
     results = thread_pool.map(lambda func: func(), funcs)
     thread_pool.close()

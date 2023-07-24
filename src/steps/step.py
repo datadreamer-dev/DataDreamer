@@ -303,7 +303,7 @@ class Step(metaclass=StepMeta):
             self.__class__, _INTERNAL_STEP_OPERATION_NO_SAVE_KEY
         ):
             self.__delete_progress_from_disk()
-            logger.info(f"Step '{self.name}' finished running lazily. 🎉")            
+            logger.info(f"Step '{self.name}' finished running lazily. 🎉")
         elif isinstance(self.__output, OutputIterableDataset) or hasattr(
             self.__class__, _INTERNAL_STEP_OPERATION_NO_SAVE_KEY
         ):
@@ -462,15 +462,6 @@ class Step(metaclass=StepMeta):
                         f,
                         indent=4,
                     )
-            except (
-                AttributeError,
-                KeyError,
-                IndexError,
-                ValueError,
-                NameError,
-                SyntaxError,
-            ):
-                raise
             except Exception:
                 pass
 
@@ -496,15 +487,6 @@ class Step(metaclass=StepMeta):
                         self.__progress_rows = max(
                             progress_data["progress_rows"], self.__progress_rows or 0
                         )
-            except (
-                AttributeError,
-                KeyError,
-                IndexError,
-                ValueError,
-                NameError,
-                SyntaxError,
-            ):  # pragma: no cover
-                raise
             except Exception:
                 pass
 
@@ -520,15 +502,6 @@ class Step(metaclass=StepMeta):
             )
             try:
                 os.remove(background_progress_path)
-            except (
-                AttributeError,
-                KeyError,
-                IndexError,
-                ValueError,
-                NameError,
-                SyntaxError,
-            ):  # pragma: no cover
-                raise
             except Exception:
                 pass
 
