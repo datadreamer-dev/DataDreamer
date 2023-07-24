@@ -173,35 +173,26 @@ def __create_step_operation_step(  # noqa: C901
     )
 
 
-def __concatenate(  # noqa: C901
-    *steps: "Step",
-    axis: int,
-    name: None | str,
-    lazy: bool,
-    progress_interval: None | int,
-    force: bool,
-    writer_batch_size: None | int,
-    save_num_proc: None | int,
-    save_num_shards: None | int,
-    background: bool,
-    op_cls: Type["Step"],
-    op_name: str,
-):
-    kwargs = dict(locals())
-    steps = kwargs["steps"]
-    del kwargs["steps"]
+def __concatenate(*steps: "Step", axis: int, **kwargs):  # noqa: C901
+    lazy = kwargs["lazy"]
+    kwargs["no_save"] = lazy
+    del kwargs["lazy"]
 
     from .step import LazyRows, Step
 
     if len(steps) == 0:
-        raise ValueError(f"You must provide at least one step to {op_name}().")
+        raise ValueError(
+            f"You must provide at least one step to {kwargs['op_name']}()."
+        )
     if not all([isinstance(step, Step) for step in steps]):
-        raise TypeError(f"All arguments to {op_name}() must be of type Step.")
+        raise TypeError(f"All arguments to {kwargs['op_name']}() must be of type Step.")
     wait(*steps)
 
     if kwargs["name"] is None:
         step_names = ", ".join([step.name for step in steps])
-        kwargs["name"] = DataDreamer._new_step_name(op_name + f"({step_names})")
+        kwargs["name"] = DataDreamer._new_step_name(
+            kwargs["op_name"] + f"({step_names})"
+        )
 
     def run(self):
         datasets: list[Dataset | IterableDataset] = []
@@ -217,8 +208,8 @@ def __concatenate(  # noqa: C901
                             self=self,
                             step=step,
                             iterable_dataset=step.output.dataset,
-                            writer_batch_size=writer_batch_size,
-                            save_num_proc=save_num_proc,
+                            writer_batch_size=kwargs["writer_batch_size"],
+                            save_num_proc=kwargs["save_num_proc"],
                         )
                     )
             return concatenate_datasets(datasets, axis=axis)
@@ -247,26 +238,14 @@ def __concatenate(  # noqa: C901
                 total_num_rows=min_total_num_rows if axis == 1 else total_num_rows,
             )
 
-    for arg_name in ["axis", "lazy"]:
-        del kwargs[arg_name]
     kwargs["step"] = steps[0]
-    kwargs["no_save"] = lazy
     kwargs["args"] = {"fingerprint": [step.fingerprint for step in steps]}
     kwargs["run"] = run
     return partial(__create_step_operation_step, **kwargs)()
 
 
-def _create_save_step(
-    name: None | str,
-    progress_interval: None | int,
-    force: bool,
-    writer_batch_size: None | int,
-    save_num_proc: None | int,
-    save_num_shards: None | int,
-    background: bool,
-    step: "Step",
-) -> "Step":
-    kwargs = dict(locals())
+def _create_save_step(**kwargs) -> "Step":
+    step = kwargs["step"]
 
     def run(self):
         if isinstance(step.output, OutputDataset):
@@ -291,17 +270,11 @@ def _create_map_step(
     batched: bool,
     batch_size: int,
     remove_columns: None | str | list[str],
-    name: None | str,
-    lazy: bool,
-    progress_interval: None | int,
-    force: bool,
-    writer_batch_size: None | int,
-    save_num_proc: None | int,
-    save_num_shards: None | int,
-    background: bool,
-    step: "Step",
+    **kwargs,
 ) -> "Step":
-    kwargs = dict(locals())
+    lazy, step = kwargs["lazy"], kwargs["step"]
+    kwargs["no_save"] = lazy
+    del kwargs["lazy"]
 
     def run(self):
         dataset: Dataset | IterableDataset
@@ -324,8 +297,8 @@ def _create_map_step(
                 batched=batched,
                 batch_size=batch_size,
                 remove_columns=remove_columns,
-                writer_batch_size=writer_batch_size,
-                num_proc=save_num_proc,
+                writer_batch_size=kwargs["writer_batch_size"],
+                num_proc=kwargs["save_num_proc"],
                 desc=self.name,
             )
         else:
@@ -345,16 +318,6 @@ def _create_map_step(
                 remove_columns=remove_columns,
             )
 
-    for arg_name in [
-        "function",
-        "with_indices",
-        "input_columns",
-        "batched",
-        "batch_size",
-        "remove_columns",
-        "lazy",
-    ]:
-        del kwargs[arg_name]
     from .step import MapStep
 
     kwargs["op_cls"] = MapStep
@@ -375,20 +338,10 @@ def _create_map_step(
     return partial(__create_step_operation_step, **kwargs)()
 
 
-def _create_shuffle_step(
-    seed: None | int,
-    buffer_size: int,
-    name: None | str,
-    lazy: bool,
-    progress_interval: None | int,
-    force: bool,
-    writer_batch_size: None | int,
-    save_num_proc: None | int,
-    save_num_shards: None | int,
-    background: bool,
-    step: "Step",
-) -> "Step":
-    kwargs = dict(locals())
+def _create_shuffle_step(seed: None | int, buffer_size: int, **kwargs) -> "Step":
+    lazy, step = kwargs["lazy"], kwargs["step"]
+    kwargs["no_save"] = lazy
+    del kwargs["lazy"]
 
     def run(self):
         dataset: Dataset | IterableDataset
@@ -397,18 +350,18 @@ def _create_shuffle_step(
                 self=self,
                 step=step,
                 iterable_dataset=step.output.dataset,
-                writer_batch_size=writer_batch_size,
-                save_num_proc=save_num_proc,
+                writer_batch_size=kwargs["writer_batch_size"],
+                save_num_proc=kwargs["save_num_proc"],
             )
         else:
             dataset = step.output.dataset
         if isinstance(dataset, Dataset):
-            return dataset.shuffle(seed=seed, writer_batch_size=writer_batch_size)
+            return dataset.shuffle(
+                seed=seed, writer_batch_size=kwargs["writer_batch_size"]
+            )
         else:
             return dataset.shuffle(seed=seed, buffer_size=buffer_size)
 
-    for arg_name in ["seed", "buffer_size", "lazy"]:
-        del kwargs[arg_name]
     from .step import ShuffleStep
 
     kwargs["op_cls"] = ShuffleStep
