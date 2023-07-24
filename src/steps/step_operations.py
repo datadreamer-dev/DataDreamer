@@ -7,6 +7,7 @@ from pyarrow.lib import ArrowInvalid, ArrowTypeError
 
 from datasets import Dataset, IterableDataset
 from datasets.builder import DatasetGenerationError
+from datasets.fingerprint import Hasher
 
 from .. import DataDreamer
 from ..datasets import OutputDataset, OutputIterableDataset
@@ -120,6 +121,9 @@ def _create_step_operation_step(  # noqa: C901
         kwargs["save_num_proc"] = step.save_num_proc
     if kwargs.get("save_num_shards", None) is None:
         kwargs["save_num_shards"] = step.save_num_shards
+
+    # Hash the fingerprint
+    kwargs["args"]["fingerprint"] = Hasher.hash(kwargs["args"]["fingerprint"])
 
     class _StepOpStep(op_cls):  # type:ignore[valid-type,misc]
         def setup(self):
