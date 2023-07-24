@@ -675,17 +675,10 @@ class Step(metaclass=StepMeta):
         save_num_shards: None | int = None,
         background: bool = False,
     ) -> "Step":
-        return partial(
-            _create_save_step,
-            name=name,
-            progress_interval=progress_interval,
-            force=force,
-            writer_batch_size=writer_batch_size,
-            save_num_proc=save_num_proc,
-            save_num_shards=save_num_shards,
-            background=background,
-            step=self,
-        )()
+        kwargs = dict(locals())
+        kwargs["step"] = self
+        del kwargs["self"]
+        return partial(_create_save_step, **kwargs)()
 
     def map(
         self,
@@ -704,24 +697,10 @@ class Step(metaclass=StepMeta):
         save_num_shards: None | int = None,
         background: bool = False,
     ):
-        return partial(
-            _create_map_step,
-            function=function,
-            with_indices=with_indices,
-            input_columns=input_columns,
-            batched=batched,
-            batch_size=batch_size,
-            remove_columns=remove_columns,
-            name=name,
-            lazy=lazy,
-            progress_interval=progress_interval,
-            force=force,
-            writer_batch_size=writer_batch_size,
-            save_num_proc=save_num_proc,
-            save_num_shards=save_num_shards,
-            background=background,
-            step=self,
-        )()
+        kwargs = dict(locals())
+        kwargs["step"] = self
+        del kwargs["self"]
+        return partial(_create_map_step, **kwargs)()
 
     def shuffle(
         self,
@@ -736,20 +715,10 @@ class Step(metaclass=StepMeta):
         save_num_shards: None | int = None,
         background: bool = False,
     ):
-        return partial(
-            _create_shuffle_step,
-            seed=seed,
-            buffer_size=buffer_size,
-            name=name,
-            lazy=lazy,
-            progress_interval=progress_interval,
-            force=force,
-            writer_batch_size=writer_batch_size,
-            save_num_proc=save_num_proc,
-            save_num_shards=save_num_shards,
-            background=background,
-            step=self,
-        )()
+        kwargs = dict(locals())
+        kwargs["step"] = self
+        del kwargs["self"]
+        return partial(_create_shuffle_step, **kwargs)()
 
     @cached_property
     def fingerprint(self) -> str:
@@ -867,22 +836,16 @@ def concat(
     save_num_shards: None | int = None,
     background: bool = False,
 ):
+    kwargs = dict(locals())
+    steps = kwargs["steps"]
+    del kwargs["steps"]
     from .step import ConcatStep
 
-    return __concatenate(
-        *steps,
-        name=name,
-        lazy=lazy,
-        progress_interval=progress_interval,
-        force=force,
-        writer_batch_size=writer_batch_size,
-        save_num_proc=save_num_proc,
-        save_num_shards=save_num_shards,
-        background=background,
-        op_cls=ConcatStep,
-        op_name="concat",
-        axis=0,
-    )
+    kwargs["op_cls"] = ConcatStep
+    kwargs["op_name"] = "concat"
+    kwargs["axis"] = 0
+
+    return __concatenate(*steps, **kwargs)
 
 
 def zipped(
@@ -896,22 +859,16 @@ def zipped(
     save_num_shards: None | int = None,
     background: bool = False,
 ):
+    kwargs = dict(locals())
+    steps = kwargs["steps"]
+    del kwargs["steps"]
     from .step import ZippedStep
 
-    return __concatenate(
-        *steps,
-        name=name,
-        lazy=lazy,
-        progress_interval=progress_interval,
-        force=force,
-        writer_batch_size=writer_batch_size,
-        save_num_proc=save_num_proc,
-        save_num_shards=save_num_shards,
-        background=background,
-        op_cls=ZippedStep,
-        op_name="zipped",
-        axis=1,
-    )
+    kwargs["op_cls"] = ZippedStep
+    kwargs["op_name"] = "zipped"
+    kwargs["axis"] = 1
+
+    return __concatenate(*steps, **kwargs)
 
 
 class SaveStep(Step):
