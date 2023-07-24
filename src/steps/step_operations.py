@@ -193,6 +193,7 @@ def __concatenate(  # noqa: C901
         raise ValueError(f"You must provide at least one step to {op_name}().")
     if not all([isinstance(step, Step) for step in steps]):
         raise TypeError(f"All arguments to {op_name}() must be of type Step.")
+    wait(*steps)
 
     if name is None:
         step_names = ", ".join([step.name for step in steps])
@@ -219,6 +220,11 @@ def __concatenate(  # noqa: C901
             return concatenate_datasets(datasets, axis=axis)
         else:
             total_num_rows: None | int = 0
+            min_total_num_rows: None | int = None
+            if all([step.output.num_rows is not None for step in steps]):
+                min_total_num_rows = min(
+                    [cast(int, step.output.num_rows) for step in steps]
+                )
             for step in steps:
                 if step._pickled or step.output._pickled:
                     self.pickle(True)
@@ -234,7 +240,7 @@ def __concatenate(  # noqa: C901
                     datasets.append(step.output.dataset)
             return LazyRows(
                 cast(IterableDataset, concatenate_datasets(datasets, axis=axis)),
-                total_num_rows=total_num_rows,
+                total_num_rows=min_total_num_rows if axis == 1 else total_num_rows,
             )
 
     return partial(

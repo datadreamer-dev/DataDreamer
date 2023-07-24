@@ -356,6 +356,7 @@ class TestFunctionality:
         assert logs[0] == "Initialized. 🚀 Dreaming in-memory: 🧠"
         assert logs[-1] == "Done. ✨"
         assert len(logs) == 12
+        assert is_caching_enabled()
 
     def test_trace_info_propogates(
         self, create_datadreamer, create_test_step: Callable[..., Step]

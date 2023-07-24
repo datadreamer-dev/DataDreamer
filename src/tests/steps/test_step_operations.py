@@ -8,8 +8,8 @@ from datasets import Dataset
 from ... import DataDreamer
 from ...datasets import OutputDataset, OutputIterableDataset
 from ...errors import StepOutputTypeError
-from ...steps import LazyRows, Step, concat
-from ...steps.step import ConcatStep, MapStep, SaveStep, ShuffleStep
+from ...steps import LazyRows, Step, concat, zipped
+from ...steps.step import ConcatStep, MapStep, SaveStep, ShuffleStep, ZippedStep
 
 
 class TestSave:
@@ -540,3 +540,104 @@ class TestConcat:
             isinstance(concat_step.output, OutputIterableDataset)
             assert concat_step.output.num_rows is None
             assert list(concat_step.output["out1"])[-1] == set(["g"])
+
+
+class TestZipped:
+    def test_zipped_invalid_args(self):
+        with pytest.raises(ValueError):
+            zipped()
+        with pytest.raises(TypeError):
+            zipped(5)  # type: ignore[arg-type]
+
+    def test_zipped_lazy(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1"]
+            )
+            step._set_output({"out1": ["a", "b", "c"]})
+            iterable_step = create_test_step(
+                name="my-step-2", inputs=None, output_names=["out2"]
+            )
+            iterable_step._set_output(
+                LazyRows(
+                    Dataset.from_dict(
+                        {
+                            "out2": [
+                                iterable_step.pickle(set(["d"])),
+                                iterable_step.pickle(set(["e"])),
+                                iterable_step.pickle(set(["f"])),
+                            ]
+                        }
+                    ).to_iterable_dataset(),
+                    total_num_rows=3,
+                )
+            )
+            zipped_step = zipped(step, iterable_step)
+            assert zipped_step.name == "zipped(my-step-1, my-step-2)"
+            isinstance(zipped_step, ZippedStep)
+            isinstance(zipped_step.output, OutputIterableDataset)
+            assert zipped_step.output.num_rows == 3
+            assert list(zipped_step.output)[0] == {"out1": "a", "out2": set(["d"])}
+
+    def test_zipped(self, create_datadreamer, create_test_step: Callable[..., Step]):
+        with create_datadreamer():
+            iterable_step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1"]
+            )
+            iterable_step._set_output(
+                LazyRows(
+                    Dataset.from_dict({"out1": ["a", "b", "c"]}).to_iterable_dataset(),
+                    total_num_rows=3,
+                )
+            )
+            step = create_test_step(
+                name="my-step-2", inputs=None, output_names=["out2"]
+            )
+            step._set_output(
+                {
+                    "out2": [
+                        step.pickle(set(["d"])),
+                        step.pickle(set(["e"])),
+                        step.pickle(set(["f"])),
+                    ]
+                }
+            )
+            zipped_step = zipped(iterable_step, step, lazy=False)
+            assert zipped_step.name == "zipped(my-step-1, my-step-2)"
+            isinstance(zipped_step, ZippedStep)
+            isinstance(zipped_step.output, OutputDataset)
+            assert len(zipped_step.output) == 3
+            assert zipped_step.output[0] == {"out1": "a", "out2": set(["d"])}
+
+    def test_zipped_lazy_with_no_num_rows(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1"]
+            )
+            step._set_output({"out1": ["a", "b", "c"]})
+            iterable_step = create_test_step(
+                name="my-step-2", inputs=None, output_names=["out2"]
+            )
+            with pytest.warns(UserWarning):
+                iterable_step._set_output(
+                    LazyRows(
+                        Dataset.from_dict(
+                            {
+                                "out2": [
+                                    iterable_step.pickle(set(["d"])),
+                                    iterable_step.pickle(set(["e"])),
+                                    iterable_step.pickle(set(["f"])),
+                                ]
+                            }
+                        ).to_iterable_dataset(),
+                    )
+                )
+            with pytest.warns(UserWarning):
+                zipped_step = zipped(step, iterable_step)
+            isinstance(zipped_step.output, OutputIterableDataset)
+            assert zipped_step.output.num_rows is None
+            assert list(zipped_step.output)[0] == {"out1": "a", "out2": set(["d"])}
