@@ -175,7 +175,6 @@ def __create_step_operation_step(  # noqa: C901
 
 def __concatenate(*steps: "Step", axis: int, **kwargs):  # noqa: C901
     lazy = kwargs["lazy"]
-    kwargs["no_save"] = lazy
     del kwargs["lazy"]
 
     from .step import LazyRows, Step
@@ -239,6 +238,7 @@ def __concatenate(*steps: "Step", axis: int, **kwargs):  # noqa: C901
             )
 
     kwargs["step"] = steps[0]
+    kwargs["no_save"] = lazy
     kwargs["args"] = {"fingerprint": [step.fingerprint for step in steps]}
     kwargs["run"] = run
     return partial(__create_step_operation_step, **kwargs)()
@@ -246,7 +246,6 @@ def __concatenate(*steps: "Step", axis: int, **kwargs):  # noqa: C901
 
 def _create_select_step(indices: Iterable, **kwargs):
     lazy, step = kwargs["lazy"], kwargs["step"]
-    kwargs["no_save"] = lazy
     del kwargs["lazy"]
 
     def run(self):
@@ -282,7 +281,6 @@ def _create_select_step(indices: Iterable, **kwargs):
 
 def _create_select_columns_step(column_names: str | list[str], **kwargs):
     lazy, step = kwargs["lazy"], kwargs["step"]
-    kwargs["no_save"] = lazy
     del kwargs["lazy"]
 
     def run(self):
@@ -305,7 +303,6 @@ def _create_select_columns_step(column_names: str | list[str], **kwargs):
 
 def _create_take_step(n: int, **kwargs):
     lazy, step = kwargs["lazy"], kwargs["step"]
-    kwargs["no_save"] = lazy
     del kwargs["lazy"]
 
     def run(self):
@@ -333,7 +330,6 @@ def _create_take_step(n: int, **kwargs):
 
 def _create_skip_step(n: int, **kwargs):
     lazy, step = kwargs["lazy"], kwargs["step"]
-    kwargs["no_save"] = lazy
     del kwargs["lazy"]
 
     def run(self):
@@ -361,7 +357,6 @@ def _create_skip_step(n: int, **kwargs):
 
 def _create_shuffle_step(seed: None | int, buffer_size: int, **kwargs) -> "Step":
     lazy, step = kwargs["lazy"], kwargs["step"]
-    kwargs["no_save"] = lazy
     del kwargs["lazy"]
 
     def run(self):
@@ -442,7 +437,6 @@ def _create_sort_step(
 
 def _create_add_item_step(item: dict, **kwargs):
     lazy, step = kwargs["lazy"], kwargs["step"]
-    kwargs["no_save"] = lazy
     del kwargs["lazy"]
 
     def run(self):
@@ -486,7 +480,6 @@ def _create_map_step(
     **kwargs,
 ) -> "Step":
     lazy, step = kwargs["lazy"], kwargs["step"]
-    kwargs["no_save"] = lazy
     del kwargs["lazy"]
 
     def run(self):
@@ -560,7 +553,6 @@ def _create_filter_step(
     **kwargs,
 ) -> "Step":
     lazy, step = kwargs["lazy"], kwargs["step"]
-    kwargs["no_save"] = lazy
     del kwargs["lazy"]
 
     def run(self):
@@ -626,7 +618,6 @@ def _create_rename_column_step(
     original_column_name: str, new_column_name: str, **kwargs
 ):
     lazy, step = kwargs["lazy"], kwargs["step"]
-    kwargs["no_save"] = lazy
     del kwargs["lazy"]
 
     def run(self):
@@ -652,7 +643,6 @@ def _create_rename_column_step(
 
 def _create_rename_columns_step(column_mapping: dict[str, str], **kwargs):
     lazy, step = kwargs["lazy"], kwargs["step"]
-    kwargs["no_save"] = lazy
     del kwargs["lazy"]
 
     def run(self):
@@ -675,7 +665,6 @@ def _create_rename_columns_step(column_mapping: dict[str, str], **kwargs):
 
 def _create_remove_columns_step(column_names: str | list[str], **kwargs):
     lazy, step = kwargs["lazy"], kwargs["step"]
-    kwargs["no_save"] = lazy
     del kwargs["lazy"]
 
     def run(self):
@@ -730,7 +719,6 @@ def _create_shard_step(num_shards: int, index: int, contiguous: bool, **kwargs):
 
 def _create_reverse_step(**kwargs):
     lazy, step = kwargs["lazy"], kwargs["step"]
-    kwargs["no_save"] = lazy
     del kwargs["lazy"]
 
     def run(self):

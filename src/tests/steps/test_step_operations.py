@@ -9,7 +9,15 @@ from ... import DataDreamer
 from ...datasets import OutputDataset, OutputIterableDataset
 from ...errors import StepOutputTypeError
 from ...steps import LazyRows, Step, concat, zipped
-from ...steps.step import ConcatStep, MapStep, SaveStep, ShuffleStep, ZippedStep
+from ...steps.step import (
+    ConcatStep,
+    MapStep,
+    SaveStep,
+    SelectColumnsStep,
+    SelectStep,
+    ShuffleStep,
+    ZippedStep,
+)
 
 
 class TestSave:
@@ -688,3 +696,75 @@ class TestZipped:
             with pytest.raises(StepOutputTypeError):
                 zipped_step = zipped(step_1, step_2, lazy=True)
                 assert list(zipped_step.output)[-1] == {"out1": None, "out2": "g"}
+
+
+class TestSelect:
+    def test_select_dataset(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1"]
+            )
+            step._set_output({"out1": [1, 2, 3]})
+            select_step = step.select([0, 2])
+            isinstance(select_step, SelectStep)
+            isinstance(select_step.output, OutputDataset)
+            assert len(select_step.output) == 2  # type:ignore[arg-type]
+            assert list(select_step.output["out1"]) == [1, 3]
+
+    def test_select_iterable_dataset(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1"]
+            )
+            step._set_output(
+                LazyRows(
+                    Dataset.from_dict({"out1": [1, 2, 3]}).to_iterable_dataset(),
+                    total_num_rows=3,
+                )
+            )
+            select_step = step.select([0, 2])
+            isinstance(select_step, SelectStep)
+            isinstance(select_step.output, OutputDataset)
+            assert len(select_step.output) == 2  # type:ignore[arg-type]
+            assert list(select_step.output["out1"]) == [1, 3]
+
+
+class TestSelectColumns:
+    def test_select_columns_dataset(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1", "out2"]
+            )
+            step._set_output({"out1": [1, 2, 3], "out2": [4, 5, 6]})
+            select_columns_step = step.select_columns(["out2"])
+            isinstance(select_columns_step, SelectColumnsStep)
+            isinstance(select_columns_step.output, OutputDataset)
+            assert len(select_columns_step.output) == 3  # type:ignore[arg-type]
+            assert set(select_columns_step.output.column_names) == set(["out2"])
+
+    def test_select_columns_iterable_dataset(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1", "out2"]
+            )
+            step._set_output(
+                LazyRows(
+                    Dataset.from_dict(
+                        {"out1": [1, 2, 3], "out2": [4, 5, 6]}
+                    ).to_iterable_dataset(),
+                    total_num_rows=3,
+                )
+            )
+            select_columns_step = step.select_columns(["out2"])
+            isinstance(select_columns_step, SelectColumnsStep)
+            isinstance(select_columns_step.output, OutputIterableDataset)
+            assert select_columns_step.output.num_rows == 3
+            assert set(select_columns_step.output.column_names) == set(["out2"])
