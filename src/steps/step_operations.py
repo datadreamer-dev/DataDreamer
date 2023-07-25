@@ -815,6 +815,7 @@ def _create_save_step(**kwargs) -> "Step":
 
 def _create_copy_step(**kwargs) -> "Step":
     step = kwargs["step"]
+    wait(step)
 
     def run(self):
         if isinstance(step.output, OutputDataset):
