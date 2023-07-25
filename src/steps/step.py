@@ -823,7 +823,7 @@ class Step(metaclass=StepMeta):
         kwargs["step"] = self
         del kwargs["self"]
         del kwargs["auto_progress"]
-        if total_num_rows is None and auto_progress:
+        if lazy and (total_num_rows is None and auto_progress):
             warnings.warn(
                 "You did not specify `total_num_rows`, so we cannot"
                 " automatically update the progress % for this step. Either"
@@ -855,7 +855,7 @@ class Step(metaclass=StepMeta):
         kwargs["step"] = self
         del kwargs["self"]
         del kwargs["auto_progress"]
-        if total_num_rows is None and auto_progress:
+        if lazy and (total_num_rows is None and auto_progress):
             warnings.warn(
                 "You did not specify `total_num_rows`, so we cannot"
                 " automatically update the progress % for this step. Either"
