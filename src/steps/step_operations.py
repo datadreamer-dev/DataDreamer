@@ -552,6 +552,7 @@ def _create_map_step(
                     remove_columns=remove_columns,
                 ),
                 total_num_rows=total_num_rows,
+                auto_progress=False if total_num_rows is None else True,
             )
 
     from .step import MapStep
@@ -629,6 +630,7 @@ def _create_filter_step(
                     batch_size=batch_size,
                 ),
                 total_num_rows=total_num_rows,
+                auto_progress=False if total_num_rows is None else True,
             )
 
     from .step import FilterStep

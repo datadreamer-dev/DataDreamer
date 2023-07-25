@@ -206,7 +206,8 @@ class TestMap:
         with create_datadreamer():
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
             step._set_output({"out1": [1, 2, 3]})
-            map_step = step.map(lambda row: {"out1": row["out1"] * 2})
+            with pytest.warns(UserWarning):
+                map_step = step.map(lambda row: {"out1": row["out1"] * 2})
             assert isinstance(map_step, MapStep)
             assert isinstance(map_step.output, OutputIterableDataset)
             assert map_step.output.num_rows is None
@@ -215,7 +216,8 @@ class TestMap:
 
         with create_datadreamer(resume_path):
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
-            map_step = step.map(lambda row: {"out1": row["out1"] * 2})
+            with pytest.warns(UserWarning):
+                map_step = step.map(lambda row: {"out1": row["out1"] * 2})
             assert list(map_step.output["out1"])[2] == 6
 
     def test_map_on_iterable_dataset(
@@ -237,17 +239,18 @@ class TestMap:
                     total_num_rows=3,
                 )
             )
-            map_step = step.map(
-                lambda batch, idxs: {
-                    "out1": [
-                        row.add(idx) or step.pickle(row)
-                        for row, idx in zip(batch["out1"], idxs)
-                    ]
-                },
-                with_indices=True,
-                batched=True,
-                batch_size=3,
-            )
+            with pytest.warns(UserWarning):
+                map_step = step.map(
+                    lambda batch, idxs: {
+                        "out1": [
+                            row.add(idx) or step.pickle(row)
+                            for row, idx in zip(batch["out1"], idxs)
+                        ]
+                    },
+                    with_indices=True,
+                    batched=True,
+                    batch_size=3,
+                )
             assert isinstance(map_step, MapStep)
             assert isinstance(map_step.output, OutputIterableDataset)
             assert map_step.output.num_rows is None
@@ -271,7 +274,9 @@ class TestMap:
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
             step._set_output({"out1": [1, 2, 3]})
             map_step = step.map(
-                lambda row: {"out1": row["out1"], "out2": row["out1"] * 2}, lazy=False
+                lambda row: {"out1": row["out1"], "out2": row["out1"] * 2},
+                lazy=False,
+                total_num_rows=3,
             )
             assert isinstance(map_step, MapStep)
             assert isinstance(map_step.output, OutputDataset)
@@ -287,6 +292,7 @@ class TestMap:
                 lambda row: {"out1": row["out2"]},
                 remove_columns=["out2"],
                 lazy=False,
+                total_num_rows=3,
             )
             assert isinstance(map_step, MapStep)
             assert isinstance(map_step.output, OutputDataset)
@@ -308,7 +314,9 @@ class TestMap:
                 }
             )
             with pytest.raises(StepOutputTypeError):
-                step.map(lambda row: {"out1": row["out1"]}, lazy=False)
+                step.map(
+                    lambda row: {"out1": row["out1"]}, lazy=False, total_num_rows=3
+                )
 
     def test_map_lazy_pickle_error(
         self, create_datadreamer, create_test_step: Callable[..., Step]
@@ -325,7 +333,9 @@ class TestMap:
                 }
             )
             with pytest.raises(StepOutputTypeError):
-                list(step.map(lambda row: {"out1": row["out1"]}).output)
+                list(
+                    step.map(lambda row: {"out1": row["out1"]}, total_num_rows=3).output
+                )
 
 
 class TestFilter:
@@ -335,7 +345,8 @@ class TestFilter:
         with create_datadreamer():
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
             step._set_output({"out1": [1, 2, 3]})
-            filter_step = step.filter(lambda row: row["out1"] in [1, 3])
+            with pytest.warns(UserWarning):
+                filter_step = step.filter(lambda row: row["out1"] in [1, 3])
             assert isinstance(filter_step, FilterStep)
             assert isinstance(filter_step.output, OutputIterableDataset)
             assert filter_step.output.num_rows is None
@@ -352,7 +363,8 @@ class TestFilter:
                     total_num_rows=3,
                 )
             )
-            filter_step = step.filter(lambda row: row["out1"] in [1, 3])
+            with pytest.warns(UserWarning):
+                filter_step = step.filter(lambda row: row["out1"] in [1, 3])
             assert isinstance(filter_step, FilterStep)
             assert isinstance(filter_step.output, OutputIterableDataset)
             assert filter_step.output.num_rows is None

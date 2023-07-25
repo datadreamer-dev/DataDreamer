@@ -454,7 +454,8 @@ class TestProgress:
                 yield {"out1": "c"}
 
             step._set_output(LazyRows(dataset_generator, total_num_rows=3))
-            step.map(lambda x: x, lazy=False, batched=True, batch_size=1)
+            with pytest.warns(UserWarning):
+                step.map(lambda x: x, lazy=False, batched=True, batch_size=1)
         logs = [rec.message for rec in caplog.records]
         caplog.clear()
         assert any(["Step 'my-step (map)' progress: 33% 🔄" in log for log in logs])
@@ -476,7 +477,8 @@ class TestProgress:
 
             with pytest.warns(UserWarning):
                 step._set_output(LazyRows(dataset_generator))
-            step.map(lambda x: x, lazy=False)
+            with pytest.warns(UserWarning):
+                step.map(lambda x: x, lazy=False)
         logs = [rec.message for rec in caplog.records]
         caplog.clear()
         assert any(["Step 'my-step (map)' progress: 1 row(s) 🔄" in log for log in logs])

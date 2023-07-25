@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import warnings
 from collections import defaultdict
 from collections.abc import Iterable
 from datetime import datetime
@@ -808,6 +809,7 @@ class Step(metaclass=StepMeta):
         batch_size: int = 1000,
         remove_columns: None | str | list[str] = None,
         total_num_rows: None | int = None,
+        auto_progress: bool = True,
         name: None | str = None,
         lazy: bool = True,
         progress_interval: None | int = None,
@@ -820,6 +822,15 @@ class Step(metaclass=StepMeta):
         kwargs = dict(locals())
         kwargs["step"] = self
         del kwargs["self"]
+        del kwargs["auto_progress"]
+        if total_num_rows is None and auto_progress:
+            warnings.warn(
+                "You did not specify `total_num_rows`, so we cannot"
+                " automatically update the progress % for this step. Either"
+                " specify map(..., total_num_rows=#) or, to disable"
+                " this warning, specify map(.., auto_progress = False)",
+                stacklevel=2,
+            )
         return partial(_create_map_step, **kwargs)()
 
     def filter(
@@ -830,6 +841,7 @@ class Step(metaclass=StepMeta):
         batched: bool = False,
         batch_size: int = 1000,
         total_num_rows: None | int = None,
+        auto_progress: bool = True,
         name: None | str = None,
         lazy: bool = True,
         progress_interval: None | int = None,
@@ -842,6 +854,15 @@ class Step(metaclass=StepMeta):
         kwargs = dict(locals())
         kwargs["step"] = self
         del kwargs["self"]
+        del kwargs["auto_progress"]
+        if total_num_rows is None and auto_progress:
+            warnings.warn(
+                "You did not specify `total_num_rows`, so we cannot"
+                " automatically update the progress % for this step. Either"
+                " specify filter(..., total_num_rows=#) or, to disable"
+                " this warning, specify filter(.., auto_progress = False)",
+                stacklevel=2,
+            )
         return partial(_create_filter_step, **kwargs)()
 
     def rename_column(
