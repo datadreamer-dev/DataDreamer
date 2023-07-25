@@ -839,3 +839,54 @@ class TestSelectColumns:
             isinstance(select_columns_step.output, OutputIterableDataset)
             assert select_columns_step.output.num_rows == 3
             assert set(select_columns_step.output.column_names) == set(["out2"])
+
+
+class TestShard:
+    def test_shard_dataset(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1"]
+            )
+            step._set_output({"out1": [1, 2, 3, 4]})
+            shard_step = step.shard(num_shards=2, index=1)
+            isinstance(shard_step, SelectColumnsStep)
+            isinstance(shard_step.output, OutputDataset)
+            assert shard_step.output.num_rows == 2
+            assert list(shard_step.output["out1"]) == [2, 4]
+
+    def test_shard_iterable_dataset(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1"]
+            )
+            step._set_output(
+                LazyRows(
+                    Dataset.from_dict({"out1": [1, 2, 3, 4]}).to_iterable_dataset(),
+                    total_num_rows=3,
+                )
+            )
+            shard_step = step.shard(num_shards=2, index=1)
+            isinstance(shard_step, SelectColumnsStep)
+            isinstance(shard_step.output, OutputDataset)
+            assert shard_step.output.num_rows == 2
+            assert list(shard_step.output["out1"]) == [2, 4]
+
+    def test_shard_dataset_contiguous(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1"]
+            )
+            step._set_output({"out1": [1, 2, 3, 4]})
+            shard_step = step.shard(
+                num_shards=2, index=1, contiguous=True, writer_batch_size=1000
+            )
+            isinstance(shard_step, SelectColumnsStep)
+            isinstance(shard_step.output, OutputDataset)
+            assert shard_step.output.num_rows == 2
+            assert list(shard_step.output["out1"]) == [3, 4]
