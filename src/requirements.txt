@@ -19,6 +19,8 @@ dataclasses-sqlitedict==0.1.1
 lightning==2.0.2
 transformers==4.28.0
 datasets==2.11.0
+huggingface-hub==0.16.4
+setfit==0.7.0
 evaluate==0.4.0
 accelerate==0.18.0
 peft==0.2.0
