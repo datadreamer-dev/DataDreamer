@@ -10,13 +10,23 @@ from ...datasets import OutputDataset, OutputIterableDataset
 from ...errors import StepOutputTypeError
 from ...steps import LazyRows, Step, concat, zipped
 from ...steps.step import (
+    AddItemStep,
     ConcatStep,
+    CopyStep,
     FilterStep,
     MapStep,
+    RemoveColumnsStep,
+    RenameColumnsStep,
+    RenameColumnStep,
+    ReverseStep,
     SaveStep,
     SelectColumnsStep,
     SelectStep,
+    ShardStep,
     ShuffleStep,
+    SkipStep,
+    SortStep,
+    TakeStep,
     ZippedStep,
 )
 
@@ -345,6 +355,18 @@ class TestFilter:
         with create_datadreamer():
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
             step._set_output({"out1": [1, 2, 3]})
+            filter_step = step.filter(lambda row: row["out1"] in [1, 3], lazy=False)
+            assert isinstance(filter_step, FilterStep)
+            assert isinstance(filter_step.output, OutputDataset)
+            assert filter_step.output.num_rows == 2
+            assert list(filter_step.output["out1"]) == [1, 3]
+
+    def test_filter_on_dataset_lazy(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            step._set_output({"out1": [1, 2, 3]})
             with pytest.warns(UserWarning):
                 filter_step = step.filter(lambda row: row["out1"] in [1, 3])
             assert isinstance(filter_step, FilterStep)
@@ -541,8 +563,8 @@ class TestConcat:
             )
             concat_step = concat(step, iterable_step)
             assert concat_step.name == "concat(my-step-1, my-step-2)"
-            isinstance(concat_step, ConcatStep)
-            isinstance(concat_step.output, OutputIterableDataset)
+            assert isinstance(concat_step, ConcatStep)
+            assert isinstance(concat_step.output, OutputIterableDataset)
             assert concat_step._pickled is True
             assert concat_step.output.num_rows == 7
             assert list(concat_step.output["out1"])[0] == set(["a"])
@@ -582,10 +604,10 @@ class TestConcat:
             )
             concat_step = concat(iterable_step, step, lazy=False)
             assert concat_step.name == "concat(my-step-1, my-step-2)"
-            isinstance(concat_step, ConcatStep)
-            isinstance(concat_step.output, OutputDataset)
+            assert isinstance(concat_step, ConcatStep)
+            assert isinstance(concat_step.output, OutputDataset)
             assert concat_step._pickled is True
-            assert len(concat_step.output) == 7  # type:ignore[arg-type]
+            assert len(concat_step.output) == 7
             assert concat_step.output["out1"][0] == set(["a"])
             assert concat_step.output["out1"][-1] == set(["g"])
 
@@ -625,7 +647,7 @@ class TestConcat:
                 )
             with pytest.warns(UserWarning):
                 concat_step = concat(step, iterable_step)
-            isinstance(concat_step.output, OutputIterableDataset)
+            assert isinstance(concat_step.output, OutputIterableDataset)
             assert concat_step.output.num_rows is None
             assert list(concat_step.output["out1"])[-1] == set(["g"])
 
@@ -680,8 +702,8 @@ class TestZipped:
             )
             zipped_step = zipped(step, iterable_step)
             assert zipped_step.name == "zipped(my-step-1, my-step-2)"
-            isinstance(zipped_step, ZippedStep)
-            isinstance(zipped_step.output, OutputIterableDataset)
+            assert isinstance(zipped_step, ZippedStep)
+            assert isinstance(zipped_step.output, OutputIterableDataset)
             assert zipped_step._pickled is True
             assert zipped_step.output.num_rows == 3
             assert list(zipped_step.output)[0] == {"out1": "a", "out2": set(["d"])}
@@ -711,10 +733,10 @@ class TestZipped:
             )
             zipped_step = zipped(iterable_step, step, lazy=False)
             assert zipped_step.name == "zipped(my-step-1, my-step-2)"
-            isinstance(zipped_step, ZippedStep)
-            isinstance(zipped_step.output, OutputDataset)
+            assert isinstance(zipped_step, ZippedStep)
+            assert isinstance(zipped_step.output, OutputDataset)
             assert zipped_step._pickled is True
-            assert len(zipped_step.output) == 3  # type:ignore[arg-type]
+            assert len(zipped_step.output) == 3
             assert zipped_step.output[0] == {"out1": "a", "out2": set(["d"])}
 
     def test_zipped_lazy_with_no_num_rows(
@@ -744,7 +766,7 @@ class TestZipped:
                 )
             with pytest.warns(UserWarning):
                 zipped_step = zipped(step, iterable_step)
-            isinstance(zipped_step.output, OutputIterableDataset)
+            assert isinstance(zipped_step.output, OutputIterableDataset)
             assert zipped_step.output.num_rows is None
             assert list(zipped_step.output)[0] == {"out1": "a", "out2": set(["d"])}
 
@@ -779,9 +801,9 @@ class TestSelect:
             )
             step._set_output({"out1": [1, 2, 3]})
             select_step = step.select([0, 2])
-            isinstance(select_step, SelectStep)
-            isinstance(select_step.output, OutputDataset)
-            assert len(select_step.output) == 2  # type:ignore[arg-type]
+            assert isinstance(select_step, SelectStep)
+            assert isinstance(select_step.output, OutputDataset)
+            assert len(select_step.output) == 2
             assert list(select_step.output["out1"]) == [1, 3]
 
     def test_select_iterable_dataset(
@@ -798,9 +820,9 @@ class TestSelect:
                 )
             )
             select_step = step.select([0, 2])
-            isinstance(select_step, SelectStep)
-            isinstance(select_step.output, OutputDataset)
-            assert len(select_step.output) == 2  # type:ignore[arg-type]
+            assert isinstance(select_step, SelectStep)
+            assert isinstance(select_step.output, OutputDataset)
+            assert len(select_step.output) == 2
             assert list(select_step.output["out1"]) == [1, 3]
 
 
@@ -814,9 +836,9 @@ class TestSelectColumns:
             )
             step._set_output({"out1": [1, 2, 3], "out2": [4, 5, 6]})
             select_columns_step = step.select_columns(["out2"])
-            isinstance(select_columns_step, SelectColumnsStep)
-            isinstance(select_columns_step.output, OutputDataset)
-            assert len(select_columns_step.output) == 3  # type:ignore[arg-type]
+            assert isinstance(select_columns_step, SelectColumnsStep)
+            assert isinstance(select_columns_step.output, OutputDataset)
+            assert len(select_columns_step.output) == 3
             assert set(select_columns_step.output.column_names) == set(["out2"])
 
     def test_select_columns_iterable_dataset(
@@ -835,10 +857,314 @@ class TestSelectColumns:
                 )
             )
             select_columns_step = step.select_columns(["out2"])
-            isinstance(select_columns_step, SelectColumnsStep)
-            isinstance(select_columns_step.output, OutputIterableDataset)
+            assert isinstance(select_columns_step, SelectColumnsStep)
+            assert isinstance(select_columns_step.output, OutputIterableDataset)
             assert select_columns_step.output.num_rows == 3
             assert set(select_columns_step.output.column_names) == set(["out2"])
+
+
+class TestTake:
+    def test_take_dataset(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1"]
+            )
+            step._set_output({"out1": [1, 2, 3]})
+            take_step = step.take(2)
+            assert isinstance(take_step, TakeStep)
+            assert isinstance(take_step.output, OutputDataset)
+            assert len(take_step.output) == 2
+            assert list(take_step.output["out1"]) == [1, 2]
+
+    def test_take_iterable_dataset(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1"]
+            )
+            step._set_output(
+                LazyRows(
+                    Dataset.from_dict({"out1": [1, 2, 3]}).to_iterable_dataset(),
+                    total_num_rows=3,
+                )
+            )
+            take_step = step.take(2)
+            assert isinstance(take_step, TakeStep)
+            assert isinstance(take_step.output, OutputIterableDataset)
+            assert take_step.output.num_rows == 2
+            assert list(take_step.output["out1"]) == [1, 2]
+
+    def test_take_iterable_dataset_over_length(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1"]
+            )
+            step._set_output(
+                LazyRows(
+                    Dataset.from_dict({"out1": [1, 2, 3]}).to_iterable_dataset(),
+                    total_num_rows=3,
+                )
+            )
+            take_step = step.take(5)
+            assert isinstance(take_step, TakeStep)
+            assert isinstance(take_step.output, OutputIterableDataset)
+            assert take_step.output.num_rows == 3
+            assert list(take_step.output["out1"]) == [1, 2, 3]
+
+
+class TestSkip:
+    def test_skip_dataset(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1"]
+            )
+            step._set_output({"out1": [1, 2, 3]})
+            skip_step = step.skip(2)
+            assert isinstance(skip_step, SkipStep)
+            assert isinstance(skip_step.output, OutputDataset)
+            assert len(skip_step.output) == 1
+            assert list(skip_step.output["out1"]) == [3]
+
+    def test_skip_iterable_dataset(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1"]
+            )
+            step._set_output(
+                LazyRows(
+                    Dataset.from_dict({"out1": [1, 2, 3]}).to_iterable_dataset(),
+                    total_num_rows=3,
+                )
+            )
+            skip_step = step.skip(2)
+            assert isinstance(skip_step, SkipStep)
+            assert isinstance(skip_step.output, OutputIterableDataset)
+            assert skip_step.output.num_rows == 1
+            assert list(skip_step.output["out1"]) == [3]
+
+    def test_skip_dataset_over_length(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1"]
+            )
+            step._set_output({"out1": [1, 2, 3]})
+            skip_step = step.skip(5)
+            assert isinstance(skip_step, SkipStep)
+            assert isinstance(skip_step.output, OutputDataset)
+            assert len(skip_step.output) == 0
+            assert list(skip_step.output["out1"]) == []
+
+    def test_skip_iterable_dataset_over_length(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1"]
+            )
+            step._set_output(
+                LazyRows(
+                    Dataset.from_dict({"out1": [1, 2, 3]}).to_iterable_dataset(),
+                    total_num_rows=3,
+                )
+            )
+            skip_step = step.skip(5)
+            assert isinstance(skip_step, SkipStep)
+            assert isinstance(skip_step.output, OutputIterableDataset)
+            assert skip_step.output.num_rows == 0
+            with pytest.raises(ValueError):
+                assert list(skip_step.output["out1"]) == []
+
+
+class TestSort:
+    def test_sort_dataset(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1"]
+            )
+            step._set_output({"out1": [1, 2, 3]})
+            sort_step = step.sort(["out1"], reverse=[True])
+            assert isinstance(sort_step, SortStep)
+            assert isinstance(sort_step.output, OutputDataset)
+            assert len(sort_step.output) == 3
+            assert list(sort_step.output["out1"]) == [3, 2, 1]
+
+    def test_sort_iterable_dataset(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1"]
+            )
+            step._set_output(
+                LazyRows(
+                    Dataset.from_dict({"out1": [1, 2, 3]}).to_iterable_dataset(),
+                    total_num_rows=3,
+                )
+            )
+            sort_step = step.sort(["out1"], reverse=[True])
+            assert isinstance(sort_step, SortStep)
+            assert isinstance(sort_step.output, OutputDataset)
+            assert len(sort_step.output) == 3
+            assert list(sort_step.output["out1"]) == [3, 2, 1]
+
+
+class TestAddItem:
+    def test_add_item_dataset(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1"]
+            )
+            step._set_output({"out1": [1, 2, 3]})
+            add_item_step = step.add_item({"out1": 4})
+            assert isinstance(add_item_step, AddItemStep)
+            assert isinstance(add_item_step.output, OutputDataset)
+            assert len(add_item_step.output) == 4
+            assert list(add_item_step.output["out1"]) == [1, 2, 3, 4]
+
+    def test_add_item_iterable_dataset(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1"]
+            )
+            step._set_output(
+                LazyRows(
+                    Dataset.from_dict({"out1": [1, 2, 3]}).to_iterable_dataset(),
+                    total_num_rows=3,
+                )
+            )
+            add_item_step = step.add_item({"out1": 4})
+            assert isinstance(add_item_step, AddItemStep)
+            assert isinstance(add_item_step.output, OutputIterableDataset)
+            assert add_item_step.output.num_rows == 4
+            assert list(add_item_step.output["out1"]) == [1, 2, 3, 4]
+
+
+class TestRenameColumn:
+    def test_rename_column_dataset(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1", "out2"]
+            )
+            step._set_output({"out1": [1, 2, 3], "out2": [4, 5, 6]})
+            rename_column_step = step.rename_column("out2", "foo2")
+            assert isinstance(rename_column_step, RenameColumnStep)
+            assert isinstance(rename_column_step.output, OutputDataset)
+            assert len(rename_column_step.output) == 3
+            assert set(rename_column_step.output.column_names) == set(["out1", "foo2"])
+
+    def test_rename_column_iterable_dataset(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1", "out2"]
+            )
+            step._set_output(
+                LazyRows(
+                    Dataset.from_dict(
+                        {"out1": [1, 2, 3], "out2": [4, 5, 6]}
+                    ).to_iterable_dataset(),
+                    total_num_rows=3,
+                )
+            )
+            rename_column_step = step.rename_column("out2", "foo2")
+            assert isinstance(rename_column_step, RenameColumnStep)
+            assert isinstance(rename_column_step.output, OutputIterableDataset)
+            assert rename_column_step.output.num_rows == 3
+            assert set(rename_column_step.output.column_names) == set(["out1", "foo2"])
+
+
+class TestRenameColumns:
+    def test_rename_columns_dataset(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1", "out2"]
+            )
+            step._set_output({"out1": [1, 2, 3], "out2": [4, 5, 6]})
+            rename_columns_step = step.rename_columns({"out1": "foo1", "out2": "foo2"})
+            assert isinstance(rename_columns_step, RenameColumnsStep)
+            assert isinstance(rename_columns_step.output, OutputDataset)
+            assert len(rename_columns_step.output) == 3
+            assert set(rename_columns_step.output.column_names) == set(["foo1", "foo2"])
+
+    def test_rename_columns_iterable_dataset(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1", "out2"]
+            )
+            step._set_output(
+                LazyRows(
+                    Dataset.from_dict(
+                        {"out1": [1, 2, 3], "out2": [4, 5, 6]}
+                    ).to_iterable_dataset(),
+                    total_num_rows=3,
+                )
+            )
+            rename_columns_step = step.rename_columns({"out1": "foo1", "out2": "foo2"})
+            assert isinstance(rename_columns_step, RenameColumnsStep)
+            assert isinstance(rename_columns_step.output, OutputIterableDataset)
+            assert rename_columns_step.output.num_rows == 3
+            assert set(rename_columns_step.output.column_names) == set(["foo1", "foo2"])
+
+
+class TestRemoveColumns:
+    def test_remove_columns_dataset(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1", "out2"]
+            )
+            step._set_output({"out1": [1, 2, 3], "out2": [4, 5, 6]})
+            remove_columns_step = step.remove_columns(["out1"])
+            assert isinstance(remove_columns_step, RemoveColumnsStep)
+            assert isinstance(remove_columns_step.output, OutputDataset)
+            assert len(remove_columns_step.output) == 3
+            assert set(remove_columns_step.output.column_names) == set(["out2"])
+
+    def test_remove_columns_iterable_dataset(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1", "out2"]
+            )
+            step._set_output(
+                LazyRows(
+                    Dataset.from_dict(
+                        {"out1": [1, 2, 3], "out2": [4, 5, 6]}
+                    ).to_iterable_dataset(),
+                    total_num_rows=3,
+                )
+            )
+            remove_columns_step = step.remove_columns(["out1"])
+            assert isinstance(remove_columns_step, RemoveColumnsStep)
+            assert isinstance(remove_columns_step.output, OutputIterableDataset)
+            assert remove_columns_step.output.num_rows == 3
+            assert set(remove_columns_step.output.column_names) == set(["out2"])
 
 
 class TestShard:
@@ -851,8 +1177,8 @@ class TestShard:
             )
             step._set_output({"out1": [1, 2, 3, 4]})
             shard_step = step.shard(num_shards=2, index=1)
-            isinstance(shard_step, SelectColumnsStep)
-            isinstance(shard_step.output, OutputDataset)
+            assert isinstance(shard_step, ShardStep)
+            assert isinstance(shard_step.output, OutputDataset)
             assert shard_step.output.num_rows == 2
             assert list(shard_step.output["out1"]) == [2, 4]
 
@@ -870,8 +1196,8 @@ class TestShard:
                 )
             )
             shard_step = step.shard(num_shards=2, index=1)
-            isinstance(shard_step, SelectColumnsStep)
-            isinstance(shard_step.output, OutputDataset)
+            assert isinstance(shard_step, ShardStep)
+            assert isinstance(shard_step.output, OutputDataset)
             assert shard_step.output.num_rows == 2
             assert list(shard_step.output["out1"]) == [2, 4]
 
@@ -886,7 +1212,77 @@ class TestShard:
             shard_step = step.shard(
                 num_shards=2, index=1, contiguous=True, writer_batch_size=1000
             )
-            isinstance(shard_step, SelectColumnsStep)
-            isinstance(shard_step.output, OutputDataset)
+            assert isinstance(shard_step, ShardStep)
+            assert isinstance(shard_step.output, OutputDataset)
             assert shard_step.output.num_rows == 2
             assert list(shard_step.output["out1"]) == [3, 4]
+
+
+class TestReverse:
+    def test_reverse_dataset(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1"]
+            )
+            step._set_output({"out1": [1, 2, 3]})
+            reverse_step = step.reverse()
+            assert isinstance(reverse_step, ReverseStep)
+            assert isinstance(reverse_step.output, OutputIterableDataset)
+            assert reverse_step.output.num_rows == 3
+            assert list(reverse_step.output["out1"]) == [3, 2, 1]
+
+    def test_reverse_iterable_dataset(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1"]
+            )
+            step._set_output(
+                LazyRows(
+                    Dataset.from_dict({"out1": [1, 2, 3]}).to_iterable_dataset(),
+                    total_num_rows=3,
+                )
+            )
+            reverse_step = step.reverse()
+            assert isinstance(reverse_step, ReverseStep)
+            assert isinstance(reverse_step.output, OutputIterableDataset)
+            assert reverse_step.output.num_rows == 3
+            assert list(reverse_step.output["out1"]) == [3, 2, 1]
+
+
+class TestCopy:
+    def test_copy_dataset(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1"]
+            )
+            step._set_output({"out1": [1, 2, 3]})
+            copy_step = step.copy()
+            assert isinstance(copy_step, CopyStep)
+            assert isinstance(copy_step.output, OutputDataset)
+            assert len(copy_step.output) == 3
+            assert list(copy_step.output["out1"]) == [1, 2, 3]
+
+    def test_copy_iterable_dataset(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1"]
+            )
+            step._set_output(
+                LazyRows(
+                    Dataset.from_dict({"out1": [1, 2, 3]}).to_iterable_dataset(),
+                    total_num_rows=3,
+                )
+            )
+            copy_step = step.copy()
+            assert isinstance(copy_step, CopyStep)
+            assert isinstance(copy_step.output, OutputIterableDataset)
+            assert copy_step.output.num_rows == 3
+            assert list(copy_step.output["out1"]) == [1, 2, 3]

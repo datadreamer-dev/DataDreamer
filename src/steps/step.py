@@ -36,6 +36,7 @@ from .step_operations import (
     _INTERNAL_STEP_OPERATION_NO_SAVE_KEY,
     __concatenate,
     _create_add_item_step,
+    _create_copy_step,
     _create_filter_step,
     _create_map_step,
     _create_remove_columns_step,
@@ -969,7 +970,6 @@ class Step(metaclass=StepMeta):
     def copy(
         self,
         name: None | str = None,
-        lazy: bool = True,
         progress_interval: None | int = None,
         force: bool = False,
         writer_batch_size: None | int = 1000,
@@ -978,12 +978,9 @@ class Step(metaclass=StepMeta):
         background: bool = False,
     ) -> "Step":
         kwargs = dict(locals())
-        kwargs["name"] = kwargs["name"] or DataDreamer._new_step_name(
-            self.name, transform="copy"
-        )
         kwargs["step"] = self
         del kwargs["self"]
-        return partial(_create_save_step, **kwargs)()
+        return partial(_create_copy_step, **kwargs)()
 
     @cached_property
     def fingerprint(self) -> str:
@@ -1197,6 +1194,10 @@ class SaveStep(Step):
     pass
 
 
+class CopyStep(Step):
+    pass
+
+
 __all__ = [
     "LazyRowBatches",
     "LazyRows",
@@ -1220,4 +1221,5 @@ __all__ = [
     "ShardStep",
     "ReverseStep",
     "SaveStep",
+    "CopyStep",
 ]

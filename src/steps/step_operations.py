@@ -244,7 +244,7 @@ def __concatenate(*steps: "Step", axis: int, **kwargs):  # noqa: C901
 
     kwargs["step"] = steps[0]
     kwargs["no_save"] = lazy
-    kwargs["args"] = {"fingerprint": [step.fingerprint for step in steps]}
+    kwargs["args"] = {"fingerprint": [[step.fingerprint for step in steps], axis]}
     kwargs["run"] = run
     return partial(__create_step_operation_step, **kwargs)()
 
@@ -316,7 +316,7 @@ def _create_take_step(n: int, **kwargs):
         dataset: Dataset | IterableDataset = step.output.dataset
 
         if isinstance(dataset, Dataset):
-            return dataset[:n]
+            return Dataset.from_dict(dataset[:n])
         elif isinstance(dataset, IterableDataset):
             total_num_rows = None
             if step.output.num_rows is not None:
@@ -346,7 +346,7 @@ def _create_skip_step(n: int, **kwargs):
         dataset: Dataset | IterableDataset = step.output.dataset
 
         if isinstance(dataset, Dataset):
-            return dataset[n:]
+            return Dataset.from_dict(dataset[n:])
         elif isinstance(dataset, IterableDataset):
             from .step import LazyRows
 
@@ -813,6 +813,25 @@ def _create_save_step(**kwargs) -> "Step":
     return partial(__create_step_operation_step, **kwargs)()
 
 
+def _create_copy_step(**kwargs) -> "Step":
+    step = kwargs["step"]
+
+    def run(self):
+        if isinstance(step.output, OutputDataset):
+            return step.output
+        else:
+            return step.output.dataset
+
+    from .step import CopyStep
+
+    kwargs["op_cls"] = CopyStep
+    kwargs["op_name"] = "copy"
+    kwargs["no_save"] = isinstance(step.output, OutputIterableDataset)
+    kwargs["args"] = {"fingerprint": step.fingerprint}
+    kwargs["run"] = run
+    return partial(__create_step_operation_step, **kwargs)()
+
+
 __all__ = [
     "_INTERNAL_STEP_OPERATION_KEY",
     "_create_select_step",
@@ -830,4 +849,5 @@ __all__ = [
     "_create_shard_step",
     "_create_reverse_step",
     "_create_save_step",
+    "_create_copy_step",
 ]
