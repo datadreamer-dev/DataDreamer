@@ -132,13 +132,18 @@ def __create_step_operation_step(  # noqa: C901
                 setup(self)  # pragma: no cover
 
         def run(self):
+            total_num_rows = step.output.num_rows
+
             try:
                 run_output = run(self)
             except (ArrowInvalid, ArrowTypeError, ValueError, TypeError) as e:
                 raise StepOutputTypeError(str(e))
 
-            if isinstance(run_output, LazyRows):
+            if no_save and isinstance(run_output, LazyRows):
                 return run_output
+            elif isinstance(run_output, LazyRows):
+                total_num_rows = run_output.total_num_rows
+                run_output = run_output.value
 
             if not no_save and isinstance(run_output, IterableDataset):
                 run_output = _iterable_dataset_to_dataset(
@@ -153,7 +158,7 @@ def __create_step_operation_step(  # noqa: C901
                 self.pickle(True)
 
             if isinstance(run_output, IterableDataset):
-                return LazyRows(run_output, total_num_rows=step.output.num_rows)
+                return LazyRows(run_output, total_num_rows=total_num_rows)
             else:
                 return run_output
 
@@ -214,9 +219,9 @@ def __concatenate(*steps: "Step", axis: int, **kwargs):  # noqa: C901
             return concatenate_datasets(datasets, axis=axis)
         else:
             total_num_rows: None | int = 0
-            min_total_num_rows: None | int = None
+            max_total_num_rows: None | int = None
             if all([step.output.num_rows is not None for step in steps]):
-                min_total_num_rows = min(
+                max_total_num_rows = max(
                     [cast(int, step.output.num_rows) for step in steps]
                 )
             for step in steps:
@@ -234,7 +239,7 @@ def __concatenate(*steps: "Step", axis: int, **kwargs):  # noqa: C901
                     datasets.append(step.output.dataset)
             return LazyRows(
                 cast(IterableDataset, concatenate_datasets(datasets, axis=axis)),
-                total_num_rows=min_total_num_rows if axis == 1 else total_num_rows,
+                total_num_rows=max_total_num_rows if axis == 1 else total_num_rows,
             )
 
     kwargs["step"] = steps[0]
@@ -306,12 +311,17 @@ def _create_take_step(n: int, **kwargs):
     del kwargs["lazy"]
 
     def run(self):
+        from .step import LazyRows
+
         dataset: Dataset | IterableDataset = step.output.dataset
 
         if isinstance(dataset, Dataset):
             return dataset[:n]
         elif isinstance(dataset, IterableDataset):
-            return dataset.take(n)
+            total_num_rows = None
+            if step.output.num_rows is not None:
+                total_num_rows = min(n, step.output.num_rows)
+            return LazyRows(dataset.take(n), total_num_rows=total_num_rows)
 
     from .step import TakeStep
 
@@ -338,7 +348,12 @@ def _create_skip_step(n: int, **kwargs):
         if isinstance(dataset, Dataset):
             return dataset[n:]
         elif isinstance(dataset, IterableDataset):
-            return dataset.skip(n)
+            from .step import LazyRows
+
+            total_num_rows = None
+            if step.output.num_rows is not None:
+                total_num_rows = max(step.output.num_rows - n, 0)
+            return LazyRows(dataset.skip(n), total_num_rows=total_num_rows)
 
     from .step import SkipStep
 
@@ -440,6 +455,8 @@ def _create_add_item_step(item: dict, **kwargs):
     del kwargs["lazy"]
 
     def run(self):
+        from .step import LazyRows
+
         dataset: Dataset | IterableDataset = step.output.dataset
 
         if isinstance(dataset, Dataset):
@@ -451,8 +468,15 @@ def _create_add_item_step(item: dict, **kwargs):
                     yield row
                 yield item
 
-            return IterableDataset.from_generator(
-                partial(add_item_generator, dataset), features=step.output._features
+            total_num_rows = None
+            if step.output.num_rows is not None:
+                total_num_rows = step.output.num_rows + 1
+
+            return LazyRows(
+                IterableDataset.from_generator(
+                    partial(add_item_generator, dataset), features=step.output._features
+                ),
+                total_num_rows=total_num_rows,
             )
 
     from .step import AddItemStep
@@ -477,12 +501,15 @@ def _create_map_step(
     batched: bool,
     batch_size: int,
     remove_columns: None | str | list[str],
+    total_num_rows: None | int,
     **kwargs,
 ) -> "Step":
     lazy, step = kwargs["lazy"], kwargs["step"]
     del kwargs["lazy"]
 
     def run(self):
+        from .step import LazyRows
+
         dataset: Dataset | IterableDataset
         if isinstance(step.output, OutputDataset) and lazy:
             dataset = step.output.dataset.to_iterable_dataset()
@@ -508,20 +535,23 @@ def _create_map_step(
                 desc=self.name,
             )
         else:
-            return dataset.map(
-                partial(
-                    _user_transform,
-                    self,
-                    step,
-                    function,
-                    with_indices,
-                    batched,
+            return LazyRows(
+                dataset.map(
+                    partial(
+                        _user_transform,
+                        self,
+                        step,
+                        function,
+                        with_indices,
+                        batched,
+                    ),
+                    with_indices=True,
+                    input_columns=input_columns,
+                    batched=batched,
+                    batch_size=batch_size,
+                    remove_columns=remove_columns,
                 ),
-                with_indices=True,
-                input_columns=input_columns,
-                batched=batched,
-                batch_size=batch_size,
-                remove_columns=remove_columns,
+                total_num_rows=total_num_rows,
             )
 
     from .step import MapStep
@@ -550,12 +580,15 @@ def _create_filter_step(
     input_columns: None | str | list[str],
     batched: bool,
     batch_size: int,
+    total_num_rows: None | int,
     **kwargs,
 ) -> "Step":
     lazy, step = kwargs["lazy"], kwargs["step"]
     del kwargs["lazy"]
 
     def run(self):
+        from .step import LazyRows
+
         dataset: Dataset | IterableDataset
         if isinstance(step.output, OutputDataset) and lazy:
             dataset = step.output.dataset.to_iterable_dataset()
@@ -580,19 +613,22 @@ def _create_filter_step(
                 desc=self.name,
             )
         else:
-            return dataset.filter(
-                partial(
-                    _user_transform,
-                    self,
-                    step,
-                    function,
-                    with_indices,
-                    batched,
+            return LazyRows(
+                dataset.filter(
+                    partial(
+                        _user_transform,
+                        self,
+                        step,
+                        function,
+                        with_indices,
+                        batched,
+                    ),
+                    with_indices=True,
+                    input_columns=input_columns,
+                    batched=batched,
+                    batch_size=batch_size,
                 ),
-                with_indices=True,
-                input_columns=input_columns,
-                batched=batched,
-                batch_size=batch_size,
+                total_num_rows=total_num_rows,
             )
 
     from .step import FilterStep

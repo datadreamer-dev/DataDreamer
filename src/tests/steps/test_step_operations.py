@@ -11,6 +11,7 @@ from ...errors import StepOutputTypeError
 from ...steps import LazyRows, Step, concat, zipped
 from ...steps.step import (
     ConcatStep,
+    FilterStep,
     MapStep,
     SaveStep,
     SelectColumnsStep,
@@ -208,6 +209,7 @@ class TestMap:
             map_step = step.map(lambda row: {"out1": row["out1"] * 2})
             assert isinstance(map_step, MapStep)
             assert isinstance(map_step.output, OutputIterableDataset)
+            assert map_step.output.num_rows is None
             assert list(map_step.output["out1"])[2] == 6
             resume_path = os.path.basename(DataDreamer.get_output_folder_path())
 
@@ -248,7 +250,19 @@ class TestMap:
             )
             assert isinstance(map_step, MapStep)
             assert isinstance(map_step.output, OutputIterableDataset)
+            assert map_step.output.num_rows is None
             assert list(map_step.output["out1"])[2] == set(["c", 2])
+
+    def test_map_with_total_num_rows(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            step._set_output({"out1": [1, 2, 3]})
+            map_step = step.map(lambda row: {"out1": row["out1"] * 2}, total_num_rows=3)
+            assert isinstance(map_step, MapStep)
+            assert isinstance(map_step.output, OutputIterableDataset)
+            assert map_step.output.num_rows == 3
 
     def test_map_add_remove_columns(
         self, create_datadreamer, create_test_step: Callable[..., Step]
@@ -312,6 +326,51 @@ class TestMap:
             )
             with pytest.raises(StepOutputTypeError):
                 list(step.map(lambda row: {"out1": row["out1"]}).output)
+
+
+class TestFilter:
+    def test_filter_on_dataset(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            step._set_output({"out1": [1, 2, 3]})
+            filter_step = step.filter(lambda row: row["out1"] in [1, 3])
+            assert isinstance(filter_step, FilterStep)
+            assert isinstance(filter_step.output, OutputIterableDataset)
+            assert filter_step.output.num_rows is None
+            assert list(filter_step.output["out1"]) == [1, 3]
+
+    def test_filter_on_iterable_dataset(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            step._set_output(
+                LazyRows(
+                    Dataset.from_dict({"out1": [1, 2, 3]}).to_iterable_dataset(),
+                    total_num_rows=3,
+                )
+            )
+            filter_step = step.filter(lambda row: row["out1"] in [1, 3])
+            assert isinstance(filter_step, FilterStep)
+            assert isinstance(filter_step.output, OutputIterableDataset)
+            assert filter_step.output.num_rows is None
+            assert list(filter_step.output["out1"]) == [1, 3]
+
+    def test_filter_with_total_num_rows(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            step._set_output({"out1": [1, 2, 3]})
+            filter_step = step.filter(
+                lambda row: row["out1"] in [1, 3], total_num_rows=2
+            )
+            assert isinstance(filter_step, FilterStep)
+            assert isinstance(filter_step.output, OutputIterableDataset)
+            assert filter_step.output.num_rows == 2
+            assert list(filter_step.output["out1"]) == [1, 3]
 
 
 class TestShuffle:
@@ -693,9 +752,9 @@ class TestZipped:
             with pytest.raises(StepOutputTypeError):
                 zipped_step = zipped(step_1, step_2, lazy=False)
 
-            with pytest.raises(StepOutputTypeError):
-                zipped_step = zipped(step_1, step_2, lazy=True)
-                assert list(zipped_step.output)[-1] == {"out1": None, "out2": "g"}
+            zipped_step = zipped(step_1, step_2, lazy=True)
+            assert list(zipped_step.output)[-1] == {"out1": None, "out2": "g"}
+            assert zipped_step.output.num_rows == 4
 
 
 class TestSelect:

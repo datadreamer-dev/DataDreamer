@@ -605,7 +605,7 @@ def __output_to_dataset(  # noqa: C901
                 for k, v in row.items():
                     prev_type = column_types.get(k, None)
                     new_type = type(v)
-                    if new_type is not None:
+                    if not isinstance(v, type(None)):
                         if prev_type is None:
                             column_types[k] = new_type
                         elif new_type != prev_type:
