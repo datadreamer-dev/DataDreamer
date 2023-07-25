@@ -844,7 +844,7 @@ class Step(metaclass=StepMeta):
 
     def rename_column(
         self,
-        orginal_column_name: str,
+        original_column_name: str,
         new_column_name: str,
         name: None | str = None,
         lazy: bool = True,

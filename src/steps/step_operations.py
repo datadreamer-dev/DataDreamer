@@ -280,8 +280,27 @@ def _create_select_step(indices: Iterable, **kwargs):
     return partial(__create_step_operation_step, **kwargs)()
 
 
-def _create_select_columns_step(*args, **kwargs):
-    pass
+def _create_select_columns_step(column_names: str | list[str], **kwargs):
+    lazy, step = kwargs["lazy"], kwargs["step"]
+    kwargs["no_save"] = lazy
+    del kwargs["lazy"]
+
+    def run(self):
+        return step.output.dataset.select_columns(column_names=column_names)
+
+    from .step import SelectColumnsStep
+
+    kwargs["op_cls"] = SelectColumnsStep
+    kwargs["op_name"] = "select_columns"
+    kwargs["no_save"] = lazy
+    kwargs["args"] = {
+        "fingerprint": [
+            step.fingerprint,
+            column_names,
+        ]
+    }
+    kwargs["run"] = run
+    return partial(__create_step_operation_step, **kwargs)()
 
 
 def _create_take_step(n: int, **kwargs):
@@ -603,16 +622,78 @@ def _create_filter_step(
     return partial(__create_step_operation_step, **kwargs)()
 
 
-def _create_rename_column_step(indices: Iterable, **kwargs):
-    pass
+def _create_rename_column_step(
+    original_column_name: str, new_column_name: str, **kwargs
+):
+    lazy, step = kwargs["lazy"], kwargs["step"]
+    kwargs["no_save"] = lazy
+    del kwargs["lazy"]
+
+    def run(self):
+        return step.output.dataset.rename_column(
+            original_column_name=original_column_name, new_column_name=new_column_name
+        )
+
+    from .step import RenameColumnStep
+
+    kwargs["op_cls"] = RenameColumnStep
+    kwargs["op_name"] = "rename_column"
+    kwargs["no_save"] = lazy
+    kwargs["args"] = {
+        "fingerprint": [
+            step.fingerprint,
+            original_column_name,
+            new_column_name,
+        ]
+    }
+    kwargs["run"] = run
+    return partial(__create_step_operation_step, **kwargs)()
 
 
-def _create_rename_columns_step(*args, **kwargs):
-    pass
+def _create_rename_columns_step(column_mapping: dict[str, str], **kwargs):
+    lazy, step = kwargs["lazy"], kwargs["step"]
+    kwargs["no_save"] = lazy
+    del kwargs["lazy"]
+
+    def run(self):
+        return step.output.dataset.rename_columns(column_mapping=column_mapping)
+
+    from .step import RenameColumnsStep
+
+    kwargs["op_cls"] = RenameColumnsStep
+    kwargs["op_name"] = "rename_columns"
+    kwargs["no_save"] = lazy
+    kwargs["args"] = {
+        "fingerprint": [
+            step.fingerprint,
+            column_mapping,
+        ]
+    }
+    kwargs["run"] = run
+    return partial(__create_step_operation_step, **kwargs)()
 
 
-def _create_remove_columns_step(*args, **kwargs):
-    pass
+def _create_remove_columns_step(column_names: str | list[str], **kwargs):
+    lazy, step = kwargs["lazy"], kwargs["step"]
+    kwargs["no_save"] = lazy
+    del kwargs["lazy"]
+
+    def run(self):
+        return step.output.dataset.remove_columns(column_names=column_names)
+
+    from .step import RemoveColumnsStep
+
+    kwargs["op_cls"] = RemoveColumnsStep
+    kwargs["op_name"] = "remove_columns"
+    kwargs["no_save"] = lazy
+    kwargs["args"] = {
+        "fingerprint": [
+            step.fingerprint,
+            column_names,
+        ]
+    }
+    kwargs["run"] = run
+    return partial(__create_step_operation_step, **kwargs)()
 
 
 def _create_shard_step(num_shards: int, index: int, contiguous: bool, **kwargs):
