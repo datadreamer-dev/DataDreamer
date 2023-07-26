@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
-from typing import Any, Callable, Sequence
+from collections.abc import Iterable, Iterator
+from os import PathLike
+from typing import Any, BinaryIO, Callable, Sequence
 
 from datasets.features.features import Features
 
@@ -77,12 +78,38 @@ class Dataset:
         contiguous: bool = False,
         writer_batch_size: None | int = 1000,
     ) -> Dataset: ...
+    def train_test_split(
+        self,
+        test_size: None | float,
+        int=None,
+        train_size: None | float | int = None,
+        shuffle: bool = True,
+        stratify_by_column: None | str = None,
+        seed: None | int = None,
+        writer_batch_size: None | int = 1000,
+    ) -> DatasetDict: ...
     def save_to_disk(
         self, path: str, num_proc: None | int = None, num_shards: None | int = None
     ) -> None: ...
     @classmethod
     def load_from_disk(cls, path) -> Dataset: ...
     def to_iterable_dataset(self, num_shards: None | int = 1) -> IterableDataset: ...
+    def to_dict(self) -> dict | Iterator[dict]: ...
+    def to_list(self) -> list: ...
+    def to_json(
+        self,
+        path_or_buf: str | bytes | PathLike | BinaryIO,
+        batch_size: None | int = None,
+        num_proc: None | int = None,
+        **to_json_kwargs,
+    ) -> int: ...
+    def to_csv(
+        self,
+        path_or_buf: str | bytes | PathLike | BinaryIO,
+        batch_size: None | int = None,
+        num_proc: None | int = None,
+        **to_csv_kwargs,
+    ) -> int: ...
     def __iter__(self): ...
     def __getitem__(self, index: int | slice | str | Iterable[int]) -> Any: ...
     def __len__(self): ...
@@ -127,6 +154,14 @@ class IterableDataset:
     def rename_columns(self, column_mapping: dict[str, str]) -> IterableDataset: ...
     def remove_columns(self, column_names: str | list[str]) -> IterableDataset: ...
     def __iter__(self): ...
+
+class DatasetDict(dict):
+    def push_to_hub(
+        self,
+        repo_id,
+        private: bool = False,
+        branch: None | str = None,
+    ): ...
 
 def concatenate_datasets(
     dsets: list[Dataset | IterableDataset], axis: int = 0

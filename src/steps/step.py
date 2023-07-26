@@ -13,7 +13,7 @@ from typing import Any, Callable, Sequence
 import dill
 from pandas import DataFrame
 
-from datasets import Dataset
+from datasets import Dataset, DatasetDict
 from datasets.fingerprint import Hasher
 
 from .. import __version__
@@ -981,6 +981,87 @@ class Step(metaclass=StepMeta):
         kwargs["step"] = self
         del kwargs["self"]
         return partial(_create_copy_step, **kwargs)()
+
+    def export_to_dict(
+        self,
+        train_size: None | float | int = None,
+        validation_size: None | float | int = None,
+        test_size: None | float | int = None,
+        stratify_by_column: None | str = None,
+        writer_batch_size: None | int = 1000,
+        save_num_proc: None | int = None,
+        save_num_shards: None | int = None,
+    ) -> dict:
+        pass
+
+    def export_to_list(
+        self,
+        train_size: None | float | int = None,
+        validation_size: None | float | int = None,
+        test_size: None | float | int = None,
+        stratify_by_column: None | str = None,
+        writer_batch_size: None | int = 1000,
+        save_num_proc: None | int = None,
+        save_num_shards: None | int = None,
+    ) -> list | dict:
+        pass
+
+    def export_to_json(
+        self,
+        path: str,
+        train_size: None | float | int = None,
+        validation_size: None | float | int = None,
+        test_size: None | float | int = None,
+        stratify_by_column: None | str = None,
+        writer_batch_size: None | int = 1000,
+        save_num_proc: None | int = None,
+        save_num_shards: None | int = None,
+        **to_json_kwargs,
+    ):
+        pass
+
+    def export_to_csv(
+        self,
+        path: str,
+        train_size: None | float | int = None,
+        validation_size: None | float | int = None,
+        test_size: None | float | int = None,
+        stratify_by_column: None | str = None,
+        writer_batch_size: None | int = 1000,
+        save_num_proc: None | int = None,
+        save_num_shards: None | int = None,
+        **to_csv_kwargs,
+    ):
+        pass
+
+    def export_to_hf_dataset(
+        self,
+        path: str,
+        train_size: None | float | int = None,
+        validation_size: None | float | int = None,
+        test_size: None | float | int = None,
+        stratify_by_column: None | str = None,
+        writer_batch_size: None | int = 1000,
+        save_num_proc: None | int = None,
+        save_num_shards: None | int = None,
+    ) -> Dataset | DatasetDict:
+        pass
+
+    def publish_to_hf(
+        self,
+        repo_id: str,
+        branch: None | str,
+        private: bool = False,
+        token: None | str = None,
+        train_size: None | float | int = None,
+        validation_size: None | float | int = None,
+        test_size: None | float | int = None,
+        stratify_by_column: None | str = None,
+        writer_batch_size: None | int = 1000,
+        save_num_proc: None | int = None,
+        save_num_shards: None | int = None,
+    ) -> str:
+        pass
 
     @cached_property
     def fingerprint(self) -> str:
