@@ -1017,7 +1017,7 @@ class Step(metaclass=StepMeta):
         save_num_proc: None | int = None,
         save_num_shards: None | int = None,
         **to_json_kwargs,
-    ):
+    ) -> str:
         pass
 
     def export_to_csv(
@@ -1031,7 +1031,7 @@ class Step(metaclass=StepMeta):
         save_num_proc: None | int = None,
         save_num_shards: None | int = None,
         **to_csv_kwargs,
-    ):
+    ) -> str:
         pass
 
     def export_to_hf_dataset(
