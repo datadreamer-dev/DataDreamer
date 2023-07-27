@@ -1026,6 +1026,7 @@ class Step(metaclass=StepMeta):
     def export_to_csv(
         self,
         path: str,
+        sep=",",
         train_size: None | float | int = None,
         validation_size: None | float | int = None,
         test_size: None | float | int = None,
