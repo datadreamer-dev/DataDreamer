@@ -516,7 +516,8 @@ def _create_map_step(
         else:
             dataset = step.output.dataset
         if isinstance(dataset, Dataset):
-            return dataset.map(
+            DataDreamer._enable_hf_datasets_logging()
+            map_results = dataset.map(
                 partial(
                     _user_transform,
                     self,
@@ -534,6 +535,8 @@ def _create_map_step(
                 num_proc=kwargs["save_num_proc"],
                 desc=self.name,
             )
+            DataDreamer._disable_hf_datasets_logging()
+            return map_results
         else:
             return LazyRows(
                 dataset.map(
@@ -596,7 +599,8 @@ def _create_filter_step(
         else:
             dataset = step.output.dataset
         if isinstance(dataset, Dataset):
-            return dataset.filter(
+            DataDreamer._enable_hf_datasets_logging()
+            filter_results = dataset.filter(
                 partial(
                     _user_transform,
                     self,
@@ -613,6 +617,8 @@ def _create_filter_step(
                 num_proc=kwargs["save_num_proc"],
                 desc=self.name,
             )
+            DataDreamer._disable_hf_datasets_logging()
+            return filter_results
         else:
             return LazyRows(
                 dataset.filter(
@@ -738,12 +744,15 @@ def _create_shard_step(num_shards: int, index: int, contiguous: bool, **kwargs):
             )
         else:
             dataset = step.output.dataset
-        return dataset.shard(
+        DataDreamer._enable_hf_datasets_logging()
+        shard_results = dataset.shard(
             num_shards=num_shards,
             index=index,
             contiguous=contiguous,
             writer_batch_size=kwargs["writer_batch_size"],
         )
+        DataDreamer._disable_hf_datasets_logging()
+        return shard_results
 
     from .step import ShardStep
 

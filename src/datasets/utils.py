@@ -6,6 +6,8 @@ from typing import Any, Iterator, cast
 from datasets import Dataset, IterableDataset
 from datasets.features.features import Features
 
+from .. import DataDreamer
+
 
 def get_column_names(dataset: Dataset | IterableDataset) -> list[str]:
     column_names = cast(None | list[str], dataset.column_names)
@@ -44,13 +46,16 @@ def dataset_zip(
             result_row.update(d[idx])
         return result_row
 
-    return smallest_dataset.map(
+    DataDreamer._enable_hf_datasets_logging()
+    zip_results = smallest_dataset.map(
         partial(merge_rows, datasets),
         with_indices=True,
         desc="Zipping datasets together",
         writer_batch_size=writer_batch_size,
         num_proc=num_proc,
     )
+    DataDreamer._disable_hf_datasets_logging()
+    return zip_results
 
 
 def iterable_dataset_zip(*datasets: Dataset | IterableDataset) -> IterableDataset:

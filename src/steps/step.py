@@ -364,11 +364,14 @@ class Step(metaclass=StepMeta):
         )
         metadata_path = os.path.join(self._output_folder_path, "step.json")
         dataset_path = os.path.join(self._output_folder_path, "dataset")
+        if self.save_num_shards and self.save_num_shards > 1:
+            DataDreamer._enable_hf_datasets_logging()
         output.save_to_disk(
             dataset_path,
             num_proc=self.save_num_proc,
             num_shards=self.save_num_shards,
         )
+        DataDreamer._disable_hf_datasets_logging()
         with open(metadata_path, "w+") as f:
             json.dump(
                 {
