@@ -32,13 +32,13 @@ def _step_to_dataset_dict(
     dataset: Dataset = cast(Dataset, step.output.dataset)
     splits = OrderedDict(
         [
-            (key, val)
-            for key, val in [
+            (split_name, proportion)
+            for split_name, proportion in [
                 ("train", train_size),
                 ("validation_size", validation_size),
                 ("test_size", test_size),
             ]
-            if val is not None
+            if proportion is not None and proportion != 0
         ]
     )
     if len(splits) is None:
@@ -73,6 +73,7 @@ def _step_to_dataset_dict(
 
 
 def _path_to_split_paths(path: str, dataset_dict: DatasetDict) -> dict[str, str]:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
     base, extension = os.path.splitext(path)
     paths: dict[str, str] = {}
     for split_name in dataset_dict:

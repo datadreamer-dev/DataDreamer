@@ -11,6 +11,8 @@ from time import time
 from typing import Any, Callable, Sequence
 
 import dill
+from huggingface_hub import HfApi, login
+from huggingface_hub.utils._headers import LocalTokenNotFoundError
 from pandas import DataFrame
 
 from datasets import Dataset, DatasetDict
@@ -31,6 +33,7 @@ from ..pickling.pickle import _INTERNAL_PICKLE_KEY, _pickle
 from ..project.environment import RUNNING_IN_PYTEST
 from ..utils.background_utils import run_in_background_process_no_block
 from ..utils.fs_utils import move_dir, safe_fn
+from .step_export import _path_to_split_paths, _step_to_dataset_dict
 from .step_operations import (
     _INTERNAL_STEP_OPERATION_KEY,
     _INTERNAL_STEP_OPERATION_NO_SAVE_KEY,
@@ -995,7 +998,20 @@ class Step(metaclass=StepMeta):
         save_num_proc: None | int = None,
         save_num_shards: None | int = None,
     ) -> dict:
-        pass
+        dataset_dict = _step_to_dataset_dict(
+            self,
+            train_size=train_size,
+            validation_size=validation_size,
+            test_size=test_size,
+            stratify_by_column=stratify_by_column,
+            writer_batch_size=writer_batch_size,
+            save_num_proc=save_num_proc,
+            save_num_shards=save_num_shards,
+        )
+        if len(dataset_dict) > 1:
+            return {dataset_dict[split].to_dict() for split in dataset_dict}
+        else:
+            return dataset_dict[list(dataset_dict.keys())[0]].to_dict()
 
     def export_to_list(
         self,
@@ -1007,7 +1023,20 @@ class Step(metaclass=StepMeta):
         save_num_proc: None | int = None,
         save_num_shards: None | int = None,
     ) -> list | dict:
-        pass
+        dataset_dict = _step_to_dataset_dict(
+            self,
+            train_size=train_size,
+            validation_size=validation_size,
+            test_size=test_size,
+            stratify_by_column=stratify_by_column,
+            writer_batch_size=writer_batch_size,
+            save_num_proc=save_num_proc,
+            save_num_shards=save_num_shards,
+        )
+        if len(dataset_dict) > 1:
+            return {dataset_dict[split].to_list() for split in dataset_dict}
+        else:
+            return dataset_dict[list(dataset_dict.keys())[0]].to_list()
 
     def export_to_json(
         self,
@@ -1020,8 +1049,29 @@ class Step(metaclass=StepMeta):
         save_num_proc: None | int = None,
         save_num_shards: None | int = None,
         **to_json_kwargs,
-    ) -> str:
-        pass
+    ) -> str | dict:
+        dataset_dict = _step_to_dataset_dict(
+            self,
+            train_size=train_size,
+            validation_size=validation_size,
+            test_size=test_size,
+            stratify_by_column=stratify_by_column,
+            writer_batch_size=writer_batch_size,
+            save_num_proc=save_num_proc,
+            save_num_shards=save_num_shards,
+        )
+        if len(dataset_dict) > 1:
+            split_paths = _path_to_split_paths(path, dataset_dict)
+            for split in dataset_dict:
+                dataset_dict[split].to_json(
+                    split_paths[path], num_proc=save_num_proc, **to_json_kwargs
+                )
+            return split_paths
+        else:
+            dataset_dict[list(dataset_dict.keys())[0]].to_json(
+                path, num_proc=save_num_proc, **to_json_kwargs
+            )
+            return path
 
     def export_to_csv(
         self,
@@ -1035,8 +1085,29 @@ class Step(metaclass=StepMeta):
         save_num_proc: None | int = None,
         save_num_shards: None | int = None,
         **to_csv_kwargs,
-    ) -> str:
-        pass
+    ) -> str | dict:
+        dataset_dict = _step_to_dataset_dict(
+            self,
+            train_size=train_size,
+            validation_size=validation_size,
+            test_size=test_size,
+            stratify_by_column=stratify_by_column,
+            writer_batch_size=writer_batch_size,
+            save_num_proc=save_num_proc,
+            save_num_shards=save_num_shards,
+        )
+        if len(dataset_dict) > 1:
+            split_paths = _path_to_split_paths(path, dataset_dict)
+            for split in dataset_dict:
+                dataset_dict[split].to_csv(
+                    split_paths[path], num_proc=save_num_proc, **to_csv_kwargs
+                )
+            return split_paths
+        else:
+            dataset_dict[list(dataset_dict.keys())[0]].to_csv(
+                path, num_proc=save_num_proc, **to_csv_kwargs
+            )
+            return path
 
     def export_to_hf_dataset(
         self,
@@ -1049,7 +1120,29 @@ class Step(metaclass=StepMeta):
         save_num_proc: None | int = None,
         save_num_shards: None | int = None,
     ) -> Dataset | DatasetDict:
-        pass
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        dataset_dict = _step_to_dataset_dict(
+            self,
+            train_size=train_size,
+            validation_size=validation_size,
+            test_size=test_size,
+            stratify_by_column=stratify_by_column,
+            writer_batch_size=writer_batch_size,
+            save_num_proc=save_num_proc,
+            save_num_shards=save_num_shards,
+        )
+        if len(dataset_dict) > 1:
+            dataset_dict.save_to_disk(
+                path,
+                num_proc=self.save_num_proc,
+                num_shards={split: save_num_shards for split in dataset_dict},
+            )
+        else:
+            dataset_dict[list(dataset_dict.keys())[0]].save_to_disk(
+                path,
+                num_proc=self.save_num_proc,
+                num_shards=save_num_shards,
+            )
 
     def publish_to_hf(
         self,
@@ -1065,7 +1158,41 @@ class Step(metaclass=StepMeta):
         save_num_proc: None | int = None,
         save_num_shards: None | int = None,
     ) -> str:
-        pass
+        api = HfApi()
+        login(token=token)
+        while True:
+            try:
+                user = api.whoami()
+                break
+            except LocalTokenNotFoundError as e:
+                print(e)
+                login(token=token)
+        dataset_dict = _step_to_dataset_dict(
+            self,
+            train_size=train_size,
+            validation_size=validation_size,
+            test_size=test_size,
+            stratify_by_column=stratify_by_column,
+            writer_batch_size=writer_batch_size,
+            save_num_proc=save_num_proc,
+            save_num_shards=save_num_shards,
+        )
+        if len(dataset_dict) > 1:
+            dataset_dict.push_to_hub(
+                repo_id=repo_id,
+                branch=branch,
+                private=private,
+            )
+        else:
+            dataset_dict[list(dataset_dict.keys())[0]].push_to_hub(
+                repo_id=repo_id,
+                branch=branch,
+                private=private,
+            )
+        if "/" in repo_id:
+            return f"https://huggingface.co/datasets/{repo_id}"
+        else:
+            return f"https://huggingface.co/datasets/{user['name']}/{repo_id}"
 
     @cached_property
     def fingerprint(self) -> str:
