@@ -8,7 +8,7 @@ from datetime import datetime
 from functools import cached_property, partial
 from logging import Logger
 from time import time
-from typing import Any, Callable, Sequence
+from typing import Any, Callable, Sequence, cast
 
 import dill
 from huggingface_hub import HfApi, login
@@ -33,7 +33,7 @@ from ..pickling.pickle import _INTERNAL_PICKLE_KEY, _pickle
 from ..project.environment import RUNNING_IN_PYTEST
 from ..utils.background_utils import run_in_background_process_no_block
 from ..utils.fs_utils import move_dir, safe_fn
-from .step_export import _path_to_split_paths, _step_to_dataset_dict
+from .step_export import _path_to_split_paths, _step_to_dataset_dict, _unpickle_export
 from .step_operations import (
     _INTERNAL_STEP_OPERATION_KEY,
     _INTERNAL_STEP_OPERATION_NO_SAVE_KEY,
@@ -998,7 +998,7 @@ class Step(metaclass=StepMeta):
         save_num_proc: None | int = None,
         save_num_shards: None | int = None,
     ) -> dict:
-        dataset_dict = _step_to_dataset_dict(
+        output_dataset, dataset_dict = _step_to_dataset_dict(
             self,
             train_size=train_size,
             validation_size=validation_size,
@@ -1009,11 +1009,17 @@ class Step(metaclass=StepMeta):
             save_num_shards=save_num_shards,
         )
         if len(dataset_dict) > 1:
-            result = {dataset_dict[split].to_dict() for split in dataset_dict}
+            result = {
+                split: _unpickle_export(
+                    export=dataset_dict[split].to_dict(), output_dataset=output_dataset
+                )
+                for split in dataset_dict
+            }
             logger.info(f"Step '{self.name}' splits exported to dicts. 💫")
             return result
         else:
             result = dataset_dict[list(dataset_dict.keys())[0]].to_dict()
+            result = _unpickle_export(export=result, output_dataset=output_dataset)
             logger.info(f"Step '{self.name}' exported to a dict. 💫")
             return result
 
@@ -1027,7 +1033,7 @@ class Step(metaclass=StepMeta):
         save_num_proc: None | int = None,
         save_num_shards: None | int = None,
     ) -> list | dict:
-        dataset_dict = _step_to_dataset_dict(
+        output_dataset, dataset_dict = _step_to_dataset_dict(
             self,
             train_size=train_size,
             validation_size=validation_size,
@@ -1038,11 +1044,17 @@ class Step(metaclass=StepMeta):
             save_num_shards=save_num_shards,
         )
         if len(dataset_dict) > 1:
-            result = {dataset_dict[split].to_list() for split in dataset_dict}
+            result = {
+                split: _unpickle_export(
+                    export=dataset_dict[split].to_list(), output_dataset=output_dataset
+                )
+                for split in dataset_dict
+            }
             logger.info(f"Step '{self.name}' splits exported to lists. 💫")
             return result
         else:
             result = dataset_dict[list(dataset_dict.keys())[0]].to_list()
+            result = _unpickle_export(export=result, output_dataset=output_dataset)
             logger.info(f"Step '{self.name}' exported to a list. 💫")
             return result
 
@@ -1058,7 +1070,7 @@ class Step(metaclass=StepMeta):
         save_num_shards: None | int = None,
         **to_json_kwargs,
     ) -> str | dict:
-        dataset_dict = _step_to_dataset_dict(
+        output_dataset, dataset_dict = _step_to_dataset_dict(
             self,
             train_size=train_size,
             validation_size=validation_size,
@@ -1074,13 +1086,14 @@ class Step(metaclass=StepMeta):
                 dataset_dict[split].to_json(
                     split_paths[path], num_proc=save_num_proc, **to_json_kwargs
                 )
-            logger.info(f"Step '{self.name}' splits exported as JSON files. 💫")
+            dir = os.path.dirname(path)
+            logger.info(f"Step '{self.name}' splits exported as JSON files 💫 : {dir}")
             return split_paths
         else:
             dataset_dict[list(dataset_dict.keys())[0]].to_json(
                 path, num_proc=save_num_proc, **to_json_kwargs
             )
-            logger.info(f"Step '{self.name}' exported as JSON file. 💫")
+            logger.info(f"Step '{self.name}' exported as JSON file 💫 : {path}")
             return path
 
     def export_to_csv(
@@ -1096,7 +1109,7 @@ class Step(metaclass=StepMeta):
         save_num_shards: None | int = None,
         **to_csv_kwargs,
     ) -> str | dict:
-        dataset_dict = _step_to_dataset_dict(
+        output_dataset, dataset_dict = _step_to_dataset_dict(
             self,
             train_size=train_size,
             validation_size=validation_size,
@@ -1112,13 +1125,14 @@ class Step(metaclass=StepMeta):
                 dataset_dict[split].to_csv(
                     split_paths[path], num_proc=save_num_proc, sep=sep, **to_csv_kwargs
                 )
-            logger.info(f"Step '{self.name}' splits exported as CSV files. 💫")
+            dir = os.path.dirname(path)
+            logger.info(f"Step '{self.name}' splits exported as CSV files 💫 : {dir}")
             return split_paths
         else:
             dataset_dict[list(dataset_dict.keys())[0]].to_csv(
                 path, num_proc=save_num_proc, sep=sep, **to_csv_kwargs
             )
-            logger.info(f"Step '{self.name}' exported as CSV file. 💫")
+            logger.info(f"Step '{self.name}' exported as CSV file 💫 : {path}")
             return path
 
     def export_to_hf_dataset(
@@ -1133,7 +1147,7 @@ class Step(metaclass=StepMeta):
         save_num_shards: None | int = None,
     ) -> Dataset | DatasetDict:
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        dataset_dict = _step_to_dataset_dict(
+        output_dataset, dataset_dict = _step_to_dataset_dict(
             self,
             train_size=train_size,
             validation_size=validation_size,
@@ -1150,6 +1164,10 @@ class Step(metaclass=StepMeta):
                 num_shards={split: save_num_shards for split in dataset_dict},
             )
             logger.info(f"Step '{self.name}' splits exported as HF DatasetDict. 💫")
+            dataset_dict: DatasetDict = cast(
+                DatasetDict,
+                _unpickle_export(export=dataset_dict, output_dataset=output_dataset),
+            )
             return dataset_dict
         else:
             dataset_dict[list(dataset_dict.keys())[0]].save_to_disk(
@@ -1158,6 +1176,10 @@ class Step(metaclass=StepMeta):
                 num_shards=save_num_shards,
             )
             logger.info(f"Step '{self.name}' exported as HF Dataset. 💫")
+            dataset_dict: DatasetDict = cast(
+                DatasetDict,
+                _unpickle_export(export=dataset_dict, output_dataset=output_dataset),
+            )
             return dataset_dict[list(dataset_dict.keys())[0]]
 
     def publish_to_hf(
@@ -1180,10 +1202,9 @@ class Step(metaclass=StepMeta):
             try:
                 user = api.whoami()
                 break
-            except LocalTokenNotFoundError as e:
-                print(e)
+            except LocalTokenNotFoundError:
                 login(token=token)
-        dataset_dict = _step_to_dataset_dict(
+        output_dataset, dataset_dict = _step_to_dataset_dict(
             self,
             train_size=train_size,
             validation_size=validation_size,
@@ -1209,7 +1230,7 @@ class Step(metaclass=StepMeta):
             url = f"https://huggingface.co/datasets/{repo_id}"
         else:
             url = f"https://huggingface.co/datasets/{user['name']}/{repo_id}"
-        logger.info(f"Step '{self.name}' exported to HF Hub 💫: {url}")
+        logger.info(f"Step '{self.name}' exported to HF Hub 💫 : {url}")
 
     @cached_property
     def fingerprint(self) -> str:

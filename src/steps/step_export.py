@@ -1,9 +1,13 @@
 import os
 from collections import OrderedDict
+from decimal import Decimal
+from functools import partial
 from typing import TYPE_CHECKING, cast
 
-from datasets import Dataset, DatasetDict, IterableDataset
+from datasets import Dataset, DatasetDict
 
+from ..datasets import OutputDataset, OutputIterableDataset
+from ..pickling import unpickle_transform
 from .step_background import wait
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -19,12 +23,11 @@ def _step_to_dataset_dict(
     writer_batch_size: None | int = 1000,
     save_num_proc: None | int = None,
     save_num_shards: None | int = None,
-    **to_csv_kwargs,
-) -> DatasetDict:
+) -> tuple[OutputDataset, DatasetDict]:
     # Wait for a lazy step to complete
     wait(step)
-    if isinstance(step.output, IterableDataset):
-        step = step.output.save(
+    if isinstance(step.output, OutputIterableDataset):
+        step = step.save(
             writer_batch_size=writer_batch_size,
             save_num_proc=save_num_proc,
             save_num_shards=save_num_shards,
@@ -32,44 +35,55 @@ def _step_to_dataset_dict(
     dataset: Dataset = cast(Dataset, step.output.dataset)
     splits = OrderedDict(
         [
-            (split_name, proportion)
+            (
+                split_name,
+                Decimal(str(proportion))
+                if isinstance(proportion, float)
+                else proportion,
+            )
             for split_name, proportion in [
                 ("train", train_size),
-                ("validation_size", validation_size),
-                ("test_size", test_size),
+                ("validation", validation_size),
+                ("test", test_size),
             ]
             if proportion is not None and proportion != 0
         ]
     )
-    if len(splits) is None:
-        splits = {"train": 1.0}
+    if len(splits) == 0:
+        splits = {"train": Decimal("1.0")}
     split_names = list(splits.keys())
     proportions = list(splits.values())
     total = sum(proportions)
-    if total != 1.00 or total != len(dataset):
+    if total != Decimal("1.0") and total != len(dataset):
         raise ValueError(
             "If not None, train_size, validation_size, test_size must sum up to 1.0 or"
-            " the number of rows in the dataset."
+            f" the number of rows ({len(dataset)}) in the dataset. Instead, got a total"
+            f" of : {total}."
         )
 
     # Split the dataset
+    total_proportion = Decimal("1.0")
     remainder_dataset = dataset
     while len(proportions) > 1:
         split_name = split_names.pop()
         proportion = proportions.pop()
         new_dataset_dict = remainder_dataset.train_test_split(
-            train_size=proportion,
+            train_size=float(proportion / total_proportion)
+            if total == Decimal("1.0")
+            else proportion,
             stratify_by_column=stratify_by_column,
             writer_batch_size=writer_batch_size,
         )
         splits[split_name] = new_dataset_dict["train"]
-        remainder_dataset = remainder_dataset["test"]
+        remainder_dataset = new_dataset_dict["test"]
+        if total == Decimal("1.0"):
+            total_proportion = total_proportion - proportion
 
     # Finally, assign the remainder of the splits
     split_name = split_names.pop()
     splits[split_name] = remainder_dataset
 
-    return DatasetDict(splits)
+    return step.output, DatasetDict(splits)
 
 
 def _path_to_split_paths(path: str, dataset_dict: DatasetDict) -> dict[str, str]:
@@ -86,7 +100,34 @@ def _path_to_split_paths(path: str, dataset_dict: DatasetDict) -> dict[str, str]
     return paths
 
 
+def _unpickle_export(export: DatasetDict | list | dict, output_dataset: OutputDataset):
+    if output_dataset._pickled:
+        if isinstance(export, DatasetDict):
+            export.set_transform(
+                partial(
+                    unpickle_transform,
+                    features=output_dataset._features,
+                    batched=True,
+                )
+            )
+            return export
+        elif isinstance(export, list):
+            return [
+                unpickle_transform(
+                    row, features=output_dataset._features, batched=False
+                )
+                for row in export
+            ]
+        else:
+            return unpickle_transform(
+                export, features=output_dataset._features, batched=True
+            )
+    else:
+        return export
+
+
 __all__ = [
     "_step_to_dataset_dict",
     "_path_to_split_paths",
+    "_unpickle_export",
 ]
