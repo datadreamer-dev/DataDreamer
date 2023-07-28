@@ -1009,9 +1009,13 @@ class Step(metaclass=StepMeta):
             save_num_shards=save_num_shards,
         )
         if len(dataset_dict) > 1:
-            return {dataset_dict[split].to_dict() for split in dataset_dict}
+            result = {dataset_dict[split].to_dict() for split in dataset_dict}
+            logger.info(f"Step '{self.name}' splits exported to dicts. 💫")
+            return result
         else:
-            return dataset_dict[list(dataset_dict.keys())[0]].to_dict()
+            result = dataset_dict[list(dataset_dict.keys())[0]].to_dict()
+            logger.info(f"Step '{self.name}' exported to a dict. 💫")
+            return result
 
     def export_to_list(
         self,
@@ -1034,9 +1038,13 @@ class Step(metaclass=StepMeta):
             save_num_shards=save_num_shards,
         )
         if len(dataset_dict) > 1:
-            return {dataset_dict[split].to_list() for split in dataset_dict}
+            result = {dataset_dict[split].to_list() for split in dataset_dict}
+            logger.info(f"Step '{self.name}' splits exported to lists. 💫")
+            return result
         else:
-            return dataset_dict[list(dataset_dict.keys())[0]].to_list()
+            result = dataset_dict[list(dataset_dict.keys())[0]].to_list()
+            logger.info(f"Step '{self.name}' exported to a list. 💫")
+            return result
 
     def export_to_json(
         self,
@@ -1066,11 +1074,13 @@ class Step(metaclass=StepMeta):
                 dataset_dict[split].to_json(
                     split_paths[path], num_proc=save_num_proc, **to_json_kwargs
                 )
+            logger.info(f"Step '{self.name}' splits exported as JSON files. 💫")
             return split_paths
         else:
             dataset_dict[list(dataset_dict.keys())[0]].to_json(
                 path, num_proc=save_num_proc, **to_json_kwargs
             )
+            logger.info(f"Step '{self.name}' exported as JSON file. 💫")
             return path
 
     def export_to_csv(
@@ -1100,13 +1110,15 @@ class Step(metaclass=StepMeta):
             split_paths = _path_to_split_paths(path, dataset_dict)
             for split in dataset_dict:
                 dataset_dict[split].to_csv(
-                    split_paths[path], num_proc=save_num_proc, **to_csv_kwargs
+                    split_paths[path], num_proc=save_num_proc, sep=sep, **to_csv_kwargs
                 )
+            logger.info(f"Step '{self.name}' splits exported as CSV files. 💫")
             return split_paths
         else:
             dataset_dict[list(dataset_dict.keys())[0]].to_csv(
-                path, num_proc=save_num_proc, **to_csv_kwargs
+                path, num_proc=save_num_proc, sep=sep, **to_csv_kwargs
             )
+            logger.info(f"Step '{self.name}' exported as CSV file. 💫")
             return path
 
     def export_to_hf_dataset(
@@ -1137,12 +1149,16 @@ class Step(metaclass=StepMeta):
                 num_proc=self.save_num_proc,
                 num_shards={split: save_num_shards for split in dataset_dict},
             )
+            logger.info(f"Step '{self.name}' splits exported as HF DatasetDict. 💫")
+            return dataset_dict
         else:
             dataset_dict[list(dataset_dict.keys())[0]].save_to_disk(
                 path,
                 num_proc=self.save_num_proc,
                 num_shards=save_num_shards,
             )
+            logger.info(f"Step '{self.name}' exported as HF Dataset. 💫")
+            return dataset_dict[list(dataset_dict.keys())[0]]
 
     def publish_to_hf(
         self,
@@ -1190,9 +1206,10 @@ class Step(metaclass=StepMeta):
                 private=private,
             )
         if "/" in repo_id:
-            return f"https://huggingface.co/datasets/{repo_id}"
+            url = f"https://huggingface.co/datasets/{repo_id}"
         else:
-            return f"https://huggingface.co/datasets/{user['name']}/{repo_id}"
+            url = f"https://huggingface.co/datasets/{user['name']}/{repo_id}"
+        logger.info(f"Step '{self.name}' exported to HF Hub 💫: {url}")
 
     @cached_property
     def fingerprint(self) -> str:
