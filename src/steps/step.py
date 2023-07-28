@@ -1084,7 +1084,7 @@ class Step(metaclass=StepMeta):
             split_paths = _path_to_split_paths(path, dataset_dict)
             for split in dataset_dict:
                 dataset_dict[split].to_json(
-                    split_paths[path], num_proc=save_num_proc, **to_json_kwargs
+                    split_paths[split], num_proc=save_num_proc, **to_json_kwargs
                 )
             dir = os.path.dirname(path)
             logger.info(f"Step '{self.name}' splits exported as JSON files 💫 : {dir}")
@@ -1123,7 +1123,7 @@ class Step(metaclass=StepMeta):
             split_paths = _path_to_split_paths(path, dataset_dict)
             for split in dataset_dict:
                 dataset_dict[split].to_csv(
-                    split_paths[path], num_proc=save_num_proc, sep=sep, **to_csv_kwargs
+                    split_paths[split], num_proc=save_num_proc, sep=sep, **to_csv_kwargs
                 )
             dir = os.path.dirname(path)
             logger.info(f"Step '{self.name}' splits exported as CSV files 💫 : {dir}")
