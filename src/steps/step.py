@@ -6,12 +6,13 @@ from collections import defaultdict
 from collections.abc import Iterable
 from datetime import datetime
 from functools import cached_property, partial
+from io import BytesIO
 from logging import Logger
 from time import time
 from typing import Any, Callable, Sequence, cast
 
 import dill
-from huggingface_hub import HfApi, login
+from huggingface_hub import HfApi, hf_hub_download, login
 from huggingface_hub.utils._headers import LocalTokenNotFoundError
 from pandas import DataFrame
 
@@ -1196,6 +1197,7 @@ class Step(metaclass=StepMeta):
         save_num_proc: None | int = None,
         save_num_shards: None | int = None,
     ) -> str:  # pragma: no cover
+        # Login
         api = HfApi()
         try:
             login(token=token)
@@ -1210,6 +1212,10 @@ class Step(metaclass=StepMeta):
                     login(token=token)
                 except ValueError:
                     pass
+        if "/" not in repo_id:
+            repo_id = f"{user['name']}/{repo_id}"
+
+        # Push data
         output_dataset, dataset_dict = _step_to_dataset_dict(
             self,
             train_size=train_size,
@@ -1232,10 +1238,36 @@ class Step(metaclass=StepMeta):
                 branch=branch,
                 private=private,
             )
-        if "/" in repo_id:
-            url = f"https://huggingface.co/datasets/{repo_id}"
-        else:
-            url = f"https://huggingface.co/datasets/{user['name']}/{repo_id}"
+
+        # Download file
+        local_readme_path = hf_hub_download(
+            repo_id=repo_id, filename="README.md", repo_type="dataset", revision=branch
+        )
+        with open(local_readme_path, "r") as f:
+            readme_contents = f.read()
+        if "tags:" not in readme_contents:
+            tags = ["datadreamer", f"datadreamer-{__version__}", "synthetic"]
+            readme_contents = readme_contents.replace(
+                "---\n# Dataset Card ",
+                "tags:\n- " + ("\n- ".join(tags)) + "\n---\n# Dataset Card ",
+            )
+        if "DataDreamer" not in readme_contents:
+            readme_contents += (
+                "\n\n---\n"
+                "This dataset was produced with [DataDreamer 🤖💤](https://ajayp.app)."
+            )
+        api.upload_file(
+            path_or_fileobj=BytesIO(bytes(readme_contents, "utf8")),
+            path_in_repo="README.md",
+            repo_id=repo_id,
+            repo_type="dataset",
+            revision=branch,
+            commit_message="Pushed by DataDreamer",
+            commit_description="Update README.md",
+        )
+
+        # Construct and return URL
+        url = f"https://huggingface.co/datasets/{repo_id}"
         logger.info(f"Step '{self.name}' exported to HF Hub 💫 : {url}")
         return url
 
