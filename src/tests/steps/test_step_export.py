@@ -1,11 +1,12 @@
 import os
-from typing import Callable
+from typing import Callable, cast
 
 import pytest
+from dill.source import getsource
 
 from datasets import Dataset, DatasetDict
+from datasets.fingerprint import Hasher
 
-from ... import DataDreamer
 from ...steps import LazyRows, Step
 
 
@@ -73,7 +74,7 @@ class TestPickle:
                     {"out1": [step.pickle(set([i])) for i in range(1, 11)]}
                 )
             )
-            export_path = os.path.join(step._output_folder_path, "export")
+            export_path = os.path.join(cast(str, step._output_folder_path), "export")
             export = step.export_to_hf_dataset(export_path)
             assert isinstance(export, Dataset)
             assert step._pickled
@@ -216,7 +217,9 @@ class TestExportToJSON:
         with create_datadreamer():
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
             step._set_output(Dataset.from_dict({"out1": range(1, 11)}))
-            export_path = os.path.join(step._output_folder_path, "export.json")
+            export_path = os.path.join(
+                cast(str, step._output_folder_path), "export.json"
+            )
             export = step.export_to_json(export_path, train_size=1.0)
             assert export == export_path
             assert os.path.isfile(export_path)
@@ -227,17 +230,19 @@ class TestExportToJSON:
         with create_datadreamer():
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
             step._set_output(Dataset.from_dict({"out1": range(1, 11)}))
-            export_path = os.path.join(step._output_folder_path, "export.json")
+            export_path = os.path.join(
+                cast(str, step._output_folder_path), "export.json"
+            )
             export = step.export_to_json(
                 export_path, validation_size=0.3, test_size=0.7
             )
             assert isinstance(export, dict)
             assert set(export.keys()) == set(["validation", "test"])
             assert export["validation"] == os.path.join(
-                step._output_folder_path, "export.val.json"
+                cast(str, step._output_folder_path), "export.val.json"
             )
             assert export["test"] == os.path.join(
-                step._output_folder_path, "export.test.json"
+                cast(str, step._output_folder_path), "export.test.json"
             )
             for v in export.values():
                 assert os.path.isfile(v)
@@ -250,7 +255,9 @@ class TestExportToCSV:
         with create_datadreamer():
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
             step._set_output(Dataset.from_dict({"out1": range(1, 11)}))
-            export_path = os.path.join(step._output_folder_path, "export.csv")
+            export_path = os.path.join(
+                cast(str, step._output_folder_path), "export.csv"
+            )
             export = step.export_to_csv(export_path, train_size=1.0)
             assert export == export_path
             assert os.path.isfile(export_path)
@@ -261,15 +268,17 @@ class TestExportToCSV:
         with create_datadreamer():
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
             step._set_output(Dataset.from_dict({"out1": range(1, 11)}))
-            export_path = os.path.join(step._output_folder_path, "export.csv")
+            export_path = os.path.join(
+                cast(str, step._output_folder_path), "export.csv"
+            )
             export = step.export_to_csv(export_path, validation_size=0.3, test_size=0.7)
             assert isinstance(export, dict)
             assert set(export.keys()) == set(["validation", "test"])
             assert export["validation"] == os.path.join(
-                step._output_folder_path, "export.val.csv"
+                cast(str, step._output_folder_path), "export.val.csv"
             )
             assert export["test"] == os.path.join(
-                step._output_folder_path, "export.test.csv"
+                cast(str, step._output_folder_path), "export.test.csv"
             )
             for v in export.values():
                 assert os.path.isfile(v)
@@ -282,20 +291,20 @@ class TestExportToHFDataset:
         with create_datadreamer():
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
             step._set_output(Dataset.from_dict({"out1": range(1, 11)}))
-            export_path = os.path.join(step._output_folder_path, "export")
+            export_path = os.path.join(cast(str, step._output_folder_path), "export")
             export = step.export_to_hf_dataset(export_path, train_size=1.0)
             assert isinstance(export, Dataset)
             assert len(export) == 10
             assert os.path.isdir(export_path)
             assert os.path.isfile(os.path.join(export_path, "dataset_info.json"))
 
-    def test_export_dataset_to_hf_dataset__two_splits(
+    def test_export_dataset_to_hf_dataset_two_splits(
         self, create_datadreamer, create_test_step: Callable[..., Step]
     ):
         with create_datadreamer():
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
             step._set_output(Dataset.from_dict({"out1": range(1, 11)}))
-            export_path = os.path.join(step._output_folder_path, "export")
+            export_path = os.path.join(cast(str, step._output_folder_path), "export")
             export = step.export_to_hf_dataset(
                 export_path, validation_size=0.3, test_size=0.7
             )
@@ -312,3 +321,34 @@ class TestExportToHFDataset:
             assert os.path.isfile(
                 os.path.join(export_path, "validation", "dataset_info.json")
             )
+
+
+class TestPublishToHFHub:
+    def test_code_implementation(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            assert Hasher.hash(getsource(step.publish_to_hf_hub)) == "b8ff9f20b5e4fa5e"
+
+    @pytest.mark.skip(reason="skipping because requires interactive")
+    def test_publish_dataset_to_hf_hub_single_train_split(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            step._set_output(Dataset.from_dict({"out1": range(1, 11)}))
+            export = step.publish_to_hf_hub("test1", train_size=1.0)
+            assert export == "https://huggingface.co/datasets/AjayP13/test1"
+
+    @pytest.mark.skip(reason="skipping because requires interactive")
+    def test_publish_dataset_to_hf_hub_two_splits(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
+            step._set_output(Dataset.from_dict({"out1": range(1, 11)}))
+            export = step.publish_to_hf_hub(
+                "AjayP13/test2", validation_size=0.3, test_size=0.7
+            )
+            assert export == "https://huggingface.co/datasets/AjayP13/test2"

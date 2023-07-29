@@ -2,7 +2,7 @@ import os
 from collections import OrderedDict
 from decimal import Decimal
 from functools import partial
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from datasets import Dataset, DatasetDict
 
@@ -33,7 +33,7 @@ def _step_to_dataset_dict(
             save_num_shards=save_num_shards,
         )
     dataset: Dataset = cast(Dataset, step.output.dataset)
-    splits = OrderedDict(
+    splits: OrderedDict[str, Any] = OrderedDict(
         [
             (
                 split_name,
@@ -50,7 +50,7 @@ def _step_to_dataset_dict(
         ]
     )
     if len(splits) == 0:
-        splits = {"train": Decimal("1.0")}
+        splits = OrderedDict({"train": Decimal("1.0")})
     split_names = list(splits.keys())
     proportions = list(splits.values())
     total = sum(proportions)
@@ -68,14 +68,15 @@ def _step_to_dataset_dict(
         split_name = split_names.pop()
         proportion = proportions.pop()
         new_dataset_dict = remainder_dataset.train_test_split(
-            train_size=float(proportion / total_proportion)
+            test_size=float(proportion / total_proportion)
             if total == Decimal("1.0")
-            else proportion,
+            else int(proportion),
+            shuffle=False,
             stratify_by_column=stratify_by_column,
             writer_batch_size=writer_batch_size,
         )
-        splits[split_name] = new_dataset_dict["train"]
-        remainder_dataset = new_dataset_dict["test"]
+        splits[split_name] = new_dataset_dict["test"]
+        remainder_dataset = new_dataset_dict["train"]
         if total == Decimal("1.0"):
             total_proportion = total_proportion - proportion
 
@@ -83,7 +84,7 @@ def _step_to_dataset_dict(
     split_name = split_names.pop()
     splits[split_name] = remainder_dataset
 
-    return step.output, DatasetDict(splits)
+    return cast(OutputDataset, step.output), DatasetDict(splits)
 
 
 def _path_to_split_paths(path: str, dataset_dict: DatasetDict) -> dict[str, str]:

@@ -80,8 +80,7 @@ class Dataset:
     ) -> Dataset: ...
     def train_test_split(
         self,
-        test_size: None | float,
-        int=None,
+        test_size: None | float | int = None,
         train_size: None | float | int = None,
         shuffle: bool = True,
         stratify_by_column: None | str = None,
@@ -162,6 +161,12 @@ class IterableDataset:
     def __iter__(self): ...
 
 class DatasetDict(dict):
+    def set_transform(
+        self,
+        transform: None | Callable,
+        columns: None | list = None,
+        output_all_columns: bool = False,
+    ): ...
     def save_to_disk(
         self,
         path: str,

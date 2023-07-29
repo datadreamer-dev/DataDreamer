@@ -1161,10 +1161,10 @@ class Step(metaclass=StepMeta):
             dataset_dict.save_to_disk(
                 path,
                 num_proc=self.save_num_proc,
-                num_shards={split: save_num_shards for split in dataset_dict},
+                num_shards={split: save_num_shards or 1 for split in dataset_dict},
             )
             logger.info(f"Step '{self.name}' splits exported as HF DatasetDict. 💫")
-            dataset_dict: DatasetDict = cast(
+            dataset_dict = cast(
                 DatasetDict,
                 _unpickle_export(export=dataset_dict, output_dataset=output_dataset),
             )
@@ -1176,16 +1176,16 @@ class Step(metaclass=StepMeta):
                 num_shards=save_num_shards,
             )
             logger.info(f"Step '{self.name}' exported as HF Dataset. 💫")
-            dataset_dict: DatasetDict = cast(
+            dataset_dict = cast(
                 DatasetDict,
                 _unpickle_export(export=dataset_dict, output_dataset=output_dataset),
             )
             return dataset_dict[list(dataset_dict.keys())[0]]
 
-    def publish_to_hf(
+    def publish_to_hf_hub(
         self,
         repo_id: str,
-        branch: None | str,
+        branch: None | str = None,
         private: bool = False,
         token: None | str = None,
         train_size: None | float | int = None,
@@ -1195,15 +1195,21 @@ class Step(metaclass=StepMeta):
         writer_batch_size: None | int = 1000,
         save_num_proc: None | int = None,
         save_num_shards: None | int = None,
-    ) -> str:
+    ) -> str:  # pragma: no cover
         api = HfApi()
-        login(token=token)
+        try:
+            login(token=token)
+        except ValueError:
+            pass
         while True:
             try:
                 user = api.whoami()
                 break
             except LocalTokenNotFoundError:
-                login(token=token)
+                try:
+                    login(token=token)
+                except ValueError:
+                    pass
         output_dataset, dataset_dict = _step_to_dataset_dict(
             self,
             train_size=train_size,
@@ -1231,6 +1237,7 @@ class Step(metaclass=StepMeta):
         else:
             url = f"https://huggingface.co/datasets/{user['name']}/{repo_id}"
         logger.info(f"Step '{self.name}' exported to HF Hub 💫 : {url}")
+        return url
 
     @cached_property
     def fingerprint(self) -> str:
