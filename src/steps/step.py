@@ -1200,7 +1200,7 @@ class Step(metaclass=StepMeta):
         # Login
         api = HfApi()
         try:
-            login(token=token)
+            login(token=token, add_to_git_credential=False, write_permission=True)
         except ValueError:
             pass
         while True:
@@ -1209,7 +1209,9 @@ class Step(metaclass=StepMeta):
                 break
             except LocalTokenNotFoundError:
                 try:
-                    login(token=token)
+                    login(
+                        token=token, add_to_git_credential=False, write_permission=True
+                    )
                 except ValueError:
                     pass
         if "/" not in repo_id:
