@@ -1,12 +1,22 @@
 import json
+import os
 import tempfile
 
 import pytest
 
 from datasets import Dataset, DatasetDict
 
+from ... import DataDreamer
 from ...datasets import OutputDataset, OutputIterableDataset
-from ...steps import DataSource, JSONDataSource, Step
+from ...steps import (
+    CSVDataSource,
+    DataSource,
+    HFDatasetDataSource,
+    HFHubDataSource,
+    JSONDataSource,
+    Step,
+    TextDataSource,
+)
 
 
 class TestDataSource:
@@ -92,3 +102,91 @@ class TestJSONDataSource:
                         "my-dataset",
                         data_files={"train": f.name},  # type: ignore[arg-type]
                     )
+
+
+class TestCSVDataSource:
+    def test_from_csv_file(self, create_datadreamer):
+        with create_datadreamer():
+            with tempfile.NamedTemporaryFile(mode="w+") as f:
+                f.write("out1\n" + "\n".join([str(i) for i in range(1, 11)]))
+                f.flush()
+                data_source = CSVDataSource("my-dataset", data_files=f.name)
+            assert isinstance(data_source, Step)
+            assert isinstance(data_source.output, OutputDataset)
+            assert set(data_source.output.column_names) == set(["out1"])
+            assert len(data_source.output) == 10
+
+    def test_from_csv_file_splits_error(self, create_datadreamer):
+        with create_datadreamer():
+            with tempfile.NamedTemporaryFile(mode="w+") as f:
+                f.write("out1\n" + "\n".join([str(i) for i in range(1, 11)]))
+                f.flush()
+                with pytest.raises(ValueError):
+                    CSVDataSource(
+                        "my-dataset",
+                        data_files={"train": f.name},  # type: ignore[arg-type]
+                    )
+
+
+class TestTextDataSource:
+    def test_from_text_file(self, create_datadreamer):
+        with create_datadreamer():
+            with tempfile.NamedTemporaryFile(mode="w+") as f:
+                f.write("\n".join([str(i) for i in range(1, 11)]))
+                f.flush()
+                data_source = TextDataSource("my-dataset", data_files=f.name)
+            assert isinstance(data_source, Step)
+            assert isinstance(data_source.output, OutputDataset)
+            assert set(data_source.output.column_names) == set(["text"])
+            assert len(data_source.output) == 10
+
+    def test_from_text_file_splits_error(self, create_datadreamer):
+        with create_datadreamer():
+            with tempfile.NamedTemporaryFile(mode="w+") as f:
+                f.write("\n".join([str(i) for i in range(1, 11)]))
+                f.flush()
+                with pytest.raises(ValueError):
+                    TextDataSource(
+                        "my-dataset",
+                        data_files={"train": f.name},  # type: ignore[arg-type]
+                    )
+
+
+class TestHFDatasetDataSource:
+    def test_from_hf_dataset_folder(self, create_datadreamer):
+        with create_datadreamer():
+            export_path = os.path.join(DataDreamer.get_output_folder_path(), "export")
+            Dataset.from_dict({"out1": range(1, 11)}).save_to_disk(export_path)
+            data_source = HFDatasetDataSource("my-dataset", export_path)
+            assert isinstance(data_source, Step)
+            assert isinstance(data_source.output, OutputDataset)
+            assert set(data_source.output.column_names) == set(["out1"])
+            assert len(data_source.output) == 10
+
+    def test_from_hf_dataset_folder_splits_error(self, create_datadreamer):
+        with create_datadreamer():
+            export_path = os.path.join(DataDreamer.get_output_folder_path(), "export")
+            DatasetDict(
+                {"train": Dataset.from_dict({"out1": range(1, 11)})}
+            ).save_to_disk(export_path)
+            with pytest.raises(FileNotFoundError):
+                HFDatasetDataSource("my-dataset", export_path)
+
+
+class TestHFHubDataSource:
+    def test_from_hf_hub(self, create_datadreamer):
+        with create_datadreamer():
+            data_source = HFHubDataSource(
+                "my-dataset", "truthful_qa", "multiple_choice", "validation"
+            )
+            assert isinstance(data_source, Step)
+            assert isinstance(data_source.output, OutputDataset)
+            assert set(data_source.output.column_names) == set(
+                ["question", "mc1_targets", "mc2_targets"]
+            )
+            assert len(data_source.output) == 817
+
+    def test_from_hf_hub_splits_error(self, create_datadreamer):
+        with create_datadreamer():
+            with pytest.raises(ValueError):
+                HFHubDataSource("my-dataset", "truthful_qa", "multiple_choice")

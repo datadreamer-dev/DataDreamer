@@ -1,6 +1,6 @@
 from functools import cached_property
 
-from datasets import Dataset, DatasetDict
+from datasets import Dataset
 from datasets.fingerprint import Hasher
 
 from ..step_operations import _INTERNAL_STEP_OPERATION_KEY
@@ -12,7 +12,6 @@ class HFDatasetDataSource(DataSource):
         self,
         name: str,
         dataset_path: str,
-        split: None | str = None,
         progress_interval: None | int = None,
         force: bool = False,
         verbose: bool = False,
@@ -22,7 +21,6 @@ class HFDatasetDataSource(DataSource):
         background: bool = False,
     ):
         self.dataset_path = dataset_path
-        self.split = split
         super().__init__(
             name,
             data=None,  # type: ignore[arg-type]
@@ -39,18 +37,11 @@ class HFDatasetDataSource(DataSource):
         pass
 
     def run(self):
-        result = Dataset.load_from_disk(self.dataset_path)
-        if isinstance(result, DatasetDict) and self.split is None:
-            raise ValueError(
-                "You supplied a path to a DatasetDict, without specifying a split."
-            )
-        elif isinstance(result, DatasetDict):
-            result = result[self.split]
-        return result
+        return Dataset.load_from_disk(self.dataset_path)
 
     @cached_property
     def fingerprint(self) -> str:
-        return Hasher.hash([super().fingerprint, self.dataset_path, self.split])
+        return Hasher.hash([super().fingerprint, self.dataset_path])
 
 
 setattr(HFDatasetDataSource, _INTERNAL_STEP_OPERATION_KEY, True)
