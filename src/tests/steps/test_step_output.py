@@ -3,7 +3,7 @@ from typing import Callable
 
 import pytest
 
-from datasets import Dataset, IterableDataset
+from datasets import Dataset, DatasetDict, IterableDataset
 
 from ...datasets import OutputDataset, OutputIterableDataset
 from ...errors import StepOutputError, StepOutputTypeError
@@ -34,6 +34,10 @@ class TestErrors:
             step_single._set_output({"out2": 5})
         with pytest.raises(StepOutputError):
             step_single._set_output({"out2": "a"})
+        with pytest.raises(StepOutputError):
+            step_single._set_output(
+                DatasetDict({"train": Dataset.from_dict({"out1": [5]})})
+            )
 
         def dataset_generator():
             yield {"out1": "a"}

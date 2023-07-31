@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
 from os import PathLike
-from typing import Any, BinaryIO, Callable, Sequence
+from typing import Any, BinaryIO, Callable, Mapping, Sequence
 
 from datasets.features.features import Features
+from datasets.splits import Split
+from datasets.utils.version import Version
 
 class Dataset:
     @classmethod
@@ -180,6 +182,20 @@ class DatasetDict(dict):
         branch: None | str = None,
     ): ...
 
+class IterableDatasetDict(dict):
+    pass
+
+def load_dataset(
+    path: str,
+    name: None | str = None,
+    data_dir: None | str = None,
+    data_files: None | str | Sequence[str] | Mapping[str, str | Sequence[str]] = None,
+    split: None | str | Split = None,
+    revision: None | str | Version = None,
+    streaming: bool = False,
+    num_proc: None | int = None,
+    **config_kwargs,
+) -> DatasetDict | Dataset | IterableDatasetDict | IterableDataset: ...
 def concatenate_datasets(
     dsets: list[Dataset | IterableDataset], axis: int = 0
 ) -> Dataset | IterableDataset: ...

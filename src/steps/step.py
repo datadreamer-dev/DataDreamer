@@ -74,10 +74,14 @@ class StepMeta(type):
     def __new__(meta, name, bases, attrs):
         if meta.has_base:
             for attribute in attrs:
-                is_datasource = name == "DataSource" and attrs["__module__"].endswith(
-                    "steps.data_sources.data_source"
+                is_data_source = (
+                    name == "DataSource"
+                    and attrs["__module__"].endswith("steps.data_sources.data_source")
+                ) or (
+                    len(bases) > 0
+                    and bases[0].__module__.endswith("steps.data_sources.data_source")
                 )
-                if attribute == "__init__" and not is_datasource:
+                if attribute == "__init__" and not is_data_source:
                     raise AttributeError(
                         'Overriding of "%s" not allowed, override setup() instead.'
                         % attribute

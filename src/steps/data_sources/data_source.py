@@ -1,7 +1,7 @@
 from functools import cached_property
 from typing import Callable, Generator
 
-from datasets import Dataset, DatasetDict, IterableDataset
+from datasets import Dataset, DatasetDict, IterableDataset, IterableDatasetDict
 from datasets.fingerprint import Hasher
 
 from ..step import Any, LazyRows, Step
@@ -47,7 +47,7 @@ class DataSource(Step):
 
     def run(self):
         dataset = self.dataset
-        if isinstance(dataset, DatasetDict):
+        if isinstance(dataset, (DatasetDict, IterableDatasetDict)):
             raise ValueError("You supplied a DatasetDict, supply a Dataset instead.")
         if isinstance(dataset, Dataset):
             return dataset

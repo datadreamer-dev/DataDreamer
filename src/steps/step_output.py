@@ -7,7 +7,13 @@ from typing import TYPE_CHECKING, Any, Callable, Type, TypeAlias, TypeGuard, cas
 import dill
 from pyarrow.lib import ArrowInvalid, ArrowTypeError
 
-from datasets import Dataset, IterableDataset, iterable_dataset
+from datasets import (
+    Dataset,
+    DatasetDict,
+    IterableDataset,
+    IterableDatasetDict,
+    iterable_dataset,
+)
 from datasets.features.features import Features
 from datasets.iterable_dataset import (
     _apply_feature_types_on_batch,
@@ -305,6 +311,10 @@ def __output_to_dataset(  # noqa: C901
     else:
         _value = value
     del value
+
+    # If given DatasetDict-type, raise an error
+    if isinstance(_value, (DatasetDict, IterableDatasetDict)):
+        raise StepOutputError("You supplied a DatasetDict, supply a Dataset instead.")
 
     # If given None, convert to an empty list
     if _value is None:
