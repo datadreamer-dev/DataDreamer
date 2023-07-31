@@ -9,7 +9,7 @@ from functools import cached_property, partial
 from io import BytesIO
 from logging import Logger
 from time import time
-from typing import Any, Callable, Sequence, cast
+from typing import Any, Callable, DefaultDict, Sequence, cast
 
 import dill
 from huggingface_hub import HfApi, hf_hub_download, login
@@ -235,7 +235,9 @@ class Step(metaclass=StepMeta):
             self.__registered["inputs"] = inputs
 
             # Propagate trace info from previous steps
-            prev_trace_info = {}
+            prev_trace_info: DefaultDict[str, DefaultDict[str, list]] = defaultdict(
+                lambda: defaultdict(list)
+            )
             for v in inputs.values():
                 prev_trace_info.update(v.step.trace_info)
             prev_trace_info.update(self.__registered["trace_info"])
@@ -438,7 +440,9 @@ class Step(metaclass=StepMeta):
         self.__help["outputs"][output_column_name] = help
 
     def register_trace_info(self, trace_info_type: str, trace_info: Any):
-        if self._initialized:
+        if self._initialized and not hasattr(
+            self.__class__, _INTERNAL_STEP_OPERATION_KEY
+        ):
             raise RuntimeError(
                 "The step is already initialized, you can only run"
                 " .register_xxx() functions in the setup() method."

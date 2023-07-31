@@ -6,6 +6,7 @@ from datasets.splits import Split
 from datasets.utils.version import Version
 
 from ..step_operations import _INTERNAL_STEP_OPERATION_KEY
+from ..trace_info import TraceInfoType
 from .data_source import DataSource
 
 
@@ -25,7 +26,7 @@ class HFHubDataSource(DataSource):
         save_num_proc: None | int = None,
         save_num_shards: None | int = None,
         background: bool = False,
-        **config_kwargs
+        **config_kwargs,
     ):
         self.path = path
         self.config_name = config_name
@@ -49,7 +50,7 @@ class HFHubDataSource(DataSource):
         pass
 
     def run(self):
-        from .. import DataDreamer
+        from ... import DataDreamer
 
         DataDreamer._enable_hf_datasets_logging()
         result = load_dataset(
@@ -58,7 +59,7 @@ class HFHubDataSource(DataSource):
             split=self.split,
             revision=self.revision,
             streaming=self.streaming,
-            **self.config_kwargs
+            **self.config_kwargs,
         )
         DataDreamer._disable_hf_datasets_logging()
         if isinstance(result, (DatasetDict, IterableDatasetDict)):
@@ -66,6 +67,15 @@ class HFHubDataSource(DataSource):
                 "Choose a split with the `split=...` parameter,"
                 " multiple splits are not supported."
             )
+        if result.info.license:
+            self.register_trace_info(TraceInfoType.LICENSE, result.info.license)
+        if result.info.citation:
+            self.register_trace_info(TraceInfoType.CITATION, result.info.citation)
+        self.register_trace_info(
+            TraceInfoType.DATASET_CARD, f"https://huggingface.co/datasets/{self.path}"
+        )
+        if result.info.homepage:
+            self.register_trace_info(TraceInfoType.URL, result.info.homepage)
         return result
 
     @cached_property

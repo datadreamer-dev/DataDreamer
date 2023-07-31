@@ -185,6 +185,16 @@ class TestHFHubDataSource:
                 ["question", "mc1_targets", "mc2_targets"]
             )
             assert len(data_source.output) == 817
+            assert data_source.trace_info == {
+                "my-dataset": {
+                    "Citation Information": [
+                        "@misc{lin2021truthfulqa,\n    title={TruthfulQA: Measuring How Models Mimic Human Falsehoods},\n    author={Stephanie Lin and Jacob Hilton and Owain Evans},\n    year={2021},\n    eprint={2109.07958},\n    archivePrefix={arXiv},\n    primaryClass={cs.CL}\n}\n"  # noqa: B950
+                    ],
+                    "Dataset Card": ["https://huggingface.co/datasets/truthful_qa"],
+                    "License Information": ["Apache License 2.0"],
+                    "URL": ["https://github.com/sylinrl/TruthfulQA"],
+                },
+            }
 
     def test_from_hf_hub_splits_error(self, create_datadreamer):
         with create_datadreamer():
