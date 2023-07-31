@@ -8,7 +8,7 @@ from ..step_operations import _INTERNAL_STEP_OPERATION_KEY
 from .data_source import DataSource
 
 
-class JSONDataSource(DataSource):
+class TextDataSource(DataSource):
     def __init__(
         self,
         name: str,
@@ -47,7 +47,7 @@ class JSONDataSource(DataSource):
                 "You supplied a dict to data_files, multiple splits are not supported."
             )
         result = load_dataset(
-            "json",
+            "text",
             data_dir=self.data_dir,
             data_files=self.data_files,
             num_proc=self.save_num_proc,
@@ -64,6 +64,6 @@ class JSONDataSource(DataSource):
         )
 
 
-setattr(JSONDataSource, _INTERNAL_STEP_OPERATION_KEY, True)
+setattr(TextDataSource, _INTERNAL_STEP_OPERATION_KEY, True)
 
-__all__ = ["JSONDataSource"]
+__all__ = ["TextDataSource"]

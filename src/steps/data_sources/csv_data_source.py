@@ -8,12 +8,13 @@ from ..step_operations import _INTERNAL_STEP_OPERATION_KEY
 from .data_source import DataSource
 
 
-class JSONDataSource(DataSource):
+class CSVDataSource(DataSource):
     def __init__(
         self,
         name: str,
         data_dir: None | str = None,
         data_files: None | str | Sequence[str] = None,
+        sep: str = ",",
         progress_interval: None | int = None,
         force: bool = False,
         verbose: bool = False,
@@ -25,6 +26,7 @@ class JSONDataSource(DataSource):
     ):
         self.data_dir = data_dir
         self.data_files = data_files
+        self.sep = sep
         self.config_kwargs = config_kwargs
         super().__init__(
             name,
@@ -47,10 +49,11 @@ class JSONDataSource(DataSource):
                 "You supplied a dict to data_files, multiple splits are not supported."
             )
         result = load_dataset(
-            "json",
+            "csv",
             data_dir=self.data_dir,
             data_files=self.data_files,
             num_proc=self.save_num_proc,
+            sep=self.sep,
             **self.config_kwargs
         )
         if isinstance(result, DatasetDict):
@@ -64,6 +67,6 @@ class JSONDataSource(DataSource):
         )
 
 
-setattr(JSONDataSource, _INTERNAL_STEP_OPERATION_KEY, True)
+setattr(CSVDataSource, _INTERNAL_STEP_OPERATION_KEY, True)
 
-__all__ = ["JSONDataSource"]
+__all__ = ["CSVDataSource"]
