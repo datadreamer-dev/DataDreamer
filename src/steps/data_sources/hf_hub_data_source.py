@@ -5,7 +5,6 @@ from datasets.fingerprint import Hasher
 from datasets.splits import Split
 from datasets.utils.version import Version
 
-from .. import DataDreamer
 from ..step_operations import _INTERNAL_STEP_OPERATION_KEY
 from .data_source import DataSource
 
@@ -50,6 +49,8 @@ class HFHubDataSource(DataSource):
         pass
 
     def run(self):
+        from .. import DataDreamer
+
         DataDreamer._enable_hf_datasets_logging()
         result = load_dataset(
             path=self.path,
