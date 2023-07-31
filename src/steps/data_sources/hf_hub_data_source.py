@@ -5,6 +5,7 @@ from datasets.fingerprint import Hasher
 from datasets.splits import Split
 from datasets.utils.version import Version
 
+from .. import DataDreamer
 from ..step_operations import _INTERNAL_STEP_OPERATION_KEY
 from .data_source import DataSource
 
@@ -49,6 +50,7 @@ class HFHubDataSource(DataSource):
         pass
 
     def run(self):
+        DataDreamer._enable_hf_datasets_logging()
         result = load_dataset(
             path=self.path,
             name=self.config_name,
@@ -57,6 +59,7 @@ class HFHubDataSource(DataSource):
             streaming=self.streaming,
             **self.config_kwargs
         )
+        DataDreamer._disable_hf_datasets_logging()
         if isinstance(result, (DatasetDict, IterableDatasetDict)):
             raise ValueError(
                 "Choose a split with the `split=...` parameter,"
