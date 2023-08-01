@@ -26,6 +26,7 @@ from ...steps.step import (
     ShuffleStep,
     SkipStep,
     SortStep,
+    SplitStep,
     TakeStep,
     ZippedStep,
 )
@@ -1165,6 +1166,51 @@ class TestRemoveColumns:
             assert isinstance(remove_columns_step.output, OutputIterableDataset)
             assert remove_columns_step.output.num_rows == 3
             assert set(remove_columns_step.output.column_names) == set(["out2"])
+
+
+class TestSplits:
+    def test_splits_dataset(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1"]
+            )
+            step._set_output({"out1": range(1, 11)})
+            split_steps = step.splits(
+                train_size=0.7, validation_size=0.1, test_size=0.2
+            )
+            assert isinstance(split_steps, dict)
+            assert isinstance(split_steps["train"], SplitStep)
+            assert split_steps["train"].output.num_rows == 7
+            assert isinstance(split_steps["validation"], SplitStep)
+            assert split_steps["validation"].output.num_rows == 1
+            assert isinstance(split_steps["test"], SplitStep)
+            assert split_steps["test"].output.num_rows == 2
+
+    def test_splits_iterable_dataset(
+        self, create_datadreamer, create_test_step: Callable[..., Step]
+    ):
+        with create_datadreamer():
+            step = create_test_step(
+                name="my-step-1", inputs=None, output_names=["out1"]
+            )
+            step._set_output(
+                LazyRows(
+                    Dataset.from_dict({"out1": range(1, 11)}).to_iterable_dataset(),
+                    total_num_rows=3,
+                )
+            )
+            split_steps = step.splits(
+                train_size=0.7, validation_size=0.1, test_size=0.2
+            )
+            assert isinstance(split_steps, dict)
+            assert isinstance(split_steps["train"], SplitStep)
+            assert split_steps["train"].output.num_rows == 7
+            assert isinstance(split_steps["validation"], SplitStep)
+            assert split_steps["validation"].output.num_rows == 1
+            assert isinstance(split_steps["test"], SplitStep)
+            assert split_steps["test"].output.num_rows == 2
 
 
 class TestShard:

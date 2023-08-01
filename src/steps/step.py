@@ -34,7 +34,7 @@ from ..pickling.pickle import _INTERNAL_PICKLE_KEY, _pickle
 from ..project.environment import RUNNING_IN_PYTEST
 from ..utils.background_utils import run_in_background_process_no_block
 from ..utils.fs_utils import move_dir, safe_fn
-from .step_export import _path_to_split_paths, _step_to_dataset_dict, _unpickle_export
+from .step_export import _path_to_split_paths, _unpickle_export
 from .step_operations import (
     _INTERNAL_STEP_OPERATION_KEY,
     _INTERNAL_STEP_OPERATION_NO_SAVE_KEY,
@@ -54,7 +54,9 @@ from .step_operations import (
     _create_shuffle_step,
     _create_skip_step,
     _create_sort_step,
+    _create_splits_step,
     _create_take_step,
+    _step_to_dataset_dict,
 )
 from .step_output import (
     LazyRowBatches,
@@ -936,6 +938,28 @@ class Step(metaclass=StepMeta):
         del kwargs["self"]
         return partial(_create_remove_columns_step, **kwargs)()
 
+    def splits(
+        self,
+        train_size: None | float | int = None,
+        validation_size: None | float | int = None,
+        test_size: None | float | int = None,
+        stratify_by_column: None | str = None,
+        name: None | str = None,
+        progress_interval: None | int = None,
+        force: bool = False,
+        writer_batch_size: None | int = 1000,
+        save_num_proc: None | int = None,
+        save_num_shards: None | int = None,
+        background: bool = False,
+    ) -> dict[str, "Step"]:
+        kwargs = dict(locals())
+        kwargs["step"] = self
+        del kwargs["self"]
+        return partial(
+            _create_splits_step,
+            **kwargs,
+        )()
+
     def shard(
         self,
         num_shards: int,
@@ -1484,6 +1508,10 @@ class RemoveColumnsStep(Step):
     pass
 
 
+class SplitStep(Step):
+    pass
+
+
 class ShardStep(Step):
     pass
 
@@ -1520,6 +1548,7 @@ __all__ = [
     "RenameColumnStep",
     "RenameColumnsStep",
     "RemoveColumnsStep",
+    "SplitStep",
     "ShardStep",
     "ReverseStep",
     "SaveStep",

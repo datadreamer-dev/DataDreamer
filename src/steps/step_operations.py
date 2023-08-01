@@ -1,11 +1,13 @@
 import os
+from collections import OrderedDict
 from collections.abc import Iterable
+from decimal import Decimal
 from functools import partial
-from typing import TYPE_CHECKING, Callable, Sequence, Type, cast
+from typing import TYPE_CHECKING, Any, Callable, Sequence, Type, cast
 
 from pyarrow.lib import ArrowInvalid, ArrowTypeError
 
-from datasets import Dataset, IterableDataset, concatenate_datasets
+from datasets import Dataset, DatasetDict, IterableDataset, concatenate_datasets
 from datasets.builder import DatasetGenerationError
 from datasets.fingerprint import Hasher
 
@@ -38,14 +40,15 @@ def _iterable_dataset_to_dataset(
     def dataset_generator(iterable_dataset):
         i = None
         for i, row in enumerate(iterable_dataset):
-            if step.output.num_rows is not None:
+            if self and step.output.num_rows is not None:
                 self.progress = (i + 1) / step.output.num_rows
-            else:
+            elif self:
                 self._set_progress_rows(i + 1)
             yield row
-        if i is not None:
-            self._set_progress_rows(i + 1)
-        self.progress = 1.0
+        if self:
+            if i is not None:
+                self._set_progress_rows(i + 1)
+            self.progress = 1.0
 
     logger.debug(
         f"Iterating through all of '{step.name}''s lazy results in"
@@ -66,8 +69,93 @@ def _iterable_dataset_to_dataset(
             dataset = Dataset.from_list(list(dataset_generator(iterable_dataset)))
     except DatasetGenerationError as e:
         raise e.__cause__
-    self._pickled = step.output._pickled
+    if self:
+        self._pickled = step.output._pickled
     return dataset
+
+
+def _step_to_dataset_dict(
+    step: "Step",
+    train_size: None | float | int = None,
+    validation_size: None | float | int = None,
+    test_size: None | float | int = None,
+    stratify_by_column: None | str = None,
+    writer_batch_size: None | int = 1000,
+    save_num_proc: None | int = None,
+    save_num_shards: None | int = None,
+) -> tuple[OutputDataset, DatasetDict]:
+    # Wait for a lazy step to complete
+    wait(step)
+    output: OutputDataset
+    dataset: Dataset
+    if isinstance(step.output, OutputIterableDataset):
+        dataset = _iterable_dataset_to_dataset(
+            None,
+            step,
+            iterable_dataset=step.output.dataset,
+            writer_batch_size=writer_batch_size,
+            save_num_proc=save_num_proc,
+        )
+        output = OutputDataset(
+            step=step,
+            dataset=dataset,
+            pickled=step._pickled,
+        )
+    else:
+        output = step.output
+        dataset = output.dataset
+    splits: OrderedDict[str, Any] = OrderedDict(
+        [
+            (
+                split_name,
+                Decimal(str(proportion))
+                if isinstance(proportion, float)
+                else proportion,
+            )
+            for split_name, proportion in [
+                ("train", train_size),
+                ("validation", validation_size),
+                ("test", test_size),
+            ]
+            if proportion is not None and proportion != 0
+        ]
+    )
+    if len(splits) == 0:
+        splits = OrderedDict({"train": Decimal("1.0")})
+    split_names = list(splits.keys())
+    proportions = list(splits.values())
+    total = sum(proportions)
+    if total != Decimal("1.0") and total != len(dataset):
+        raise ValueError(
+            "If not None, train_size, validation_size, test_size must sum up to 1.0 or"
+            f" the number of rows ({len(dataset)}) in the dataset. Instead, got a total"
+            f" of : {total}."
+        )
+
+    # Split the dataset
+    total_proportion = Decimal("1.0")
+    remainder_dataset = dataset
+    while len(proportions) > 1:
+        split_name = split_names.pop()
+        proportion = proportions.pop()
+        new_dataset_dict = remainder_dataset.train_test_split(
+            test_size=float(proportion / total_proportion)
+            if total == Decimal("1.0")
+            else int(proportion),
+            shuffle=False,
+            stratify_by_column=stratify_by_column,
+            writer_batch_size=writer_batch_size,
+        )
+        splits[split_name] = new_dataset_dict["test"]
+        remainder_dataset = new_dataset_dict["train"]
+        if total == Decimal("1.0"):
+            total_proportion = total_proportion - proportion
+
+    # Finally, assign the remainder of the splits
+    split_name = split_names.pop()
+    splits[split_name] = remainder_dataset
+
+    return output, DatasetDict(splits)
 
 
 def _user_transform(
@@ -729,6 +817,55 @@ def _create_remove_columns_step(column_names: str | list[str], **kwargs):
     return partial(__create_step_operation_step, **kwargs)()
 
 
+def _create_splits_step(
+    train_size: None | float | int,
+    validation_size: None | float | int,
+    test_size: None | float | int,
+    stratify_by_column: None | str,
+    **kwargs,
+):
+    step = kwargs["step"]
+    _, dataset_dict = _step_to_dataset_dict(
+        step=step,
+        train_size=train_size,
+        validation_size=validation_size,
+        test_size=test_size,
+        stratify_by_column=stratify_by_column,
+        writer_batch_size=kwargs["writer_batch_size"],
+        save_num_proc=kwargs["save_num_proc"],
+        save_num_shards=kwargs["save_num_shards"],
+    )
+
+    def run(dataset_dict, split, self):
+        return dataset_dict[split]
+
+    from .step import SplitStep
+
+    kwargs["op_cls"] = SplitStep
+    kwargs["no_save"] = False
+    kwargs["args"] = {
+        "fingerprint": [
+            step.fingerprint,
+            train_size,
+            validation_size,
+            test_size,
+            stratify_by_column,
+        ]
+    }
+    name = kwargs["name"]
+    del kwargs["name"]
+    return {
+        split: partial(
+            __create_step_operation_step,
+            run=partial(run, dataset_dict, split),
+            op_name=f"split/{split}",
+            name=f"{name} ({split})" if name else None,
+            **kwargs,
+        )()
+        for split in dataset_dict.keys()
+    }
+
+
 def _create_shard_step(num_shards: int, index: int, contiguous: bool, **kwargs):
     step = kwargs["step"]
 
@@ -844,6 +981,7 @@ def _create_copy_step(**kwargs) -> "Step":
 
 __all__ = [
     "_INTERNAL_STEP_OPERATION_KEY",
+    "_step_to_dataset_dict",
     "_create_select_step",
     "_create_select_columns_step",
     "_create_take_step",
@@ -856,6 +994,7 @@ __all__ = [
     "_create_rename_column_step",
     "_create_rename_columns_step",
     "_create_remove_columns_step",
+    "_create_splits_step",
     "_create_shard_step",
     "_create_reverse_step",
     "_create_save_step",
