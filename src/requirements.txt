@@ -16,22 +16,33 @@ jsonlines==3.1.0
 h5py==3.8.0
 sqlitedict==2.1.0
 dataclasses-sqlitedict==0.1.1
-lightning==2.0.2
-transformers==4.28.0
-datasets==2.14.0
+lightning==2.0.6
+transformers==4.31.0
+datasets==2.14.1
 huggingface-hub==0.16.4
 setfit==0.7.0
 evaluate==0.4.0
-accelerate==0.18.0
-peft==0.2.0
-optimum==1.7.3
-bitsandbytes==0.38.1
+accelerate==0.20.3
+peft==0.4.0
+tiktoken==0.4.0
+tenacity==8.2.2
+ratelimit==2.2.1
+replicate==0.10.0
+petals==2.0.1
+openai==0.27.8
+text-generation==0.6.0
+ctransformers==0.2.17
+optimum==1.10.1
+bitsandbytes==0.40.1.post1
+trl==0.4.7
+reflex==0.2.3
+pyngrok==6.0.0
 wandb==0.14.2
 dill==0.3.6
 pandas==1.5.3
 pandas-stubs==1.5.3.230321
-taskflow==5.2.0
+# taskflow==5.2.0
 guidance==0.0.61
-SQLAlchemy==2.0.15
-alembic==1.11.1
-SQLAlchemy-Utils==0.41.1
+# SQLAlchemy==2.0.15
+# alembic==1.11.1
+# SQLAlchemy-Utils==0.41.1
