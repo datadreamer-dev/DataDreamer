@@ -183,7 +183,9 @@ class Step(metaclass=StepMeta):
         if not hasattr(self.__class__, _INTERNAL_HELP_KEY):
             stderr_handler = logging.StreamHandler()
             stderr_handler.setLevel(logging.DEBUG)
-            self.logger = logging.getLogger(f"datadreamer.steps.{safe_fn(self.name)}")
+            self.logger = logging.getLogger(
+                f"datadreamer.steps.{safe_fn(self.name, allow_slashes=True)}"
+            )
             if RUNNING_IN_PYTEST:
                 self.logger.propagate = True
             else:
@@ -274,7 +276,7 @@ class Step(metaclass=StepMeta):
 
         # Create an output folder for the step
         self._output_folder_path = os.path.join(
-            DataDreamer.get_output_folder_path(), safe_fn(self.name)
+            DataDreamer.get_output_folder_path(), safe_fn(self.name, allow_slashes=True)
         )
         os.makedirs(self._output_folder_path, exist_ok=True)
         assert self._output_folder_path is not None
@@ -315,7 +317,7 @@ class Step(metaclass=StepMeta):
             backup_path = os.path.join(
                 DataDreamer.get_output_folder_path(),
                 ".backups",
-                safe_fn(self.name),
+                safe_fn(self.name, allow_slashes=True),
                 prev_fingerprint,
             )
             logger.debug(

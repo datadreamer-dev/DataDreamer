@@ -3,8 +3,10 @@ import os
 from collections import UserDict
 from multiprocessing import Process
 from threading import Lock
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
+from filelock import FileLock
+from sqlitedict import SqliteDict
 from transformers import logging as transformers_logging
 
 from datasets.fingerprint import disable_caching, enable_caching, is_caching_enabled
@@ -68,7 +70,7 @@ class DataDreamer:
     def _has_step_name(name: str) -> bool:
         return (
             name in DataDreamer.ctx.step_names
-            or safe_fn(name) in DataDreamer.ctx.step_names
+            or safe_fn(name, allow_slashes=True) in DataDreamer.ctx.step_names
         )
 
     @staticmethod
@@ -77,7 +79,7 @@ class DataDreamer:
             step.name = DataDreamer._new_step_name(step.name)
             DataDreamer.ctx.steps.append(step)
             DataDreamer.ctx.step_names.add(step.name)
-            DataDreamer.ctx.step_names.add(safe_fn(step.name))
+            DataDreamer.ctx.step_names.add(safe_fn(step.name, allow_slashes=True))
 
     @staticmethod
     def _add_process(process: Process):
@@ -152,6 +154,7 @@ class DataDreamer:
         DataDreamer.ctx.step_names = set()
         DataDreamer.ctx.background_processes = []
         DataDreamer.ctx.pid = os.getpid()
+        DataDreamer.ctx.llm_caches = cast(dict[str, tuple[SqliteDict, FileLock]], {})
 
         # Setup logger
         if self.log_date:

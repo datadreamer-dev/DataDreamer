@@ -2,9 +2,13 @@ import os
 import shutil
 
 
-def safe_fn(value: str):
+def safe_fn(value: str, allow_slashes=False) -> str:
     value = value.replace(" ", "-")
-    safe_chars = ("-", "_", "/")
+    if not allow_slashes:
+        value = value.replace("/", "-")
+    safe_chars = ("-", "_")
+    if not allow_slashes:
+        safe_chars = ("-", "_", "/")
     return "".join(c for c in value if c.isalnum() or c in safe_chars).strip()
 
 

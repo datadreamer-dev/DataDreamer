@@ -48,11 +48,18 @@ warn_unused_ignores = true
 mypy_path = "src/_stubs"
 
 [[tool.mypy.overrides]]
-module = "flaky,tensorflow,torch_xla,datasets.features.features,datasets.iterable_dataset,datasets.fingerprint,datasets.builder,datasets.splits,datasets.utils,datasets.utils.version,pyarrow.lib,huggingface_hub,huggingface_hub.utils._headers,dill,dill.source,transformers,guidance"
+module = "flaky,tensorflow,torch_xla,datasets.features.features,datasets.iterable_dataset,datasets.fingerprint,datasets.builder,datasets.splits,datasets.utils,datasets.utils.version,pyarrow.lib,huggingface_hub,huggingface_hub.utils._headers,dill,dill.source,transformers,sqlitedict,optimum.bettertransformer,optimum.bettertransformer.models,transformers.utils.quantization_config"
 ignore_missing_imports = true
 
 [tool.coverage.run]
 omit = ["src/project/*", "src/tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "@abc.abstractmethod",
+  "@abstractmethod",
+  "pragma: no cover",
+]   
 
 [tool.docs.sh]
 docs_author = "Ajay Patel"

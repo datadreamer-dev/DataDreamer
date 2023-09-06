@@ -22,5 +22,24 @@
 </p>
 
 <h3 align="center">
-    <p>State-of-the-art Machine Learning for JAX, PyTorch and TensorFlow</p>
+    <p>Generate Datasets using Large Language Models</p>
 </h3>
+
+
+<h4>Augment Existing Datasets</h4>
+```python
+from datadreamer import DataDreamer
+from datadreamer.llms import OpenAI
+from datadreamer.steps import ZeroShot
+
+with DataDreamer('./'):
+    llm = OpenAI("gpt-3.5-turbo")
+    trivia_dataset = HFHubDataSource(
+        "trivia_dataset", "trivia_qa", "rc", "train"
+    ).select_columns(["question", "answer])
+    trivia_dataset_processed = trivia_dataset.map(row => {"qa": f"The answer to '{row['question']}' is {row['answer']}."})
+    data_with_explanations = ZeroShot(llm, "Explain why the answer is correct.", inputs=trivia_dataset_processed)
+    data_with_explanations_verified = data_with_explanations.annotate(num_annotators=3, percent=0.10, active_learning=True)
+    data_with_explanations_verified.publish_to_hf_hub("trivia_qa_with_explanations", train_size=1.0)
+    # Returns: https://huggingface.co/datasets/trivia_qa_with_explanations
+```
