@@ -325,3 +325,14 @@ body:not([data-theme="light"]) table.docutils {
     }
     
 }
+
+article[role="main"] section#datadreamer h1:first-child {
+    text-align: center;
+}
+
+@media (max-width: 1070px) {
+    article[role="main"] section#datadreamer h1:first-child {
+        height: 0;
+        overflow: hidden;
+    }
+}
