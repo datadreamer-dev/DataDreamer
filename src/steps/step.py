@@ -147,7 +147,7 @@ class Step(metaclass=StepMeta):
             log_level: The logging level to use (:py:data:`~logging.DEBUG`, :py:data:`~logging.INFO`, etc.).
             save_num_proc: The number of processes to use if saving to disk.
             save_num_shards: The number of shards on disk to save the dataset into.
-            background: Whether to run the operation in the background.            
+            background: Whether to run the operation in the background.
         """
         # Get the cls_name
         cls_name = self.__class__.__name__
@@ -651,7 +651,7 @@ class Step(metaclass=StepMeta):
         """Pickle a value so it can be stored in a row produced by this step. See
         :doc:`create your own steps
         <pages/advanced_usage/creating_a_new_datadreamer_.../step>` for more details.
-        
+
         Args:
             value: The value to pickle.
             *args: The args to pass to :py:meth:`~dill.dumps`.
@@ -664,7 +664,7 @@ class Step(metaclass=StepMeta):
         return _pickle(value, *args, **kwargs)
 
     def unpickle(self, value: bytes) -> Any:
-        """Unpickle a value that was stored in a row produced by this step with 
+        """Unpickle a value that was stored in a row produced by this step with
         :py:meth:`~Step.pickle`. See :doc:`create your own steps
         <pages/advanced_usage/creating_a_new_datadreamer_.../step>` for more details.
 
@@ -836,9 +836,9 @@ class Step(metaclass=StepMeta):
 
     @property
     def dataset_path(self) -> str:
-        """The path to the step's output dataset on disk in HuggingFace 
+        """The path to the step's output dataset on disk in HuggingFace
         :py:class:`~datasets.Dataset` format if the step has been saved to disk.
-        """ 
+        """
         assert not DataDreamer.is_running_in_memory(), (
             "This step's dataset has not been saved to disk. DataDreamer is running"
             " in-memory."
@@ -952,7 +952,7 @@ class Step(metaclass=StepMeta):
     ) -> "Step":
         """Select rows from the step's output by their indices. See
         :py:meth:`~datasets.Dataset.select` for more details.
-        
+
         Args:
             indices: The indices of the rows to select.
             name: The name of the operation.
@@ -963,7 +963,7 @@ class Step(metaclass=StepMeta):
             save_num_proc: The number of processes to use if saving to disk.
             save_num_shards: The number of shards on disk to save the dataset into.
             background: Whether to run the operation in the background.
-        
+
         Returns:
             A new step with the operation applied.
         """
@@ -997,7 +997,7 @@ class Step(metaclass=StepMeta):
             save_num_proc: The number of processes to use if saving to disk.
             save_num_shards: The number of shards on disk to save the dataset into.
             background: Whether to run the operation in the background.
-        
+
         Returns:
             A new step with the operation applied.
         """
@@ -1032,7 +1032,7 @@ class Step(metaclass=StepMeta):
             save_num_proc: The number of processes to use if saving to disk.
             save_num_shards: The number of shards on disk to save the dataset into.
             background: Whether to run the operation in the background.
-        
+
         Returns:
             A new step with the operation applied.
         """
@@ -1056,7 +1056,7 @@ class Step(metaclass=StepMeta):
     ) -> "Step":
         """Skip the first ``n`` rows from the step's output. See
         :py:meth:`~datasets.IterableDataset.skip` for more details.
-        
+
         Args:
             n: The number of rows to skip.
             name: The name of the operation.
@@ -1067,7 +1067,7 @@ class Step(metaclass=StepMeta):
             save_num_proc: The number of processes to use if saving to disk.
             save_num_shards: The number of shards on disk to save the dataset into.
             background: Whether to run the operation in the background.
-        
+
         Returns:
             A new step with the operation applied.
         """
@@ -1091,10 +1091,10 @@ class Step(metaclass=StepMeta):
     ) -> "Step":
         """Shuffle the rows of the step's output. See
         :py:meth:`~datasets.IterableDataset.shuffle` for more details.
-        
+
         Args:
             seed: The random seed to use for shuffling the step's output.
-            buffer_size: The buffer size to use for shuffling the dataset, if the step's 
+            buffer_size: The buffer size to use for shuffling the dataset, if the step's
                 output is an :py:class:`~datadreamer.datasets.OutputIterableDataset`.
             name: The name of the operation.
             lazy: Whether to run the operation lazily.
@@ -1104,7 +1104,7 @@ class Step(metaclass=StepMeta):
             save_num_proc: The number of processes to use if saving to disk.
             save_num_shards: The number of shards on disk to save the dataset into.
             background: Whether to run the operation in the background.
-        
+
         Returns:
             A new step with the operation applied.
         """
@@ -1129,7 +1129,7 @@ class Step(metaclass=StepMeta):
     ) -> "Step":
         """Sort the rows of the step's output. See
         :py:meth:`~datasets.Dataset.sort` for more details.
-        
+
         Args:
             column_names: The names of the columns to sort by.
             reverse: Whether to sort in reverse order.
@@ -1141,7 +1141,7 @@ class Step(metaclass=StepMeta):
             save_num_proc: The number of processes to use if saving to disk.
             save_num_shards: The number of shards on disk to save the dataset into.
             background: Whether to run the operation in the background.
-        
+
         Returns:
             A new step with the operation applied.
         """
@@ -1175,7 +1175,7 @@ class Step(metaclass=StepMeta):
             save_num_proc: The number of processes to use if saving to disk.
             save_num_shards: The number of shards on disk to save the dataset into.
             background: Whether to run the operation in the background.
-        
+
         Returns:
             A new step with the operation applied.
         """
@@ -1206,7 +1206,7 @@ class Step(metaclass=StepMeta):
         """
         Apply a function to the step's output. See
         :py:meth:`~datasets.Dataset.map` for more details.
-        
+
         Args:
             function: The function to apply to rows of the step's output.
             with_indices: Whether to pass the indices of the rows to the function.
@@ -1225,7 +1225,7 @@ class Step(metaclass=StepMeta):
             save_num_proc: The number of processes to use if saving to disk.
             save_num_shards: The number of shards on disk to save the dataset into.
             background: Whether to run the operation in the background.
-        
+
         Returns:
             A new step with the operation applied.
         """
@@ -1282,7 +1282,7 @@ class Step(metaclass=StepMeta):
             save_num_proc: The number of processes to use if saving to disk.
             save_num_shards: The number of shards on disk to save the dataset into.
             background: Whether to run the operation in the background.
-        
+
         Returns:
             A new step with the operation applied.
         """
@@ -1328,7 +1328,7 @@ class Step(metaclass=StepMeta):
             save_num_proc: The number of processes to use if saving to disk.
             save_num_shards: The number of shards on disk to save the dataset into.
             background: Whether to run the operation in the background.
-        
+
         Returns:
             A new step with the operation applied.
         """
@@ -1363,7 +1363,7 @@ class Step(metaclass=StepMeta):
             save_num_proc: The number of processes to use if saving to disk.
             save_num_shards: The number of shards on disk to save the dataset into.
             background: Whether to run the operation in the background.
-        
+
         Returns:
             A new step with the operation applied.
         """
@@ -1398,7 +1398,7 @@ class Step(metaclass=StepMeta):
             save_num_proc: The number of processes to use if saving to disk.
             save_num_shards: The number of shards on disk to save the dataset into.
             background: Whether to run the operation in the background.
-        
+
         Returns:
             A new step with the operation applied.
         """
@@ -1430,7 +1430,7 @@ class Step(metaclass=StepMeta):
                 and 1.0 and represent the proportion of the dataset to include in the
                 training split. If an int, should be the number of rows to include in
                 the training split.
-            
+
             validation_size: The size of the validation split. If a float, should be
                 between 0.0 and 1.0 and represent the proportion of the dataset to
                 include in the validation split. If an int, should be the number of rows
@@ -1439,7 +1439,7 @@ class Step(metaclass=StepMeta):
                 1.0 and represent the proportion of the dataset to include in the test
                 split. If an int, should be the number of rows to include in the test
                 split.
-            stratify_by_column: The name of the column to use to stratify equally 
+            stratify_by_column: The name of the column to use to stratify equally
                 between splits.
             name: The name of the operation.
             progress_interval: How often to log progress in seconds.
@@ -1486,7 +1486,7 @@ class Step(metaclass=StepMeta):
             save_num_proc: The number of processes to use if saving to disk.
             save_num_shards: The number of shards on disk to save the dataset into.
             background: Whether to run the operation in the background.
-        
+
         Returns:
             A new step with the operation applied.
         """
@@ -1518,7 +1518,7 @@ class Step(metaclass=StepMeta):
             save_num_proc: The number of processes to use if saving to disk.
             save_num_shards: The number of shards on disk to save the dataset into.
             background: Whether to run the operation in the background.
-        
+
         Returns:
             A new step with the operation applied.
         """
@@ -1547,7 +1547,7 @@ class Step(metaclass=StepMeta):
             save_num_proc: The number of processes to use if saving to disk.
             save_num_shards: The number of shards on disk to save the dataset into.
             background: Whether to run the operation in the background.
-        
+
         Returns:
             A new step with the operation applied.
         """
@@ -1578,7 +1578,7 @@ class Step(metaclass=StepMeta):
             save_num_proc: The number of processes to use if saving to disk.
             save_num_shards: The number of shards on disk to save the dataset into.
             background: Whether to run the operation in the background.
-        
+
         Returns:
             A new step with the operation applied.
         """
@@ -1624,7 +1624,7 @@ class Step(metaclass=StepMeta):
             writer_batch_size: The batch size to use if saving to disk.
             save_num_proc: The number of processes to use if saving to disk.
             save_num_shards: The number of shards on disk to save the dataset into.
-        
+
         Returns:
             The step's output as a dictionary.
         """
@@ -1746,7 +1746,7 @@ class Step(metaclass=StepMeta):
             save_num_shards: The number of shards on disk to save the dataset into.
             to_json_kwargs: Additional keyword arguments to pass to
                 :py:meth:`~datasets.Dataset.to_json`.
-        
+
         Returns:
             The path to the JSON file or a dictionary of paths if creating splits.
         """
@@ -1814,7 +1814,7 @@ class Step(metaclass=StepMeta):
             save_num_shards: The number of shards on disk to save the dataset into.
             to_csv_kwargs: Additional keyword arguments to pass to
                 :py:meth:`~datasets.Dataset.to_csv`.
-        
+
         Returns:
             The path to the CSV file or a dictionary of paths if creating splits.
         """
@@ -1879,7 +1879,7 @@ class Step(metaclass=StepMeta):
             writer_batch_size: The batch size to use if saving to disk.
             save_num_proc: The number of processes to use if saving to disk.
             save_num_shards: The number of shards on disk to save the dataset into.
-        
+
         Returns:
             The step's output as a Hugging Face :py:class:`~datasets.Dataset` or
             :py:class:`~datasets.DatasetDict` if creating splits.
@@ -1964,7 +1964,7 @@ class Step(metaclass=StepMeta):
                 when publishing).
             kwargs: Additional keyword arguments to pass to
                 :py:meth:`~datasets.Dataset.push_to_hub`.
-        
+
         Returns:
             The URL to the published dataset.
         """
@@ -2303,7 +2303,7 @@ def concat(
         save_num_proc: The number of processes to use if saving to disk.
         save_num_shards: The number of shards on disk to save the dataset into.
         background: Whether to run the operation in the background.
-    
+
     Returns:
         A new step with the operation applied.
     """
@@ -2343,7 +2343,7 @@ def zipped(
         save_num_proc: The number of processes to use if saving to disk.
         save_num_shards: The number of shards on disk to save the dataset into.
         background: Whether to run the operation in the background.
-    
+
     Returns:
         A new step with the operation applied.
     """
@@ -2449,6 +2449,7 @@ class SuperStep(Step):  # pragma: no cover
     See :doc:`create your own steps
     <pages/advanced_usage/creating_a_new_datadreamer_.../step>` for more details.
     """
+
     @property
     def output(self) -> OutputDataset | OutputIterableDataset:
         return super().output

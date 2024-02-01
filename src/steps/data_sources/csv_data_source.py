@@ -26,6 +26,7 @@ class CSVDataSource(DataSource):
         **config_kwargs: Additional keyword arguments to pass to
             :py:func:`datasets.load_dataset`.
     """
+
     def __init__(
         self,
         name: str,

@@ -6,6 +6,7 @@ from datasets.fingerprint import Hasher
 from ..step_operations import _INTERNAL_STEP_OPERATION_KEY
 from .data_source import DataSource
 
+
 class HFDatasetDataSource(DataSource):
     """Loads a Hugging Face :py:class:`~datasets.Dataset` from a local path. See
     :py:func:`datasets.load_from_disk` for more details.

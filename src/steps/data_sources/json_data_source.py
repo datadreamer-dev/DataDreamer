@@ -7,6 +7,7 @@ from datasets.fingerprint import Hasher
 from ..step_operations import _INTERNAL_STEP_OPERATION_KEY
 from .data_source import DataSource
 
+
 class JSONDataSource(DataSource):
     """Loads a JSON dataset from a local path. See :py:func:`datasets.load_dataset` for
     more details.
@@ -25,6 +26,7 @@ class JSONDataSource(DataSource):
         **config_kwargs: Additional keyword arguments to pass to
             :py:func:`datasets.load_dataset`.
     """
+
     def __init__(
         self,
         name: str,

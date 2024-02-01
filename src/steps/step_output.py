@@ -228,6 +228,7 @@ class LazyRows:
         auto_progress: Whether to automatically update the progress % for this step.
         writer_batch_size: The batch size to use if saving to disk.
     """
+
     def __init__(
         self,
         value: LazyStepOutputType,
@@ -265,7 +266,7 @@ class LazyRowBatches:
     A wrapper for lazy row batches output from a step. See
     :doc:`create your own steps
     <pages/advanced_usage/creating_a_new_datadreamer_.../step>` for more details.
-    
+
     Args:
         value (lazy output): The lazy row batches output.
         total_num_rows: The total number of rows being processed (helps with
@@ -273,6 +274,7 @@ class LazyRowBatches:
         auto_progress: Whether to automatically update the progress % for this step.
         writer_batch_size: The batch size to use if saving to disk.
     """
+
     def __init__(
         self,
         value: LazyBatchStepOutputType,
