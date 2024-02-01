@@ -1,0 +1,85 @@
+[tool.poetry]
+name = "DataDreamer"
+version = "0.3.0"
+description = "Prompt. Generate Synthetic Data. Train & Align Models."
+license = "MIT"
+authors= [
+    "Ajay Patel <me@ajayp.app>"
+]
+maintainers = [
+    "Ajay Patel <me@ajayp.app>"
+]
+readme = "README.md"
+homepage = "https://datadreamer.dev/"
+repository = "https://github.com/datadreamer-dev/DataDreamer"
+documentation = "https://datadreamer.dev/docs/"
+keywords = ["python", "nlp", "machine learning", "natural language processing", "deep learning", "transformers", "pytorch", "openai", "alignment", "gpt", "nlp library", "synthetic data", "fine-tuning", "synthetic dataset generation", "llm", "llms", "llmops", "instruction-tuning"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence"
+]
+packages = [
+    {include = "datadreamer"}
+]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.14"
+
+[tool.poetry.group.dev.dependencies]
+poetry = "1.4.2"
+
+[tool.ruff]
+extend-exclude = ["docs"]
+
+[tool.ruff.format]
+skip-magic-trailing-comma = true
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "B", "C90"]
+ignore = ["E203", "E501"]
+unfixable = ["B"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 12
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+
+[tool.pytest.ini_options]
+addopts = "-v --cov=src --cov-report term-missing --cov-report json"
+filterwarnings = ["ignore::DeprecationWarning:jupyter_client.*:"]
+
+[tool.mypy]
+check_untyped_defs = true
+warn_unused_ignores = true
+mypy_path = "src/_stubs"
+
+[[tool.mypy.overrides]]
+module = "click,wandb,wandb.*,click.testing,flaky,tensorflow,torch_xla,jax,datasets.features.features,datasets.iterable_dataset,datasets.fingerprint,datasets.builder,datasets.arrow_writer,datasets.splits,datasets.utils,datasets.utils.version,pyarrow.lib,huggingface_hub,huggingface_hub.utils._headers,huggingface_hub.utils._errors,dill,dill.source,transformers,bitsandbytes,sqlitedict,optimum.bettertransformer,optimum.bettertransformer.models,optimum.utils,transformers.utils.quantization_config,sortedcontainers,peft,psutil,ring,ctransformers,petals,petals.client.inference_session,hivemind.p2p.p2p_daemon_bindings.utils,huggingface_hub.utils,tqdm,ctransformers.transformers,vllm,litellm,litellm.llms.palm,litellm.exceptions,sentence_transformers,faiss,huggingface_hub.utils._validators,evaluate,transformers.trainer_callback,transformers.training_args,trl,guidance,sentence_transformers.models.Transformer,trl.trainer.utils,transformers.trainer_utils,setfit,joblib,setfit.modeling,transformers.utils.notebook,mistralai.models.chat_completion,accelerate.utils,accelerate.utils.constants,accelerate,transformers.trainer,sentence_transformers.util,Pyro5,Pyro5.server,Pyro5.api,Pyro5,datadreamer"
+ignore_missing_imports = true
+
+[tool.coverage.run]
+omit = ["src/__main__.py", "src/project/*", "src/tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "@abc.abstractmethod",
+  "@abstractmethod",
+  "pragma: no cover",
+]   
+
+[tool.docs.sh]
+docs_author = "Ajay Patel"
+docs_author_website = "https://ajayp.app"
+autodoc_exclude_paths = "./datadreamer.py ./datasets/[!_]*.py ./steps/[!_]*.py ./errors/[!_]*.py ./llms/[!_]*.py ./embedders/[!_]*.py ./retrievers/[!_]*.py ./task_models/[!_]*.py ./trainers/[!_]*.py ./project/* ./logging/* ./pickling/* ./utils/* ./tests/*" # Space-separated, fnmatch-style

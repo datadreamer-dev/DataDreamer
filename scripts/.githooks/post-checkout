@@ -1,0 +1,20 @@
+#!/bin/bash
+set -e
+
+# Change directory to script location
+cd "$(dirname "$0")/../../" || exit
+
+# Symlink .cluster and .vscode at the top-level
+if [ ! -L ./.cluster ] || [ ! -e ./.cluster ]; then
+    rm ./.cluster 1>/dev/null 2>/dev/null || true
+    rm -rf ./.cluster 1>/dev/null 2>/dev/null || true
+    ln -s "$(realpath ./scripts/.cluster)" ./.cluster
+fi
+if [ ! -L ./.vscode ] || [ ! -e ./.vscode ]; then
+    rm ./.vscode 1>/dev/null 2>/dev/null || true
+    rm -rf ./.vscode 1>/dev/null 2>/dev/null || true
+    ln -s "$(realpath ./scripts/.vscode)" ./.vscode
+fi
+
+# Don't track local changes to project.env
+git update-index --skip-worktree ./scripts/project.env

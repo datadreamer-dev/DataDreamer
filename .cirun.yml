@@ -1,0 +1,10 @@
+runners:
+  - name: "aws-runner"
+    cloud: "aws"
+    region: us-east-1
+    instance_type: "t3.xlarge"
+    # Ubuntu-22.04, ami image -> Created via EC2 Image Builder: https://us-east-1.console.aws.amazon.com/imagebuilder/home?region=us-east-1#/viewPipelines
+    machine_image: "ami-0dac1a7772e1ccf34"
+    preemptible: true
+    labels:
+      - "cirun-aws-runner"

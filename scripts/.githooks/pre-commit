@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# Change directory to script location
+cd "$(dirname "$0")/../../" || exit
+
+# Format and lint
+./scripts/format.sh
+
+# Check if lint failed
+retval=$?
+if [ $retval -ne 0 ]; then
+    echo "Lint failed. Please fix lint errors. Commit aborted."
+    exit $retval
+fi

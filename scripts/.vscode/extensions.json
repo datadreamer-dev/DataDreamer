@@ -1,0 +1,18 @@
+{
+    "recommendations": [
+        "ms-vscode-remote.remote-ssh",
+        "mechatroner.rainbow-csv",
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "charliermarsh.ruff",
+        "ms-python.mypy-type-checker",
+        "visualstudioexptteam.vscodeintellicode",
+        "njpwerner.autodocstring",
+        "iliazeus.vscode-ansi",
+        "timonwong.shellcheck",
+        "foxundermoon.shell-format",
+        "mikestead.dotenv",
+        "bungcip.better-toml",
+        "github.copilot"
+    ]
+}

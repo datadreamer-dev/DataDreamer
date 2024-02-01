@@ -1,0 +1,51 @@
+{
+    "terminal.integrated.scrollback": 100000,
+    "[python]": {
+        "editor.tabSize": 4,
+        "editor.insertSpaces": true,
+        "editor.rulers": [88],
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit",
+            "source.fixAll": "explicit"
+        },
+    },
+    "[shellscript]": {
+        "editor.tabSize": 4,
+        "editor.insertSpaces": true,
+        "editor.formatOnSave": true,
+        "editor.formatOnPaste": true,
+        "editor.rulers": [88],
+    },
+    "python.terminal.activateEnvironment": false,
+    "python.linting.flake8Enabled": false,
+    "python.analysis.extraPaths": [
+        "./src",
+        "./.venv/slurm/lib64/python3.10/site-packages",
+        "./.venv/sge/lib64/python3.10/site-packages",
+        "./.venv/direct/lib64/python3.10/site-packages"
+    ],
+    "autoDocstring.docstringFormat": "google",
+    "autoDocstring.guessTypes": false,
+    "autoDocstring.quoteStyle": "\"\"\"",
+    "shellcheck.exclude": ["2155", "1091", "2004"],
+    "search.exclude": {
+        "**/.git": true,
+        "**/.cluster": true,
+        "**/.venv": true,
+        "**/.venv_dev": true,
+        "**/wandb/**": true,
+        "**/docs/build": true,
+        "**/docs/source/!(index.rst)": true,
+    },
+    "files.watcherExclude": {
+        "**/.git/**": true,
+        "**/.cluster/**": true,
+        "**/.venv/**": true,
+        "**/.venv_dev/**": true,
+        "**/wandb/**": true,
+        "**/docs/build/**": true,
+        "**/docs/source/!(index.rst)": true,
+    }
+}

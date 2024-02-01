@@ -1,0 +1,116 @@
+name: Release
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Tests"]
+    branches: [main]
+    types: 
+      - completed
+permissions:
+  contents: write
+jobs:
+  release:
+    if: contains('["AjayP13"]', github.actor) && (github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && contains(github.event.workflow_run.head_commit.message, '[release]')))
+    runs-on: "cirun-aws-runner--${{ github.run_id }}"
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    environment: 
+      name: production
+      url: https://datadreamer.dev/docs/
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Post-Checkout
+      run: ./scripts/.githooks/post-checkout
+    - name: Setup yq
+      run: sudo snap install yq
+    - name: Setup dependencies
+      run: sudo apt install jq make zip -y
+    - name: Read PACKAGE_VERSION
+      run: echo "PACKAGE_VERSION=$(yq -oy '.tool.poetry.version' pyproject.toml)" >> $GITHUB_ENV
+    - name: Read LATEST_RELEASE
+      run: |
+        echo "LATEST_RELEASE=$(curl -qsSL \
+          -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+          -H "X-GitHub-Api-Version: 2022-11-28" \
+          "${{ github.api_url }}/repos/${{ github.repository }}/releases/latest" \
+        | jq -r .tag_name)" >> $GITHUB_ENV
+    - name: Print Latest Release
+      run: echo "$LATEST_RELEASE"
+    - name: Print Current Release
+      run: echo "$PACKAGE_VERSION"
+    - name: Assert pyproject.toml Version != Existing Latest Release # Checks if the version was bumped
+      run:  '[[ "$PACKAGE_VERSION" != "$LATEST_RELEASE" ]]'
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version-file: './scripts/.python-version'
+    - name: Setup Poetry
+      run: sudo -H -E env "PATH=$PATH" "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" pip install poetry
+    - name: Give tar Root Permissions
+      run: sudo chown root /bin/tar && sudo chmod u+s /bin/tar  # Allows actions/cache, which uses tar, to cache directories requiring sudo access
+    - name: Cache Poetry
+      id: cache-poetry
+      uses: actions/cache@v3
+      with:
+        path: /nlp/data/ajayp/.cache/pypoetry
+        key: release-poetry-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'scripts/package.sh', 'src/requirements-dev.txt', 'src/requirements.txt', 'src/requirements-cpu.txt', 'src/requirements-accelerator-device.txt') }}
+    - name: Cache .venv_poetry
+      id: cache-venv-poetry
+      uses: actions/cache@v3
+      with:
+        path: .venv_poetry
+        key: release-venv-poetry-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'scripts/package.sh', 'src/requirements-dev.txt', 'src/requirements.txt', 'src/requirements-cpu.txt', 'src/requirements-accelerator-device.txt') }}
+    - name: Rename package to datadreamer.dev from DataDreamer # Because we are publishing to PyPI as datadreamer.dev
+      run: cp pyproject.toml pyproject.toml.orig && (echo "$(cat pyproject.toml.orig)" | sed 's/name = "DataDreamer"/name = "datadreamer.dev"/' > pyproject.toml)
+    - name: Package
+      run: sudo -H -E env "PATH=$PATH" "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" ./scripts/package.sh --keep-venv
+    - name: Publish Package to PyPI
+      run: sudo -H -E env "PATH=$PATH" "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" ./scripts/package_publish.sh
+      env:
+        POETRY_PYPI_TOKEN_PYPI: ${{ secrets.POETRY_PYPI_TOKEN_PYPI }}
+    - name: Rename package to DataDreamer from datadreamer.dev # Because we are publishing to PyPI as datadreamer.dev
+      run: mv pyproject.toml.orig pyproject.toml
+    - name: Cache .venv_dev/docs
+      id: cache-venv-dev-docs
+      uses: actions/cache@v3
+      with:
+        path: .venv_dev/docs
+        key: release-venv-dev-docs-${{ runner.os }}-${{ hashFiles('src/requirements-dev.txt', 'src/requirements.txt', 'src/requirements-cpu.txt', 'src/requirements-accelerator-device.txt') }}
+    - name: Build Docs
+      run: ./scripts/docs.sh --no-watch --no-serve
+    - name: Publish Docs
+      run: |+
+        aws s3 sync docs/build/html "s3://datadreamer.dev/docs/latest" --delete
+        aws s3 sync docs/build/html "s3://datadreamer.dev/docs/$PACKAGE_VERSION" --delete
+    - name: Zip docs
+      run: cd docs/build/ && mv html docs && zip -r docs.zip docs/ && mv docs html
+    - name: Purge CloudFlare CDN Cache for Docs
+      uses: jakejarvis/cloudflare-purge-action@master
+      env:
+        CLOUDFLARE_ZONE: ${{ secrets.CLOUDFLARE_ZONE }}
+        CLOUDFLARE_TOKEN: ${{ secrets.CLOUDFLARE_TOKEN }}
+    - name: Create GitHub Release
+      uses: ncipollo/release-action@v1
+      with:
+        tag: "${{env.PACKAGE_VERSION}}"
+        name: "v${{env.PACKAGE_VERSION}}"
+        artifactErrorsFailBuild: true
+        artifacts: "LICENSE.txt,dist/*.whl,dist/*.tar.gz,docs/build/docs.zip"
+        body: |+
+          **Full Changelog**: https://github.com/datadreamer-dev/DataDreamer/commits/${{env.PACKAGE_VERSION}}
+          **Install this version**: `pip install 'https://github.com/datadreamer-dev/DataDreamer/releases/download/${{env.PACKAGE_VERSION}}/datadreamer_dev-${{env.PACKAGE_VERSION}}-py3-none-any.whl'`
+        allowUpdates: true
+        omitBodyDuringUpdate: true
+        removeArtifacts: true
+        replacesArtifacts: true
+        
+        

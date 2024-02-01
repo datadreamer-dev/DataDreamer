@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" id="terminal" baseProfile="full" viewBox="0 0 1007 421" width="1007" version="1.1">
+    <defs>
+        <termtosvg:template_settings xmlns:termtosvg="https://github.com/nbedos/termtosvg">
+            <termtosvg:screen_geometry columns="120" rows="20"/>
+            <termtosvg:animation type="css"/>
+        </termtosvg:template_settings>
+        <style type="text/css" id="generated-style"><![CDATA[#screen {
+                font-family: 'DejaVu Sans Mono', monospace;
+                font-style: normal;
+                font-size: 14px;
+            }
+
+        text {
+            dominant-baseline: text-before-edge;
+            white-space: pre;
+        }
+    
+            :root {
+                --animation-duration: 25520ms;
+            }
+
+            @keyframes roll {
+                0.000%{transform:translateY(0px)}
+11.755%{transform:translateY(-374px)}
+23.515%{transform:translateY(-748px)}
+25.498%{transform:translateY(-1122px)}
+27.480%{transform:translateY(-1496px)}
+51.019%{transform:translateY(-1870px)}
+54.945%{transform:translateY(-2244px)}
+58.864%{transform:translateY(-2618px)}
+60.815%{transform:translateY(-2992px)}
+100.000%{transform:translateY(-2992px)}
+            }
+
+            #screen_view {
+                animation-duration: 25520ms;
+                animation-iteration-count:infinite;
+                animation-name:roll;
+                animation-timing-function: steps(1,end);
+                animation-fill-mode: forwards;
+            }
+        ]]></style>
+        <style type="text/css" id="user-style">
+            /* The colors defined below are the default 16 colors used for rendering text of the terminal. Adjust
+               them as needed.
+               gjm8 color theme (source: https://terminal.sexy/) */
+            .foreground {fill: #f8f8f2}
+            .background {fill: #272822}
+            .color0 {fill: #272822}
+            .color1 {fill: #f92672}
+            .color2 {fill: #a6e22e}
+            .color3 {fill: #DE935F}
+            .color4 {fill: #66d9ef}
+            .color5 {fill: #ae81ff}
+            .color6 {fill: #a1efe4}
+            .color7 {fill: #f8f8f2}
+            .color8 {fill: #75715e}
+            .color9 {fill: #fd971f}
+            .color10 {fill: #383830}
+            .color11 {fill: #49483e}
+            .color12 {fill: #a59f85}
+            .color13 {fill: #f5f4f1}
+            .color14 {fill: #cc6633}
+            .color15 {fill: #f9f8f5}
+        </style>
+    </defs>
+    <rect id="terminalui" class="background" width="100%" height="100%" ry="4.5826941"/>
+    <circle cx="24" cy="23" r="7" class="color1"/>
+    <circle cx="44" cy="23" r="7" class="color3"/>
+    <circle cx="64" cy="23" r="7" class="color2"/>
+    <svg id="screen" width="960" height="340" x="23" y="50" viewBox="0 0 960 340" preserveAspectRatio="xMidYMin slice"><rect class="background" height="100%" width="100%" x="0" y="0"/><defs><g id="g1"><text x="0" textLength="16" class="foreground">[ </text><text x="16" textLength="56" class="color5">&#129302; Data</text><text x="72" textLength="16" class="color3">Dr</text><text x="88" textLength="16" class="color1">ea</text><text x="104" textLength="24" class="color5">mer</text><text x="128" textLength="400" class="foreground"> &#128164; ] Initialized. &#128640; Dreaming to folder: ./output</text></g><g id="g2"><text x="0" textLength="16" class="foreground">[ </text><text x="16" textLength="56" class="color5">&#129302; Data</text><text x="72" textLength="16" class="color3">Dr</text><text x="88" textLength="16" class="color1">ea</text><text x="104" textLength="24" class="color5">mer</text><text x="128" textLength="488" class="foreground"> &#128164; ] Step 'Generate Research Paper Abstracts' is running. &#9203;</text></g><g id="g3"><text x="0" textLength="8" class="background"> </text></g><g id="g4"><text x="0" textLength="16" class="foreground">[ </text><text x="16" textLength="56" class="color5">&#129302; Data</text><text x="72" textLength="16" class="color3">Dr</text><text x="88" textLength="16" class="color1">ea</text><text x="104" textLength="24" class="color5">mer</text><text x="128" textLength="640" class="foreground"> &#128164; ] Step 'Generate Research Paper Abstracts' finished and is saved to disk. &#127881;</text></g><g id="g5"><text x="0" textLength="16" class="foreground">[ </text><text x="16" textLength="56" class="color5">&#129302; Data</text><text x="72" textLength="16" class="color3">Dr</text><text x="88" textLength="16" class="color1">ea</text><text x="104" textLength="24" class="color5">mer</text><text x="128" textLength="464" class="foreground"> &#128164; ] Step 'Generate Tweets from Abstracts' is running. &#9203;</text></g><g id="g6"><text x="0" textLength="16" class="foreground">[ </text><text x="16" textLength="56" class="color5">&#129302; Data</text><text x="72" textLength="16" class="color3">Dr</text><text x="88" textLength="16" class="color1">ea</text><text x="104" textLength="24" class="color5">mer</text><text x="128" textLength="616" class="foreground"> &#128164; ] Step 'Generate Tweets from Abstracts' finished and is saved to disk. &#127881;</text></g><g id="g7"><text x="0" textLength="16" class="foreground">[ </text><text x="16" textLength="56" class="color5">&#129302; Data</text><text x="72" textLength="16" class="color3">Dr</text><text x="88" textLength="16" class="color1">ea</text><text x="104" textLength="24" class="color5">mer</text><text x="128" textLength="576" class="foreground"> &#128164; ] Step 'Generate Tweets from Abstracts (train split)' is running. &#9203;</text></g><g id="g8"><text x="0" textLength="16" class="foreground">[ </text><text x="16" textLength="56" class="color5">&#129302; Data</text><text x="72" textLength="16" class="color3">Dr</text><text x="88" textLength="16" class="color1">ea</text><text x="104" textLength="24" class="color5">mer</text><text x="128" textLength="728" class="foreground"> &#128164; ] Step 'Generate Tweets from Abstracts (train split)' finished and is saved to disk. &#127881;</text></g><g id="g9"><text x="0" textLength="16" class="foreground">[ </text><text x="16" textLength="56" class="color5">&#129302; Data</text><text x="72" textLength="16" class="color3">Dr</text><text x="88" textLength="16" class="color1">ea</text><text x="104" textLength="24" class="color5">mer</text><text x="128" textLength="616" class="foreground"> &#128164; ] Step 'Generate Tweets from Abstracts (validation split)' is running. &#9203;</text></g><g id="g10"><text x="0" textLength="16" class="foreground">[ </text><text x="16" textLength="56" class="color5">&#129302; Data</text><text x="72" textLength="16" class="color3">Dr</text><text x="88" textLength="16" class="color1">ea</text><text x="104" textLength="24" class="color5">mer</text><text x="128" textLength="768" class="foreground"> &#128164; ] Step 'Generate Tweets from Abstracts (validation split)' finished and is saved to disk. &#127881;</text></g><g id="g11"><text x="0" textLength="16" class="foreground">[ </text><text x="16" textLength="56" class="color5">&#129302; Data</text><text x="72" textLength="16" class="color3">Dr</text><text x="88" textLength="16" class="color1">ea</text><text x="104" textLength="24" class="color5">mer</text><text x="128" textLength="504" class="foreground"> &#128164; ] Trainer 'Train an Abstract =&gt; Tweet Model' is running. &#9203;</text></g><g id="g12"><text x="0" textLength="16" class="foreground">[ </text><text x="16" textLength="56" class="color5">&#129302; Data</text><text x="72" textLength="16" class="color3">Dr</text><text x="88" textLength="16" class="color1">ea</text><text x="104" textLength="24" class="color5">mer</text><text x="128" textLength="656" class="foreground"> &#128164; ] Trainer 'Train an Abstract =&gt; Tweet Model' finished and is saved to disk. &#127881;</text></g><g id="g13"><text x="0" textLength="16" class="foreground">[ </text><text x="16" textLength="56" class="color5">&#129302; Data</text><text x="72" textLength="16" class="color3">Dr</text><text x="88" textLength="16" class="color1">ea</text><text x="104" textLength="24" class="color5">mer</text><text x="128" textLength="704" class="foreground"> &#128164; ] Dataset produced by step 'Generate Tweets from Abstracts' published to HF Hub &#128171; :</text></g><g id="g14"><text x="0" textLength="720" class="foreground">                      https://huggingface.co/datasets/datadreamer-dev/abstracts_and_tweets</text></g><g id="g15"><text x="0" textLength="16" class="foreground">[ </text><text x="16" textLength="56" class="color5">&#129302; Data</text><text x="72" textLength="16" class="color3">Dr</text><text x="88" textLength="16" class="color1">ea</text><text x="104" textLength="24" class="color5">mer</text><text x="128" textLength="584" class="foreground"> &#128164; ] Trainer 'Train an Abstract =&gt; Tweet Model' published to HF Hub &#128171; :</text></g><g id="g16"><text x="0" textLength="680" class="foreground">                      https://huggingface.co/datadreamer-dev/abstracts_to_tweet_model</text></g><g id="g17"><text x="0" textLength="16" class="foreground">[ </text><text x="16" textLength="56" class="color5">&#129302; Data</text><text x="72" textLength="16" class="color3">Dr</text><text x="88" textLength="16" class="color1">ea</text><text x="104" textLength="24" class="color5">mer</text><text x="128" textLength="336" class="foreground"> &#128164; ] Done. &#10024; Results in folder: ./output</text></g></defs><g id="screen_view"><g><use xlink:href="#g1" y="0"/><use xlink:href="#g2" y="17"/><rect x="0" y="34" width="8" height="17" class="foreground"/><use xlink:href="#g3" y="34"/></g><g><use xlink:href="#g1" y="374"/><use xlink:href="#g2" y="391"/><use xlink:href="#g4" y="408"/><use xlink:href="#g5" y="425"/><rect x="0" y="442" width="8" height="17" class="foreground"/><use xlink:href="#g3" y="442"/></g><g><use xlink:href="#g1" y="748"/><use xlink:href="#g2" y="765"/><use xlink:href="#g4" y="782"/><use xlink:href="#g5" y="799"/><use xlink:href="#g6" y="816"/><use xlink:href="#g7" y="833"/><rect x="0" y="850" width="8" height="17" class="foreground"/><use xlink:href="#g3" y="850"/></g><g><use xlink:href="#g1" y="1122"/><use xlink:href="#g2" y="1139"/><use xlink:href="#g4" y="1156"/><use xlink:href="#g5" y="1173"/><use xlink:href="#g6" y="1190"/><use xlink:href="#g7" y="1207"/><use xlink:href="#g8" y="1224"/><use xlink:href="#g9" y="1241"/><rect x="0" y="1258" width="8" height="17" class="foreground"/><use xlink:href="#g3" y="1258"/></g><g><use xlink:href="#g1" y="1496"/><use xlink:href="#g2" y="1513"/><use xlink:href="#g4" y="1530"/><use xlink:href="#g5" y="1547"/><use xlink:href="#g6" y="1564"/><use xlink:href="#g7" y="1581"/><use xlink:href="#g8" y="1598"/><use xlink:href="#g9" y="1615"/><use xlink:href="#g10" y="1632"/><use xlink:href="#g11" y="1649"/><rect x="0" y="1666" width="8" height="17" class="foreground"/><use xlink:href="#g3" y="1666"/></g><g><use xlink:href="#g1" y="1870"/><use xlink:href="#g2" y="1887"/><use xlink:href="#g4" y="1904"/><use xlink:href="#g5" y="1921"/><use xlink:href="#g6" y="1938"/><use xlink:href="#g7" y="1955"/><use xlink:href="#g8" y="1972"/><use xlink:href="#g9" y="1989"/><use xlink:href="#g10" y="2006"/><use xlink:href="#g11" y="2023"/><use xlink:href="#g12" y="2040"/><rect x="0" y="2057" width="8" height="17" class="foreground"/><use xlink:href="#g3" y="2057"/></g><g><use xlink:href="#g1" y="2244"/><use xlink:href="#g2" y="2261"/><use xlink:href="#g4" y="2278"/><use xlink:href="#g5" y="2295"/><use xlink:href="#g6" y="2312"/><use xlink:href="#g7" y="2329"/><use xlink:href="#g8" y="2346"/><use xlink:href="#g9" y="2363"/><use xlink:href="#g10" y="2380"/><use xlink:href="#g11" y="2397"/><use xlink:href="#g12" y="2414"/><use xlink:href="#g13" y="2431"/><use xlink:href="#g14" y="2448"/><rect x="0" y="2465" width="8" height="17" class="foreground"/><use xlink:href="#g3" y="2465"/></g><g><use xlink:href="#g1" y="2618"/><use xlink:href="#g2" y="2635"/><use xlink:href="#g4" y="2652"/><use xlink:href="#g5" y="2669"/><use xlink:href="#g6" y="2686"/><use xlink:href="#g7" y="2703"/><use xlink:href="#g8" y="2720"/><use xlink:href="#g9" y="2737"/><use xlink:href="#g10" y="2754"/><use xlink:href="#g11" y="2771"/><use xlink:href="#g12" y="2788"/><use xlink:href="#g13" y="2805"/><use xlink:href="#g14" y="2822"/><use xlink:href="#g15" y="2839"/><use xlink:href="#g16" y="2856"/><rect x="0" y="2873" width="8" height="17" class="foreground"/><use xlink:href="#g3" y="2873"/></g><g><use xlink:href="#g1" y="2992"/><use xlink:href="#g2" y="3009"/><use xlink:href="#g4" y="3026"/><use xlink:href="#g5" y="3043"/><use xlink:href="#g6" y="3060"/><use xlink:href="#g7" y="3077"/><use xlink:href="#g8" y="3094"/><use xlink:href="#g9" y="3111"/><use xlink:href="#g10" y="3128"/><use xlink:href="#g11" y="3145"/><use xlink:href="#g12" y="3162"/><use xlink:href="#g13" y="3179"/><use xlink:href="#g14" y="3196"/><use xlink:href="#g15" y="3213"/><use xlink:href="#g16" y="3230"/><use xlink:href="#g17" y="3247"/><rect x="0" y="3264" width="8" height="17" class="foreground"/><use xlink:href="#g3" y="3264"/></g></g></svg>
+</svg>

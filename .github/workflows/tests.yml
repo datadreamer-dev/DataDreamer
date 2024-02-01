@@ -1,0 +1,103 @@
+name: Tests
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+permissions:
+  contents: read
+  issues: read
+  checks: write
+  pull-requests: write
+jobs:
+  lint:
+    if: "!contains(github.event.head_commit.message, '[skip]')"
+    runs-on: ubuntu-latest
+    concurrency:
+      group: lint-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Post-Checkout
+      run: ./scripts/.githooks/post-checkout
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version-file: './scripts/.python-version'
+    - name: Give tar Root Permissions
+      run: sudo chown root /bin/tar && sudo chmod u+s /bin/tar  # Allows actions/cache, which uses tar, to cache directories requiring sudo access
+    - name: Cache .venv_dev/dev
+      id: cache-venv-dev-dev
+      uses: actions/cache@v3
+      with:
+        path: .venv_dev/dev
+        key: lint-venv-dev-dev-${{ runner.os }}-${{ hashFiles('src/requirements-dev.txt') }}
+    - name: Lint
+      run: sudo -H -E ./scripts/lint.sh
+  test:
+    if: "!contains(github.event.head_commit.message, '[skip]')"
+    runs-on: "cirun-aws-runner--${{ github.run_id }}"
+    concurrency:
+      group: test-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Post-Checkout
+      run: ./scripts/.githooks/post-checkout
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version-file: './scripts/.python-version'
+    - name: Give tar Root Permissions
+      run: sudo chown root /bin/tar && sudo chmod u+s /bin/tar  # Allows actions/cache, which uses tar, to cache directories requiring sudo access
+    - name: Cache PROJECT_DATA
+      id: cache-project-data
+      uses: actions/cache@v3
+      with:
+        path: /tmp/project_data/.venv/
+        key: test-project-data-${{ runner.os }}-${{ hashFiles('./scripts/.cluster/**/*.sh', 'src/requirements-dev.txt', 'src/requirements-test.txt', 'src/requirements.txt', 'src/requirements-cpu.txt', 'src/requirements-accelerator-device.txt') }}
+    - name: Cache .venv/prod
+      id: cache-venv-prod
+      uses: actions/cache@v3
+      with:
+        path: .venv/prod
+        key: test-venv-prod-${{ runner.os }}-${{ hashFiles('./scripts/.cluster/**/*.sh', 'src/requirements-dev.txt', 'src/requirements-test.txt', 'src/requirements.txt', 'src/requirements-cpu.txt', 'src/requirements-accelerator-device.txt') }}
+    - name: Setup PROJECT_DATA dir
+      run: echo -e "\nexport PROJECT_DATA=/tmp/project_data\n" >> ./scripts/project.env
+    - name: Run tests
+      run: sudo -H -E env "PATH=$PATH" "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" "HOME=$HOME" ./scripts/run.sh --maxfail=25 --durations=0 --junitxml=./test.xml
+      env:
+        HUGGING_FACE_HUB_TOKEN: ${{ secrets.HUGGING_FACE_HUB_TOKEN }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    - name: Upload piplist to GitHub Actions artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: piplist
+        path: ./.venv/prod/piplist.txt
+    - name: Upload piplist to S3
+      run: |+
+        aws s3 cp ./.venv/prod/piplist.txt "s3://datadreamer.dev/piplists/latest/piplist.txt"
+        aws s3 cp ./.venv/prod/piplist.txt "s3://datadreamer.dev/piplists/$GITHUB_SHA/piplist.txt" --expires $(date -d '+2 years' --utc +'%Y-%m-%dT%H:%M:%SZ');
+        aws s3 cp ./.venv/prod/piplist.txt "s3://datadreamer.dev/piplists/$GITHUB_RUN_ID/piplist.txt" --expires $(date -d '+2 years' --utc +'%Y-%m-%dT%H:%M:%SZ');
+    - name: Publish Test Results
+      uses: EnricoMi/publish-unit-test-result-action@v2
+      id: test-results
+      if: always()
+      with:
+        files: "test.xml"
+        check_name: "Test Results"
+        comment_title: "Test Results"
+        comment_mode: "off"
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v3
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

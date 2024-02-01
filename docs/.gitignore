@@ -1,0 +1,6 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+
+build
+source/*.rst
+!source/index.rst
