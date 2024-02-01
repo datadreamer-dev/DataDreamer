@@ -8,6 +8,7 @@ Synthetic Data Generation
 =========================
 
 - :doc:`Training an "Abstract to Tweet Model" with Fully Synthetic Data <abstract_to_tweet>`
+- :doc:`Generating Training Data with Attributed Prompts <attributed_prompts>`
 - :doc:`Distilling GPT-4 Capabilities to GPT-3.5 <openai_distillation>`
 - :doc:`Augmenting an Existing Dataset <dataset_augmentation>`
 - :doc:`Cleaning an Existing Dataset <dataset_cleaning>`
@@ -28,6 +29,7 @@ Instruction-Tuning and Aligning Models
     Synthetic Data Generation <https://datadreamer.dev/docs/latest/pages/get_started/quick_tour/index.html#synthetic-data-generation>
     ../motivation_and_design
     abstract_to_tweet
+    attributed_prompts
     openai_distillation
     dataset_augmentation
     dataset_cleaning
