@@ -349,7 +349,7 @@ class Trainer(ABC):
         assert self._step_metadata is not None
         orig_step_metadata = self._step_metadata.copy()
         model_card: dict[str, list[Any]] = {
-            DataCardType.DATETIME: datetime.now().isoformat()
+            DataCardType.DATETIME: datetime.now().isoformat()  # type:ignore[dict-item]
         }
         if self.base_model_card is not None:
             model_card[DataCardType.MODEL_CARD] = [self.base_model_card]
