@@ -309,7 +309,13 @@ class TestDataFromAttributedPrompt:
                 },
                 outputs={"generations": "sentences"},
             )
-            assert answers.output.column_names == ["prompts", "sentences"]
+            assert answers.output.column_names == ["attributes", "prompts", "sentences"]
+            assert list(answers.output["attributes"]) == [
+                {"adjective": "serious", "length": "short"},
+                {"adjective": "serious", "length": "long"},
+                {"adjective": "funny", "length": "short"},
+                {"adjective": "funny", "length": "long"},
+            ]
             assert list(answers.output["prompts"]) == [
                 str(p) for p in list(prompts.keys())
             ]
@@ -355,7 +361,13 @@ class TestDataFromAttributedPrompt:
                 },
                 outputs={"generations": "sentences"},
             )
-            assert answers.output.column_names == ["prompts", "sentences"]
+            assert answers.output.column_names == ["attributes", "prompts", "sentences"]
+            assert list(answers.output["attributes"]) == [
+                {"adjective": "serious", "length": "short"},
+                {"adjective": "serious", "length": "long"},
+                {"adjective": "funny", "length": "short"},
+                {"adjective": "funny", "length": "long"},
+            ]
             assert list(answers.output["prompts"]) == [
                 str(p) for p in list(prompts.keys())
             ]

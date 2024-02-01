@@ -90,6 +90,9 @@ class DataFromAttributedPrompt(_PromptBase):
             help="The top_p to use when generating data.",
         )
         self._register_prompt_optional_args()
+        self.register_output(
+            "attributes", help="The attributes used to generate the data."
+        )
         self._register_prompt_outputs()
         self.register_data_card(
             DataCardType.CITATION,
@@ -120,17 +123,22 @@ class DataFromAttributedPrompt(_PromptBase):
         assert isinstance(
             attributes, (list, dict)
         ), f"Invalid type provided for `attributes`: {type(attributes)}"
-        if isinstance(attributes, dict):
-            attribute_combinations = cycle(
-                enumerate(
-                    map(
-                        lambda comb: dict(comb),
-                        product(*[zip(repeat(k), v) for k, v in attributes.items()]),
+
+        def get_attribute_combinations(attributes):
+            if isinstance(attributes, dict):
+                attribute_combinations = cycle(
+                    enumerate(
+                        map(
+                            lambda comb: dict(comb),
+                            product(
+                                *[zip(repeat(k), v) for k, v in attributes.items()]
+                            ),
+                        )
                     )
                 )
-            )
-        else:
-            attribute_combinations = cycle(enumerate(attributes))
+            else:
+                attribute_combinations = cycle(enumerate(attributes))
+            return attribute_combinations
 
         def create_prompts(
             instruction, attribute_names, attribute_combinations, n, _seed
@@ -161,17 +169,30 @@ class DataFromAttributedPrompt(_PromptBase):
                 )
                 counter[comb_idx] += 1
 
+        def extra_columns():
+            for _, attribute_combination in get_attribute_combinations(attributes):
+
+                def get_final_row(attribute_combination, row):
+                    return {
+                        "attributes": attribute_combination,
+                        "prompts": row["prompts"],
+                        "generations": row["generations"],
+                    }
+
+                yield partial(get_final_row, attribute_combination)
+
         return self._run_prompts(
             args=args,
             prompts=partial(
                 create_prompts,
                 instruction,
                 attribute_names,
-                attribute_combinations,
+                get_attribute_combinations(attributes),
                 n,
                 _seed,
             ),
             total_num_prompts=n,
+            extra_columns=extra_columns,
         )
 
 
