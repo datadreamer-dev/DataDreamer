@@ -194,7 +194,9 @@ class TestHFHubDataSource:
                 ["question", "mc1_targets", "mc2_targets"]
             )
             assert len(data_source.output) == 817
-            assert data_source._data_card == {
+            data_card = data_source._data_card
+            del data_card["my-dataset"]["Date & Time"]
+            assert data_card == {
                 "my-dataset": {
                     "Dataset Name": ["truthful_qa"],
                     "Dataset Card": ["https://huggingface.co/datasets/truthful_qa"],
