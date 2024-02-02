@@ -22,6 +22,13 @@ class Retriever(_Cachable):
         texts: None | OutputDatasetColumn | OutputIterableDatasetColumn,
         cache_folder_path: None | str = None,
     ):
+        """Base class for all retrievers.
+
+        Args:
+            texts: The texts to index for retrieval.
+            cache_folder_path: The path to the cache folder. If ``None``, the default
+                cache folder for the DataDreamer session will be used.
+        """
         super().__init__(cache_folder_path=cache_folder_path)
         self.texts = texts
         self.texts_fingerprint = Hasher.hash(

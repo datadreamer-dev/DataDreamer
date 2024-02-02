@@ -6,6 +6,15 @@ from .task_model import DEFAULT_BATCH_SIZE, TaskModel
 
 class ParallelTaskModel(_ParallelCachable, TaskModel):
     def __init__(self, *task_models: TaskModel):
+        """
+        Creates a task model that will run multiple task models in parallel. See
+        :doc:`running models in parallel
+        <./pages/advanced_usage/parallelization/running_models_on_multiple_gpus>`
+        for more details.
+
+        Args:
+            *task_models: The task models to run in parallel.
+        """
         super().__init__(*task_models, cls=TaskModel)
         self.task_models = cast(list[TaskModel], self.cachables)
 

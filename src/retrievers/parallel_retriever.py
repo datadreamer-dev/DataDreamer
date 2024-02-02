@@ -6,6 +6,15 @@ from .retriever import DEFAULT_BATCH_SIZE, Retriever
 
 class ParallelRetriever(_ParallelCachable, Retriever):
     def __init__(self, *retrievers: Retriever):
+        """
+        Creates a retriever that will run multiple retrievers in parallel. See
+        :doc:`running models in parallel
+        <./pages/advanced_usage/parallelization/running_models_on_multiple_gpus>`
+        for more details.
+
+        Args:
+            *retrievers: The retrievers to run in parallel.
+        """
         super().__init__(*retrievers, cls=Retriever)
         self.retrievers = cast(list[Retriever], self.cachables)
 

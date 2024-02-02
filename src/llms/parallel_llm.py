@@ -6,6 +6,15 @@ from .llm import DEFAULT_BATCH_SIZE, LLM
 
 class ParallelLLM(_ParallelCachable, LLM):
     def __init__(self, *llms: LLM):
+        """
+        Creates a LLM that will run multiple LLMs in parallel. See
+        :doc:`running models in parallel
+        <./pages/advanced_usage/parallelization/running_models_on_multiple_gpus>`
+        for more details.
+
+        Args:
+            *llms: The LLMs to run in parallel.
+        """
         super().__init__(*llms, cls=LLM)
         self.llms = cast(list[LLM], self.cachables)
 

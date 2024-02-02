@@ -46,6 +46,24 @@ class HFClassificationTaskModel(TaskModel):
         cache_folder_path: None | str = None,
         **kwargs,
     ):
+        """Loads a `HFClassificationTaskModel <https://huggingface.co/docs/transformers/tasks/sequence_classification>`_
+        task model.
+
+        Args:
+            model_name: The name of the model to use.
+            revision: The version (commit hash) of the model to use.
+            trust_remote_code: Whether to trust remote code.
+            device: The device to use for the model.
+            device_map: The device map to use for the model.
+            dtype: The type to use for the model weights.
+            adapter_name: The name of the adapter to use.
+            adapter_kwargs: Additional keyword arguments to pass the PeftModel
+                constructor.
+            cache_folder_path: The path to the cache folder. If ``None``, the default
+                cache folder for the DataDreamer session will be used.
+            **kwargs: Additional keyword arguments to pass to the Hugging Face model
+                constructor.
+        """
         super().__init__(cache_folder_path=cache_folder_path)
         self.model_name = model_name
         self.revision = revision

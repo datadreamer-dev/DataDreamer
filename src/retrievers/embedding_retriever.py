@@ -33,6 +33,20 @@ class EmbeddingRetriever(Retriever):
         device: None | int | str | torch.device | list[int | str | torch.device] = None,
         **kwargs,
     ):
+        """Loads an embedding retriever.
+
+        Args:
+            texts: The texts to index for retrieval.
+            embedder: The embedder to use for embedding the texts.
+            truncate: Whether to truncate the texts.
+            index_batch_size: The batch size to use for indexing.
+            index_instruction: An instruction to prepend to the texts when indexing.
+            query_instruction: An instruction to prepend to the texts when querying.
+            cache_folder_path: The path to the cache folder. If ``None``, the default
+                cache folder for the DataDreamer session will be used.
+            device: The type to use for the model weights.
+            **kwargs: Additional keyword arguments to pass to the embedder.
+        """
         super().__init__(texts=texts, cache_folder_path=cache_folder_path)
         self.embedder = embedder
         self.truncate = truncate

@@ -24,6 +24,12 @@ def _check_texts_length(
 
 class TaskModel(_Cachable):
     def __init__(self, cache_folder_path: None | str = None):
+        """Base class for all task models.
+
+        Args:
+            cache_folder_path: The path to the cache folder. If ``None``, the default
+                cache folder for the DataDreamer session will be used.
+        """
         super().__init__(cache_folder_path=cache_folder_path)
 
     @abstractmethod

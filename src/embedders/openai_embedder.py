@@ -30,6 +30,21 @@ class OpenAIEmbedder(Embedder):
         cache_folder_path: None | str = None,
         **kwargs,
     ):
+        """Loads an `OpenAI <https://openai.com/>`_ embedder.
+
+        Args:
+            model_name: The name of the model to use.
+            dimensions: The number of dimensions to use for the embeddings. If ``None``,
+                the default number of dimensions for the model will be used.
+            organization: The organization to use for the API.
+            api_key: The API key to use for the API.
+            base_url: The base URL to use for the API.
+            api_version: The version of the API to use.
+            retry_on_fail: Whether to retry API calls if they fail.
+            cache_folder_path: The path to the cache folder. If ``None``, the default
+                cache folder for the DataDreamer session will be used.
+            **kwargs: Additional keyword arguments to pass to the OpenAI client.
+        """
         super().__init__(model_name=model_name, cache_folder_path=cache_folder_path)
         self._dimensions = dimensions
         self.organization = organization

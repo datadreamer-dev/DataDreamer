@@ -6,6 +6,15 @@ from .embedder import Embedder
 
 class ParallelEmbedder(ParallelTaskModel, Embedder):
     def __init__(self, *embedders: Embedder):
+        """
+        Creates an embedder that will run multiple embedders in parallel. See
+        :doc:`running models in parallel
+        <./pages/advanced_usage/parallelization/running_models_on_multiple_gpus>`
+        for more details.
+
+        Args:
+            *embedders: The embedders to run in parallel.
+        """
         super().__init__(*embedders)
         self.embedders = cast(list[Embedder], self.cachables)
 

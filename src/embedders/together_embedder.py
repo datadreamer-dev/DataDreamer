@@ -31,6 +31,27 @@ class TogetherEmbedder(Embedder):
         warn_max_context_length: bool | None = True,
         **kwargs,
     ):
+        """Loads a `Together AI <https://www.together.ai/>`_ embedder.
+
+        Args:
+            model_name: The name of the model to use.
+            api_key: The API key to use for the API.
+            max_context_length: The maximum context length to use for the model. If
+                ``None``, the maximum context length will be inferred.
+            tokenizer_model_name: The name of the tokenizer model to use. If ``None``,
+                the tokenizer model will be inferred.
+            tokenizer_revision: The revision of the tokenizer model to use.
+            tokenizer_trust_remote_code: Whether to trust remote code for the
+                tokenizer.
+            retry_on_fail: Whether to retry API calls if they fail.
+            cache_folder_path: The path to the cache folder. If ``None``, the default
+                cache folder for the DataDreamer session will be used.
+            warn_tokenizer_model_name: Whether to warn if the tokenizer model name is
+                inferred and not explicitly specified.
+            warn_max_context_length: Whether to warn if the maximum context length is
+                inferred and not explicitly specified.
+            **kwargs: Additional keyword arguments to pass to the Together client.
+        """
         super().__init__(model_name=model_name, cache_folder_path=cache_folder_path)
         self.api_key = api_key
         self.max_context_length = max_context_length

@@ -7,6 +7,13 @@ from ..task_models.task_model import DEFAULT_BATCH_SIZE, TaskModel
 
 class Embedder(TaskModel):
     def __init__(self, model_name: str, cache_folder_path: None | str = None):
+        """Base class for all embedders.
+
+        Args:
+            model_name: The name of the model to use.
+            cache_folder_path: The path to the cache folder. If ``None``, the default
+                cache folder for the DataDreamer session will be used.
+        """
         super().__init__(cache_folder_path=cache_folder_path)
         self.model_name = model_name
 

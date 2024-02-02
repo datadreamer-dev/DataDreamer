@@ -52,6 +52,18 @@ class SentenceTransformersEmbedder(Embedder):
         cache_folder_path: None | str = None,
         **kwargs,
     ):
+        """Loads an `SentenceTransformers <https://www.sbert.net/>`_ embedder.
+
+        Args:
+            model_name: The name of the model to use.
+            trust_remote_code: Whether to trust remote code.
+            device: The device to use for the model.
+            dtype: The type to use for the model weights.
+            cache_folder_path: The path to the cache folder. If ``None``, the default
+                cache folder for the DataDreamer session will be used.
+            **kwargs: Additional keyword arguments to pass to the SentenceTransformers
+                constructor.
+        """
         super().__init__(model_name=model_name, cache_folder_path=cache_folder_path)
         self.hf_model_name = self.model_name
         if _has_file(
