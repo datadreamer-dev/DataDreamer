@@ -328,7 +328,7 @@ class TestPublishToHFHub:
     ):
         with create_datadreamer():
             step = create_test_step(name="my-step", inputs=None, output_names=["out1"])
-            assert Hasher.hash(getsource(step.publish_to_hf_hub)) == "f6c09158265ff094"
+            assert Hasher.hash(getsource(step.publish_to_hf_hub)) == "9640479091d9bc18"
 
     @pytest.mark.skip(reason="skipping because requires interactive")
     def test_publish_dataset_to_hf_hub_single_train_split(
