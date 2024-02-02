@@ -36,6 +36,27 @@ See the
 `Parameter-Efficient Training <pages/advanced_usage/parameter_efficient_training.html>`_
 page.
 
+Configuring Training
+====================
+
+You can make use of ``**kwargs`` to pass in additional keyword arguments to the
+underlying model's training method.
+
+.. dropdown:: Configuring Early Stopping
+
+    To override the default early stopping, pass in the ``early_stopping_patience``
+    parameter and the ``early_stopping_threshold`` parameter. To disable early stopping,
+    set ``early_stopping_patience`` to ``None``.
+
+    See :py:class:`~transformers.EarlyStoppingCallback` for more details.
+
+.. dropdown:: Advanced Configuration
+
+    Most configuration you need can be done by passing ``**kwargs``. However, if you need
+    more advanced configuration, you can subclass the trainer class and override as
+    needed or :doc:`create your own trainer
+    <pages/advanced_usage/creating_a_new_datadreamer_.../trainer>`.
+
 Model Card Generation
 =====================
 An automatically generated model card can be viewed by calling

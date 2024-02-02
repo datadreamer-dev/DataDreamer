@@ -1962,7 +1962,7 @@ class Step(metaclass=StepMeta):
             save_num_shards: The number of shards on disk to save the dataset into.
             is_synthetic: Whether the dataset is synthetic (applies certain metadata
                 when publishing).
-            kwargs: Additional keyword arguments to pass to
+            **kwargs: Additional keyword arguments to pass to
                 :py:meth:`~datasets.Dataset.push_to_hub`.
 
         Returns:

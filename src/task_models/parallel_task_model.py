@@ -10,6 +10,15 @@ class ParallelTaskModel(_ParallelCachable, TaskModel):
         self.task_models = cast(list[TaskModel], self.cachables)
 
     def count_tokens(self, value: str) -> int:
+        """Counts the number of tokens in a string.
+
+        Args:
+            value: The string to count tokens for.
+
+        Returns:
+            The number of tokens in the string.
+        """
+        pass
         return self.task_models[0].count_tokens(value=value)
 
     @property

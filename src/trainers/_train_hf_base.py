@@ -1310,6 +1310,15 @@ class _TrainHFBase(DataDreamerTrainer):
             return os.path.join(self._output_folder_path, "_model")
 
     def export_to_disk(self, path: str, adapter_only: bool = False) -> PreTrainedModel:
+        """Export the trained model to disk.
+
+        Args:
+            path: The path to export the model to.
+            adapter_only: Whether to export only the adapter.
+
+        Returns:
+            The exported model.
+        """
         from .train_hf_finetune import TrainHFFineTune
         from .train_setfit_classifier import TrainSetFitClassifier
 
@@ -1429,6 +1438,22 @@ This model was trained with [DataDreamer 🤖💤](https://datadreamer.dev)."""
         is_synthetic: bool = True,
         **kwargs,
     ) -> str:  # pragma: no cover
+        """Publish the model to the Hugging Face Hub.
+
+        Args:
+            repo_id: The repository ID to publish the model to.
+            branch: The branch to push the model to.
+            private: Whether to make the model private.
+            token: The Hugging Face API token to use for authentication.
+            adapter_only: Whether to publish only the adapter.
+            is_synthetic: Whether the dataset is synthetic (applies certain metadata
+                when publishing).
+            **kwargs: Additional keyword arguments to pass to
+                :py:meth:`~transformers.PreTrainedModel.push_to_hub`.
+
+        Returns:
+            The URL to the published model.
+        """
         from .train_hf_finetune import TrainHFFineTune
         from .train_setfit_classifier import TrainSetFitClassifier
 

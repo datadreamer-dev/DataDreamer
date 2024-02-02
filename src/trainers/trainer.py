@@ -83,6 +83,14 @@ class Trainer(ABC):
         verbose: None | bool = None,
         log_level: None | int = None,
     ):
+        """Base class for all trainers.
+
+        Args:
+            name: The name of the trainer.
+            force: Whether to force run the trainer (ignore saved results).
+            verbose: Whether or not to print verbose logs.
+            log_level: The logging level to use (:py:data:`~logging.DEBUG`, :py:data:`~logging.INFO`, etc.).
+        """
         if not DataDreamer.initialized() or DataDreamer.is_running_in_memory():
             raise RuntimeError("Trainers only be run within DataDreamer() context.")
 
@@ -305,6 +313,7 @@ class Trainer(ABC):
 
     @abstractmethod
     def train(self) -> "Trainer":
+        """Train the model."""
         pass
 
     @abstractmethod
@@ -324,6 +333,7 @@ class Trainer(ABC):
     @property
     @abstractmethod
     def model_path(self) -> str:
+        """The path to the trained model after training."""
         pass
 
     @property
@@ -370,6 +380,7 @@ class Trainer(ABC):
         }
 
     def model_card(self):
+        """Print the data card for the step."""
         print(json.dumps(self._model_card, indent=4))
 
     @property

@@ -28,6 +28,15 @@ class TaskModel(_Cachable):
 
     @abstractmethod
     def count_tokens(self, value: str) -> int:
+        """Counts the number of tokens in a string.
+
+        Args:
+            value: The string to count tokens for.
+
+        Returns:
+            The number of tokens in the string.
+        """
+        pass
         pass
 
     @property

@@ -248,6 +248,7 @@ def autodoc_skip_member(seen, app, what, name, obj, skip, options):
         "OutputDatasetMixin.head",
         "OutputDatasetMixin.info",
         "BaseException.args",
+        "BaseException.add_note",
         "TrainSentenceTransformer.train",
         "TrainHFRewardModel.train",
         "LazyRows.value",
@@ -338,13 +339,16 @@ def autodoc_process_docstring(app, what, name, obj, options, lines):
         docstrings.append(lines, docstring)
         docstrings.append_new_lines(lines, 1)
         docstrings.append(lines, obj.help, indent_level=1)
-    elif objname in ["model", "tokenizer", "client", "index"] and lines == []:
+    elif objname in ["model", "tokenizer", "client", "assistant_id", "index", "dims", "model_max_length"] and lines == []:
         docstrings.clear(lines)
         docstrings.append(lines, ({
             "model": "The model instance being used.",
             "tokenizer": "The tokenizer instance being used.",
             "client": "The API client instance being used.",
+            "assistant_id": "The ID of the assistant.",
             "index": "The index instance being used.",
+            "dims": "The dimensions of the embeddings.",
+            "model_max_length": "The maximum length of the model.",
         })[objname])
 
 

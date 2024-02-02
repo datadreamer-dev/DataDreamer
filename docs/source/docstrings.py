@@ -29,4 +29,3 @@ def append(lines, v, indent_level=0):
 STEP_HELP = """.. code-block:: jsonnet
     :caption: CLS_NAME.help
 """
-

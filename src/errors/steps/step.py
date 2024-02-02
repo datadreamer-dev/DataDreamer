@@ -1,8 +1,14 @@
 class StepOutputError(Exception):
+    """Raised when a :py:class:`~datadreamer.steps.Step` is constructing its
+    :py:attr:`~datadreamer.steps.Step.output` and an error occurs."""
+
     pass
 
 
 class StepOutputTypeError(TypeError, StepOutputError):
+    """Raised when a :py:class:`~datadreamer.steps.Step` is constructing its
+    :py:attr:`~datadreamer.steps.Step.output` and a type error occurs."""
+
     def __init__(self, message: str):
         if message:
             super().__init__(

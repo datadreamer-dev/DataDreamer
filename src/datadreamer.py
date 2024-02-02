@@ -103,6 +103,11 @@ class DataDreamer:
 
     @staticmethod
     def get_output_folder_path() -> str:
+        """Gets the output folder path of the current DataDreamer session.
+
+        Returns:
+            The output folder path of the current DataDreamer session.
+        """
         if hasattr(DataDreamer.ctx, "output_folder_path"):
             return DataDreamer.ctx.output_folder_path
         else:

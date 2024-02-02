@@ -70,6 +70,15 @@ class TogetherEmbedder(Embedder):
 
     @ring.lru(maxsize=5000)
     def count_tokens(self, value: str) -> int:
+        """Counts the number of tokens in a string.
+
+        Args:
+            value: The string to count tokens for.
+
+        Returns:
+            The number of tokens in the string.
+        """
+        pass
         return Together.count_tokens._callable.wrapped_callable(self, value)
 
     @cached_property

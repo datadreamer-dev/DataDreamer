@@ -69,6 +69,15 @@ class LLM(_Cachable):
 
     @abstractmethod
     def count_tokens(self, value: str) -> int:
+        """Counts the number of tokens in a string.
+
+        Args:
+            value: The string to count tokens for.
+
+        Returns:
+            The number of tokens in the string.
+        """
+        pass
         pass
 
     def final_count_tokens(self, value: None | str) -> int:
@@ -91,6 +100,16 @@ class LLM(_Cachable):
 
     @abstractmethod
     def get_max_context_length(self, max_new_tokens: int) -> int:
+        """Gets the maximum context length for the model. When ``max_new_tokens`` is
+        greater than 0, the maximum number of tokens that can be used for the prompt
+        context is returned.
+
+        Args:
+            max_new_tokens: The maximum number of tokens that can be generated.
+
+        Returns:
+            The maximum context length.
+        """
         pass
 
     def format_prompt(  # noqa: C901
@@ -103,6 +122,53 @@ class LLM(_Cachable):
         min_in_context_examples: None | int = None,
         max_in_context_examples: None | int = None,
     ) -> str:
+        """Formats a prompt for the LLM given instructions and in-context examples.
+
+        .. dropdown:: Prompt Format
+
+            The final prompt will be constructed as follows:
+
+            .. code-block:: python
+
+                beg_instruction
+                sep
+                in_context_example_1
+                sep
+                in_context_example_2
+                sep
+                ...
+                sep
+                in_context_example_n
+                sep
+                end_instruction
+
+            If ``beg_instruction``, ``in_context_examples``, and ``end_instruction`` are
+            ``None``, they will not be included in the prompt.
+
+            If all of the ``in_context_examples`` will not fit in the prompt
+            (accounting for the possible ``max_new_tokens`` that may be generated) the
+            prompt will be constructed with as many in-context examples that will fit.
+
+            If ``min_in_context_examples`` and ``max_in_context_examples`` are set,
+            those constraints will be enforced.
+
+        Args:
+            max_new_tokens: The maximum number of tokens that can be generated.
+            beg_instruction: The instruction at the beginning of the prompt.
+            in_context_examples: The in-context examples to include in the prompt.
+            end_instruction: The instruction at the end of the prompt.
+            sep: The separator to use between the instructions and in-context examples.
+            min_in_context_examples: The minimum number of in-context examples to include
+                in the prompt.
+            max_in_context_examples: The maximum number of in-context examples to include
+                in the prompt.
+
+        :rtype: :py:class:`str`
+
+        Returns:
+            The formatted prompt.
+        """
+
         # Set max_new_tokens
         if max_new_tokens is None:
             max_new_tokens = 0

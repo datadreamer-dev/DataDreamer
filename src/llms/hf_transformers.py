@@ -286,6 +286,16 @@ class HFTransformers(LLM):
 
     @ring.lru(maxsize=128)
     def get_max_context_length(self, max_new_tokens: int) -> int:
+        """Gets the maximum context length for the model. When ``max_new_tokens`` is
+        greater than 0, the maximum number of tokens that can be used for the prompt
+        context is returned.
+
+        Args:
+            max_new_tokens: The maximum number of tokens that can be generated.
+
+        Returns:
+            The maximum context length.
+        """
         max_context_length = get_model_max_context_length(
             model_name=self.model_name, config=self.config
         )
@@ -295,6 +305,15 @@ class HFTransformers(LLM):
             return max_context_length - max_new_tokens
 
     def count_tokens(self, value: str) -> int:
+        """Counts the number of tokens in a string.
+
+        Args:
+            value: The string to count tokens for.
+
+        Returns:
+            The number of tokens in the string.
+        """
+        pass
         """_summary_
 
         Args:

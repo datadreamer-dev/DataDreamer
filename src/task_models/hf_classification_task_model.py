@@ -149,6 +149,15 @@ class HFClassificationTaskModel(TaskModel):
         )
 
     def count_tokens(self, value: str) -> int:
+        """Counts the number of tokens in a string.
+
+        Args:
+            value: The string to count tokens for.
+
+        Returns:
+            The number of tokens in the string.
+        """
+        pass
         return len(self.tokenizer.encode(value))
 
     @torch.no_grad()

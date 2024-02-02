@@ -17,14 +17,17 @@ if TYPE_CHECKING:  # pragma: no cover
 class OutputDatasetMixin:
     @property
     def step(self) -> "Step":
+        """The step that produced the dataset."""
         return self._step  # type:ignore[attr-defined]
 
     @property
     def column_names(self) -> list[str]:
+        """The column names in the dataset."""
         return get_column_names(self.dataset)  # type:ignore[attr-defined]
 
     @property
     def num_columns(self) -> int:
+        """The number of columns in the dataset."""
         return len(self.column_names)
 
     @property
@@ -46,6 +49,14 @@ class OutputDatasetMixin:
             yield from iter(self.dataset)  # type:ignore[attr-defined]
 
     def __getitem__(self, key: int | slice | str | Iterable[int]) -> Any:
+        """Get a row or column from the dataset.
+
+        Args:
+            key: The index or name of the column to get.
+
+        Returns:
+            The row or column from the dataset.
+        """
         if isinstance(key, str):
             feature = self._features.get(key, None)
             feature_is_pickle_type = False
@@ -198,10 +209,12 @@ class OutputIterableDataset(OutputDatasetMixin):
 
     @property
     def dataset(self) -> IterableDataset:
+        """The underlying Hugging Face :py:class:`~datasets.IterableDataset`."""
         return self._dataset
 
     @property
     def num_rows(self) -> None | int:
+        """The number of rows in the dataset."""
         return self.total_num_rows
 
 
@@ -220,6 +233,7 @@ class OutputDataset(OutputDatasetMixin):
 
     @property
     def dataset(self) -> Dataset:
+        """The underlying Hugging Face :py:class:`~datasets.Dataset`."""
         return self._dataset
 
     def save_to_disk(
@@ -234,6 +248,7 @@ class OutputDataset(OutputDatasetMixin):
 
     @property
     def num_rows(self) -> int:
+        """The number of rows in the dataset."""
         return len(self)
 
     def __len__(self):
