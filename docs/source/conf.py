@@ -350,6 +350,16 @@ def autodoc_process_docstring(app, what, name, obj, options, lines):
             "dims": "The dimensions of the embeddings.",
             "model_max_length": "The maximum length of the model.",
         })[objname])
+    elif objname == "run":
+        if "queries" in signature(obj).parameters:
+            lines.clear()
+            lines.extend(docstrings.RETRIEVER_RUN)
+        if "texts" in signature(obj).parameters:
+            lines.clear()
+            if "instruction" in signature(obj).parameters:
+                lines.extend(docstrings.TASK_MODEL_RUN_WITH_INSTRUCTION)
+            else:
+                lines.extend(docstrings.TASK_MODEL_RUN)
 
 
 def setup(app):
