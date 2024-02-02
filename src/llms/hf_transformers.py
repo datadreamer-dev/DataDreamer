@@ -166,12 +166,6 @@ class HFTransformers(LLM):
         cache_folder_path: None | str = None,
         **kwargs,
     ):
-        """Loads a LLM via Hugging Face `Transformers
-        <https://huggingface.co/docs/transformers/>`_.
-
-        :ivar chat_prompt_template: The chat prompt template the model is using.
-        :ivar system_prompt: The system prompt the model is using.
-        """
         super().__init__(cache_folder_path=cache_folder_path)
         self.model_name = model_name
         self.chat_prompt_template, self.system_prompt = get_model_prompt_template(
