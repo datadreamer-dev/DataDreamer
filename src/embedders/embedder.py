@@ -21,7 +21,6 @@ class Embedder(TaskModel):
             The number of tokens in the string.
         """
         pass
-        pass
 
     @property
     @abstractmethod

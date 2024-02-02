@@ -78,7 +78,6 @@ class LLM(_Cachable):
             The number of tokens in the string.
         """
         pass
-        pass
 
     def final_count_tokens(self, value: None | str) -> int:
         if value == "" or value is None:

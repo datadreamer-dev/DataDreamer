@@ -184,7 +184,7 @@ class OpenAI(LLM):
             return tiktoken.get_encoding("cl100k_base")
 
     @ring.lru(maxsize=128)
-    def get_max_context_length(self, max_new_tokens: int) -> int:
+    def get_max_context_length(self, max_new_tokens: int) -> int:  # pragma: no cover
         """Gets the maximum context length for the model. When ``max_new_tokens`` is
         greater than 0, the maximum number of tokens that can be used for the prompt
         context is returned.

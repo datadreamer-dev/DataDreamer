@@ -37,7 +37,6 @@ class TaskModel(_Cachable):
             The number of tokens in the string.
         """
         pass
-        pass
 
     @property
     @abstractmethod
