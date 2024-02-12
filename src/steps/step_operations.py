@@ -72,12 +72,19 @@ def _iterable_dataset_to_dataset(  # noqa: C901
                         num_proc=default_to(save_num_proc, None),
                     )
                     break
-                except DatasetGenerationError as e:
+                except ValueError as e:
+                    if "corresponds to no data" in str(e):
+                        dataset = Dataset.from_dict(
+                            {col_name: [] for col_name in step.output._features},
+                            features=step.output._features,
+                        )  # type: ignore[call-arg]
+                        break
+                except DatasetGenerationError as e:  # pragma: no cover
                     if features is None and isinstance(
                         e.__cause__, SchemaInferenceError
                     ):
                         continue
-                    else:  # pragma: no cover
+                    else:
                         raise e
         else:
             dataset = Dataset.from_list(list(dataset_generator(iterable_dataset)))
