@@ -190,7 +190,7 @@ def linkcode_resolve(domain, info):
 
 
 # -- AutoDoc configuration --------------------------------------------------
-autoclass_content = "init"
+autoclass_content = "both"
 autodoc_member_order = "bysource"
 autodoc_typehints_format = "short"
 python_use_unqualified_type_names = True

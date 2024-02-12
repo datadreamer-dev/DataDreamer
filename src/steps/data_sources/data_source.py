@@ -29,6 +29,26 @@ class DataSource(Step):
         background: bool = False,
         **kwargs,
     ):
+        """Loads a dataset from a in-memory Python object.
+
+        Args:
+            name: The name of the step.
+            data (Any): The data to load as a dataset. See the
+                `valid return formats <../../pages/advanced_usage/creating_a_new_datadreamer_.../step.html#returning-outputs>`_
+                for more details on acceptable data formats.
+            total_num_rows: The total number of rows being processed (helps with
+                displaying progress, if the data is being lazily loaded).
+            auto_progress: Whether to automatically update the progress % for this step.
+            progress_interval: How often to log progress in seconds.
+            force: Whether to force run the step (ignore saved results).
+            verbose: Whether or not to print verbose logs.
+            log_level: The logging level to use (:py:data:`~logging.DEBUG`, :py:data:`~logging.INFO`, etc.).
+            save_num_proc: The number of processes to use if saving to disk.
+            save_num_shards: The number of shards on disk to save the dataset into.
+            background: Whether to run the operation in the background.
+            **config_kwargs: Additional keyword arguments to pass to
+                :py:func:`datasets.load_dataset`.
+        """
         self.dataset = data
         if (
             auto_progress

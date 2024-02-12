@@ -119,6 +119,22 @@ class StepMeta(type):
 
 
 class Step(metaclass=StepMeta):
+    """Base class for all steps.
+
+    Args:
+        name: The name of the step.
+        inputs: The inputs to the step.
+        args: The args to the step.
+        outputs: The name mapping to rename outputs produced by the step.
+        progress_interval: How often to log progress in seconds.
+        force: Whether to force run the step (ignore saved results).
+        verbose: Whether or not to print verbose logs.
+        log_level: The logging level to use (:py:data:`~logging.DEBUG`, :py:data:`~logging.INFO`, etc.).
+        save_num_proc: The number of processes to use if saving to disk.
+        save_num_shards: The number of shards on disk to save the dataset into.
+        background: Whether to run the operation in the background.
+    """
+
     def __init__(  # noqa: C901
         self,
         name: str,
@@ -134,21 +150,6 @@ class Step(metaclass=StepMeta):
         save_num_shards: None | int = None,
         background: bool = False,
     ):
-        """Base class for all steps.
-
-        Args:
-            name: The name of the step.
-            inputs: The inputs to the step.
-            args: The args to the step.
-            outputs: The name mapping to rename outputs produced by the step.
-            progress_interval: How often to log progress in seconds.
-            force: Whether to force run the step (ignore saved results).
-            verbose: Whether or not to print verbose logs.
-            log_level: The logging level to use (:py:data:`~logging.DEBUG`, :py:data:`~logging.INFO`, etc.).
-            save_num_proc: The number of processes to use if saving to disk.
-            save_num_shards: The number of shards on disk to save the dataset into.
-            background: Whether to run the operation in the background.
-        """
         # Get the cls_name
         cls_name = self.__class__.__name__
 
