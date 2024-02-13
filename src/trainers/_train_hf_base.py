@@ -1094,6 +1094,13 @@ class _TrainHFBase(DataDreamerTrainer):
             **self.kwargs,
             **classification_kwargs,
         )
+
+        # Optionally add tags if the user has the appropriate transformers
+        # version. That way the tag will be pushed automatically even if the
+        # users do not call `trainer.push_to_hub()` but e.g. `model.push_to_hub()`
+        if hasattr(model, "add_model_tags"):
+            model.add_model_tags(self._trainer_tags)
+
         from .train_hf_classifier import TrainHFClassifier
         from .train_setfit_classifier import TrainSetFitClassifier
 
