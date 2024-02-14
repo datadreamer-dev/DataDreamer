@@ -76,6 +76,8 @@ def _monkey_patch_TrainerState__post_init__():
 
 
 class Trainer(ABC):
+    _trainer_tags = ["datadreamer"]
+
     def __init__(  # noqa: C901
         self,
         name: str,
