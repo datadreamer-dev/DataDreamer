@@ -13,7 +13,7 @@
   <br />
   <a href="https://github.com/datadreamer-dev/DataDreamer/blob/main/LICENSE.txt"><img src="https://img.shields.io/badge/License-MIT-blue.svg"/></a>
   <a href="https://ajayp.app/"><img src="https://img.shields.io/badge/NLP-NLP?labelColor=011F5b&color=990000&label=University%20of%20Pennsylvania"/></a>
-  <a href="https://ajayp.app/"><img src="https://img.shields.io/badge/arXiv-coming%20soon-b31b1b.svg"/></a>
+  <a href="https://arxiv.org/abs/2402.10379"><img src="https://img.shields.io/badge/arXiv-2402.10379-b31b1b.svg"/></a>
   <a href="https://discord.gg/dwWW8wuCtK"><img src="https://img.shields.io/badge/Discord-Chat-blue?logo=discord&color=4338ca&labelColor=black"/></a>
 </p>
 
