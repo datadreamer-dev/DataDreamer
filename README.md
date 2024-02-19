@@ -108,3 +108,8 @@ Please reach out to us via [email (ajayp@upenn.edu)](mailto:ajayp@upenn.edu) or 
 Copyright © 2024, [Ajay Patel](https://ajayp.app/). Released under the [MIT License](https://github.com/datadreamer-dev/DataDreamer/blob/main/LICENSE.txt).
 
 Thank you to the maintainers at [Hugging Face](https://github.com/huggingface) and [LiteLLM](https://github.com/BerriAI/litellm) for accepting contributions necessary for DataDreamer and providing upstream support.
+
+------------------------------
+#### Funding Acknowledgements
+
+<sub><b>ODNI, IARPA:</b> This research is supported in part by the Office of the Director of National Intelligence (ODNI), Intelligence Advanced Research Projects Activity (IARPA), via the HIATUS Program contract #2022-22072200005. The views and conclusions contained herein are those of the authors and should not be interpreted as necessarily representing the official policies, either expressed or implied, of ODNI, IARPA, or the U.S. Government. The U.S. Government is authorized to reproduce and distribute reprints for governmental purposes notwithstanding any copyright annotation therein.</sup>
