@@ -107,4 +107,4 @@ Please reach out to us via [email (ajayp@upenn.edu)](mailto:ajayp@upenn.edu) or 
 
 Copyright © 2024, [Ajay Patel](https://ajayp.app/). Released under the [MIT License](https://github.com/datadreamer-dev/DataDreamer/blob/main/LICENSE.txt).
 
-Thank you to the maintainers at [Hugging Face](https://github.com/huggingface) and [LiteLLM](https://github.com/BerriAI/litellm) for accepting contributions neccessary for DataDreamer and providing upstream support.
+Thank you to the maintainers at [Hugging Face](https://github.com/huggingface) and [LiteLLM](https://github.com/BerriAI/litellm) for accepting contributions necessary for DataDreamer and providing upstream support.
