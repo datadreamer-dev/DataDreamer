@@ -17,7 +17,7 @@ DataDreamer
    <a href="https://github.com/datadreamer-dev/DataDreamer/blob/main/LICENSE.txt"><img src="https://img.shields.io/badge/License-MIT-blue.svg"/></a>
    <a href="https://ajayp.app/"><img src="https://img.shields.io/badge/NLP-NLP?labelColor=011F5b&color=990000&label=University%20of%20Pennsylvania"/></a>
    <a href="https://ajayp.app/"><img src="https://img.shields.io/badge/arXiv-coming%20soon-b31b1b.svg"/></a>
-   <a href="https://discord.gg/RYw9ag2U"><img src="https://img.shields.io/badge/Discord-Chat-blue?logo=discord&color=4338ca&labelColor=black"/></a>
+   <a href="https://discord.gg/dwWW8wuCtK"><img src="https://img.shields.io/badge/Discord-Chat-blue?logo=discord&color=4338ca&labelColor=black"/></a>
    </p>
 
    <p>
@@ -162,14 +162,23 @@ DataDreamer is:
 Citation
 ========
 
+If you use DataDreamer, please cite the `DataDreamer paper <https://arxiv.org/abs/2402.10379>`.
+
 .. code-block:: bibtex
 
-   coming soon...
+   @misc{patel2024datadreamer,
+      title={DataDreamer: A Tool for Synthetic Data Generation and Reproducible LLM Workflows}, 
+      author={Ajay Patel and Colin Raffel and Chris Callison-Burch},
+      year={2024},
+      eprint={2402.10379},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL}
+   }
 
 Contact
 =======
 
-Please reach out to us via `email (ajayp@upenn.edu) <mailto:ajayp@upenn.edu>`_ or on `Discord <https://discord.gg/RYw9ag2U>`_ if you have any questions, comments, or feedback.
+Please reach out to us via `email (ajayp@upenn.edu) <mailto:ajayp@upenn.edu>`_ or on `Discord <https://discord.gg/dwWW8wuCtK>`_ if you have any questions, comments, or feedback.
 
 
 .. toctree::
