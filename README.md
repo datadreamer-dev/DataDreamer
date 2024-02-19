@@ -84,7 +84,7 @@ DataDreamer is:
 
 ## Citation
 
-Please cite the [DataDreamer paper](https://arxiv.org/abs/2402.10379).
+Please cite the [DataDreamer paper](https://arxiv.org/abs/2402.10379):
 
 ```bibtex
 @misc{patel2024datadreamer,

@@ -162,7 +162,7 @@ DataDreamer is:
 Citation
 ========
 
-Please cite the `DataDreamer paper <https://arxiv.org/abs/2402.10379>`_.
+Please cite the `DataDreamer paper <https://arxiv.org/abs/2402.10379>`_:
 
 .. code-block:: bibtex
 

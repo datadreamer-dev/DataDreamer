@@ -4,7 +4,7 @@ Aligning a LLM with Human Preferences
 In order to better align the responses :doc:`instruction-tuned LLMs <instruction_tuning>` generate to what humans would prefer, we can train LLMs against a reward model or a dataset of human preferences in a process known as `RLHF (Reinforcement Learning with Human Feedback) <https://arxiv.org/abs/2203.02155>`_.
 
 DataDreamer makes this process extremely simple and straightforward to accomplish. We demonstrate it below using LoRA to only train
-a fraction of the weights with `DPO <https://arxiv.org/abs/2305.18290>`_.
+a fraction of the weights with `DPO <https://arxiv.org/abs/2305.18290>`_ (a more stable, and efficient alignment method than traditional RLHF).
 
 .. code-block:: python
 
