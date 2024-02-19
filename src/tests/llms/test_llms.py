@@ -59,7 +59,7 @@ from ..test_utils.config import TEST_DIR
 OPENAI_SKY_ANSWER = "The sky is typically blue during the day and black"
 OPENAI_TREE_ANSWER = "Trees can be many different colors, depending on the"
 OPENAI_SKY_CHAT_ANSWER = "The color of the sky can vary depending on the"
-OPENAI_TREE_CHAT_ANSWER = "Trees can be various shades of green, but they"
+OPENAI_TREE_CHAT_ANSWER = "Trees can be various shades of green, depending on"
 
 
 def _reload_pydantic():
