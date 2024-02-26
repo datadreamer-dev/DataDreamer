@@ -151,6 +151,9 @@ def get_model_max_context_length(model_name: str, config: PretrainedConfig) -> i
     elif hasattr(config, "seq_length"):  # pragma: no cover
         # https://huggingface.co/THUDM/chatglm3-6b/blob/main/config.json
         max_context_length = config.seq_length
+    elif hasattr(config, "embedding_size"):  # pragma: no cover
+        # https://huggingface.co/rrivera1849/LUAR-MUD/blob/main/config.json
+        max_context_length = config.embedding_size
     else:
         if "bloom" in model_name:
             max_context_length = 2048
