@@ -53,7 +53,8 @@ class MistralAI(LLMAPI):
 
     @cached_property
     def retry_wrapper(self):
-        MistralAPIException, MistralConnectionException = (
+        MistralException, MistralAPIException, MistralConnectionException = (
+            import_module("mistralai.exceptions").MistralException,
             import_module("mistralai.exceptions").MistralAPIException,
             import_module("mistralai.exceptions").MistralConnectionException,
         )
@@ -61,6 +62,14 @@ class MistralAI(LLMAPI):
         # Create a retry wrapper function
         tenacity_logger = self.get_logger(key="retry", verbose=True, log_level=None)
 
+        @retry(
+            retry=retry_if_exception_type(MistralException),
+            wait=wait_exponential(multiplier=1, min=3, max=300),
+            before_sleep=before_sleep_log(tenacity_logger, logging.INFO),
+            after=after_log(tenacity_logger, logging.INFO),
+            stop=stop_any(lambda _: not self.retry_on_fail),  # type: ignore[arg-type]
+            reraise=True,
+        )
         @retry(
             retry=retry_if_exception_type(MistralAPIException),
             wait=wait_exponential(multiplier=1, min=3, max=300),
