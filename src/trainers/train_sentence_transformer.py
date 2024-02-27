@@ -241,7 +241,7 @@ class TrainSentenceTransformer(_TrainHFBase):
         model[0].tokenizer = get_tokenizer(
             _normalize_model_name(self.model_name),
             revision=None,
-            trust_remote_code=False,
+            trust_remote_code=self.trust_remote_code,
         )
         model.max_seq_length = (
             get_model_max_context_length(
@@ -867,7 +867,7 @@ class TrainSentenceTransformer(_TrainHFBase):
             model[0].tokenizer = get_tokenizer(
                 _normalize_model_name(self.model_name),
                 revision=None,
-                trust_remote_code=False,
+                trust_remote_code=self.trust_remote_code,
             )
             model.max_seq_length = (
                 get_model_max_context_length(
