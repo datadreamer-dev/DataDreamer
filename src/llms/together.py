@@ -84,6 +84,7 @@ class Together(LLMAPI):
     @cached_property
     def retry_wrapper(self):
         together = import_module("together")
+        requests = import_module("requests")
 
         # Create a retry wrapper function
         tenacity_logger = self.get_logger(key="retry", verbose=True, log_level=None)
@@ -98,6 +99,14 @@ class Together(LLMAPI):
         )
         @retry(
             retry=retry_if_exception_type(together.ResponseError),
+            wait=wait_exponential(multiplier=1, min=3, max=300),
+            before_sleep=before_sleep_log(tenacity_logger, logging.INFO),
+            after=after_log(tenacity_logger, logging.INFO),
+            stop=stop_any(lambda _: not self.retry_on_fail),  # type: ignore[arg-type]
+            reraise=True,
+        )
+        @retry(
+            retry=retry_if_exception_type(requests.exceptions.HTTPError),
             wait=wait_exponential(multiplier=1, min=3, max=300),
             before_sleep=before_sleep_log(tenacity_logger, logging.INFO),
             after=after_log(tenacity_logger, logging.INFO),
