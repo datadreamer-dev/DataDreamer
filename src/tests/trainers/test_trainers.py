@@ -818,7 +818,7 @@ class TestTrainHFClassifier:
             )
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
-                assert json.load(f) == "26db170daf1c49f0"
+                assert json.load(f) == "5720e11579d49bf1"
             assert train_result is trainer
             assert trainer.id2label == {0: "negative", 1: "positive"}
             assert trainer.label2id == {"negative": 0, "positive": 1}
@@ -1363,7 +1363,7 @@ class TestTrainSentenceTransformer:
             )
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
-                assert json.load(f) == "e677c5384765683e"
+                assert json.load(f) == "d7919437f0b2e066"
             assert train_result is trainer
             assert (
                 type(get_orig_model(trainer.model)).__name__
@@ -1950,7 +1950,7 @@ class TestTrainHFDPO:
             )
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
-                assert json.load(f) == "03cbfe6e9d0e239b"
+                assert json.load(f) == "199c2a7e9ac922c7"
             assert train_result is trainer
             assert (
                 type(get_orig_model(trainer.model)).__name__ == "PeftModelForCausalLM"
@@ -2277,7 +2277,7 @@ class TestTrainHFRewardModel:
             )
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
-                assert json.load(f) == "b59c9f386769790d"
+                assert json.load(f) == "d2f8bf5c4c890ad8"
             assert train_result is trainer
             assert trainer.id2label == {0: "reward"}
             assert trainer.label2id == {"reward": 0}
@@ -2586,7 +2586,7 @@ class TestTrainHFRewardModel:
             )
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
-                assert json.load(f) == "b7d786d2368a63af"
+                assert json.load(f) == "739c9b28717a62a0"
             assert train_result is trainer
             assert trainer.id2label == {0: "reward"}
             assert trainer.label2id == {"reward": 0}
@@ -2891,7 +2891,7 @@ class TestTrainHFPPO:
             )
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
-                assert json.load(f) == "c7b5269972e1d39d"
+                assert json.load(f) == "54bb288a5f0215b8"
             assert train_result is trainer
             assert (
                 type(get_orig_model(trainer.model)).__name__ == "PeftModelForCausalLM"
@@ -3016,7 +3016,7 @@ class TestTrainHFPPO:
             )
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
-                assert json.load(f) == "00d1d99ab108b03c"
+                assert json.load(f) == "8566802139e49e11"
             reward_trainer.unload_model()
             trainer.unload_model()
             # trainer.publish_to_hf_hub(
@@ -3238,7 +3238,7 @@ class TestTrainSetFitClassifier:
             )
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
-                assert json.load(f) == "744203a7b1d273a1"
+                assert json.load(f) == "58c3cd6fe48822c5"
             assert train_result is trainer
             assert trainer.id2label == {0: "negative", 1: "positive"}
             assert trainer.label2id == {"negative": 0, "positive": 1}
