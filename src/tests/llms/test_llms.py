@@ -2329,14 +2329,16 @@ class TestCohere:
 class TestAnthropic:
     def test_init(self, create_datadreamer):
         with create_datadreamer():
-            llm = Anthropic("claude-2")
+            llm = Anthropic("claude-3-opus-20240229")
             assert llm._model_name_prefix == ""
             assert llm.model_card is not None
             assert llm.license is not None
 
     def test_run(self, create_datadreamer):
         with create_datadreamer():
-            llm = Anthropic("claude-2", api_key="fake-key", retry_on_fail=False)
+            llm = Anthropic(
+                "claude-3-opus-20240229", api_key="fake-key", retry_on_fail=False
+            )
             model_calls = []
 
             def litellm_logger_fn(model_call_dict):
@@ -2360,12 +2362,14 @@ class TestAnthropic:
 
             assert len(model_calls) == 2
             assert model_calls[0]["additional_args"]["complete_input_dict"] == {
-                "model": "claude-2",
-                "prompt": "\n\nHuman: Who was the first president?\n\nAssistant: ",
+                "model": "claude-3-opus-20240229",
+                "messages": [
+                    {"content": "Who was the first president?", "role": "user"}
+                ],
                 "stop_sequences": ["\n"],
                 "temperature": 1.0,
                 "top_p": 0.001,
-                "max_tokens_to_sample": 250,
+                "max_tokens": 250,
             }
 
 
@@ -2513,9 +2517,9 @@ class TestVertexAI:
                 model_calls.append(model_call_dict)
 
             with ignore_litellm_warnings():
-                from litellm.exceptions import APIError, BadRequestError
+                from litellm.exceptions import APIError, BadRequestError, RateLimitError
 
-            with pytest.raises((BadRequestError, APIError)):
+            with pytest.raises((BadRequestError, APIError, RateLimitError)):
                 llm.run(
                     ["Who was the first president?"],
                     max_new_tokens=250,
