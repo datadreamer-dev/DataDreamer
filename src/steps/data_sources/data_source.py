@@ -34,7 +34,7 @@ class DataSource(Step):
         Args:
             name: The name of the step.
             data (Any): The data to load as a dataset. See the
-                `valid return formats <../../pages/advanced_usage/creating_a_new_datadreamer_.../step.html#returning-outputs>`_
+                `valid return formats <./pages/advanced_usage/creating_a_new_datadreamer_.../step.html#returning-outputs>`_
                 for more details on acceptable data formats.
             total_num_rows: The total number of rows being processed (helps with
                 displaying progress, if the data is being lazily loaded).
