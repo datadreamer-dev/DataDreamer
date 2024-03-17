@@ -179,7 +179,7 @@ class TestTrainHFBase:
                     ],
                     tokenize=False,
                 )
-                == "<s><|system|>\n</s>\n<|user|>\nA</s>\n<|assistant|>\nB</s>"
+                == "<s><|system|>\nYou are a helpful assistant.</s>\n<|user|>\nA</s>\n<|assistant|>\nB</s>"
             )
         with create_datadreamer():
             trainer = TrainHFFineTune(

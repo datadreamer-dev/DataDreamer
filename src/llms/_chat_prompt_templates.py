@@ -17,7 +17,6 @@ CHAT_PROMPT_TEMPLATES = {
     "openhermes": "<|im_start|>system\n{{system_prompt}}<|im_end|>\n<|im_start|>user\n{{prompt}}<|im_end|>\n<|im_start|>assistant\n",
     "chatml": "<|im_start|>user\n{{prompt}}<|im_end|>\n<|im_start|>assistant\n",
     "tinyllama": "<|system|>\n{{system_prompt}}</s>\n<|user|>\n{{prompt}}</s>\n<|assistant|>\n",
-    "zephyr": "<|system|>\n</s>\n<|user|>\n{{prompt}}</s>\n<|assistant|>\n",
     "zephyr_system": "<|system|>\n{{system_prompt}}</s>\n<|user|>\n{{prompt}}</s>\n<|assistant|>\n",
     "oasst_system": "<|system|>{{system_prompt}}</s><|prompter|>{{prompt}}</s><|assistant|>",
     "oasst": "<|prompter|>{{prompt}}<|endoftext|><|assistant|>",
@@ -144,10 +143,7 @@ def _model_name_to_chat_prompt_template_type(  # noqa: C901
         ):
             chat_prompt_template_type = "llama"
         elif "zephyr-" in model_name_lower and "stablelm" not in model_name_lower:
-            if "-beta" in model_name_lower:
-                chat_prompt_template_type = "zephyr_system"
-            else:
-                chat_prompt_template_type = "zephyr"
+            chat_prompt_template_type = "zephyr_system"
         elif all(
             fragment in model_name_lower for fragment in ["mistral-", "-instruct"]
         ):
