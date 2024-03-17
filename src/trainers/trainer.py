@@ -17,7 +17,7 @@ from ..project.environment import RUNNING_IN_PYTEST
 from ..steps.data_card import DataCardType, sort_data_card
 from ..utils.distributed_utils import run_distributed
 from ..utils.fs_utils import clear_dir, mkdir, move_dir, safe_fn
-from ..utils.import_utils import ignore_transformers_warnings
+from ..utils.import_utils import ignore_training_warnings, ignore_transformers_warnings
 
 with ignore_transformers_warnings():
     from transformers import TrainerState
@@ -285,7 +285,8 @@ class Trainer(ABC):
                     logger=self.logger,
                 )
             else:
-                self._train(**kwargs)
+                with ignore_training_warnings():
+                    self._train(**kwargs)
         finally:
             # TrainingArguments() postinit modifies os.environ, so we restore it
             # after running any training procedure

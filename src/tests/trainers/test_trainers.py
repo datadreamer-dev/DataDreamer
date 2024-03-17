@@ -1363,7 +1363,7 @@ class TestTrainSentenceTransformer:
             )
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
-                assert json.load(f) == "f54b65eba7a5673a"
+                assert json.load(f) == "d7919437f0b2e066"
             assert train_result is trainer
             assert (
                 type(get_orig_model(trainer.model)).__name__
