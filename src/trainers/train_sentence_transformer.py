@@ -368,7 +368,7 @@ class TrainSentenceTransformer(_TrainHFBase):
             loss_cls = default_to(
                 loss, lambda model: losses.CosineSimilarityLoss(model)
             )
-            metric_for_best_model = "eval_joint_metric"
+            metric_for_best_model = "eval_loss"
             greater_is_better = True
         else:
             assert margin == DEFAULT, (
@@ -493,52 +493,6 @@ class TrainSentenceTransformer(_TrainHFBase):
                     "joint_metric": JointMetric(
                         is_joint_metric=True,
                         primary=accuracy_metrics["accuracy"],
-                        primary_name="f1",
-                        secondary=(-1 * loss),
-                        secondary_name="loss",
-                        secondary_inversed=True,
-                    ),
-                }
-            elif has_labels:
-                distance_metric = lambda x, y: 1 - F.cosine_similarity(  # noqa: E731
-                    x, y
-                )
-                distance_margin = 1.0
-                if hasattr(loss_module, "distance_metric") and hasattr(
-                    loss_module, "margin"
-                ):
-                    distance_metric = loss_module.distance_metric
-                    distance_margin = loss_module.margin
-                anchor_embeddings, other_embeddings = all_embeddings
-                preds = []
-                bz = 128
-                idx_iter = iter(range(anchor_embeddings.shape[0]))
-                while True:
-                    idx_batch = list(islice(idx_iter, bz))
-                    if len(idx_batch) == 0:
-                        break
-                    anchor_embeddings_batch = torch.tensor(
-                        anchor_embeddings[idx_batch[0] : idx_batch[-1] + 1]
-                    )
-                    other_embeddings_batch = torch.tensor(
-                        other_embeddings[idx_batch[0] : idx_batch[-1] + 1]
-                    )
-                    distances = distance_metric(
-                        anchor_embeddings_batch, other_embeddings_batch
-                    )
-                    preds = [int(d < distance_margin) for d in distances]
-                accuracy_metrics = accuracy.compute(
-                    predictions=preds, references=labels
-                )
-                f1_metrics = f1.compute(
-                    predictions=preds, references=labels, average="micro"
-                )
-                return {
-                    **accuracy_metrics,
-                    **f1_metrics,
-                    "joint_metric": JointMetric(
-                        is_joint_metric=True,
-                        primary=f1_metrics["f1"],
                         primary_name="f1",
                         secondary=(-1 * loss),
                         secondary_name="loss",
