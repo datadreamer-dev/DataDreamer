@@ -6,6 +6,8 @@ from functools import cache
 CHAT_PROMPT_TEMPLATES = {
     "llama_system": "[INST] <<SYS>>\n{{system_prompt}}\n<</SYS>>\n\n{{prompt}} [/INST] ",
     "llama": "[INST] {{prompt}} [/INST] ",
+    "olmo": "<|endoftext|><|user|>\n{{prompt}}\n<|assistant|>\n",
+    "command_r": "<BOS_TOKEN><|START_OF_TURN_TOKEN|><|USER_TOKEN|>{{prompt}}<|END_OF_TURN_TOKEN|><|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>",
     "phi": "Instruct: {{prompt}}\nOutput: ",
     "openchat": "GPT4 Correct User: {{prompt}}<|end_of_turn|>GPT4 Correct Assistant: ",
     "orca_hashes": "### System:\n{{system_prompt}}\n\n### User:\n{{prompt}}\n\n### Assistant:\n",
@@ -16,6 +18,7 @@ CHAT_PROMPT_TEMPLATES = {
     "chatml": "<|im_start|>user\n{{prompt}}<|im_end|>\n<|im_start|>assistant\n",
     "tinyllama": "<|system|>\n{{system_prompt}}</s>\n<|user|>\n{{prompt}}</s>\n<|assistant|>\n",
     "zephyr": "<|system|>\n</s>\n<|user|>\n{{prompt}}</s>\n<|assistant|>\n",
+    "zephyr_system": "<|system|>\n{{system_prompt}}</s>\n<|user|>\n{{prompt}}</s>\n<|assistant|>\n",
     "oasst_system": "<|system|>{{system_prompt}}</s><|prompter|>{{prompt}}</s><|assistant|>",
     "oasst": "<|prompter|>{{prompt}}<|endoftext|><|assistant|>",
     "oasst_h2o": "<|prompt|>{{prompt}}<|endoftext|><|answer|>",
@@ -31,6 +34,7 @@ CHAT_PROMPT_TEMPLATES = {
     "decilm": "### System:\n{{system_prompt}}\n### User:\n{{prompt}}\n### Assistant:\n",
     "vicuna": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions.\n\nUSER: {{prompt}}\nASSISTANT: ",
     "vicuna_v1": "A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.\n\n### Human: {{prompt}}\n### Assistant: ",
+    "xwin": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: {{prompt}} ASSISTANT: ",
     "vicuna_simple": "USER: {{prompt}}\nASSISTANT: ",
     "minotaur": "The following is a chat between a USER and a friendly and helpful ASSISTANT.\nUSER: {{prompt}}\nASSISTANT: ",
     "bluemoon": "{{system_prompt}}\nLEAD: {{prompt}}\nASSOCIATE: ",
@@ -61,6 +65,7 @@ CHAT_PROMPT_TEMPLATES = {
 
 SYSTEM_PROMPT_TYPES = {
     "llama_system": "llama_system",
+    "zephyr_system": "llama_system",
     "tinyllama": "llama_system",
     "orca_hashes": "llama_system",
     "openorca_openchat": "openorca_openchat",
@@ -139,7 +144,10 @@ def _model_name_to_chat_prompt_template_type(  # noqa: C901
         ):
             chat_prompt_template_type = "llama"
         elif "zephyr-" in model_name_lower and "stablelm" not in model_name_lower:
-            chat_prompt_template_type = "zephyr"
+            if "-beta" in model_name_lower:
+                chat_prompt_template_type = "zephyr_system"
+            else:
+                chat_prompt_template_type = "zephyr"
         elif all(
             fragment in model_name_lower for fragment in ["mistral-", "-instruct"]
         ):
@@ -148,8 +156,14 @@ def _model_name_to_chat_prompt_template_type(  # noqa: C901
             fragment in model_name_lower for fragment in ["mixtral-", "-instruct"]
         ):
             chat_prompt_template_type = "llama"
+        elif all(fragment in model_name_lower for fragment in ["olmo-", "-instruct"]):
+            chat_prompt_template_type = "olmo"
+        elif all(fragment in model_name_lower for fragment in ["c4ai-", "-command-r"]):
+            chat_prompt_template_type = "command_r"
         elif all(fragment in model_name_lower for fragment in ["phi-", "-2"]):
             chat_prompt_template_type = "phi"
+        elif "xwin" in model_name_lower:
+            chat_prompt_template_type = "xwin"
         elif all(fragment in model_name_lower for fragment in ["solar-", "-instruct"]):
             chat_prompt_template_type = "solar"
         elif all(fragment in model_name_lower for fragment in ["yi-", "-chat"]):
@@ -355,7 +369,7 @@ def _model_name_to_system_prompt(
         return None
 
     # Try to get the system prompt from `transformers`
-    # Skipping due to https://github.com/huggingface/transformers/pull/26765
+    # TODO: Skipping due to https://github.com/huggingface/transformers/pull/26765
     # result = _chat_prompt_template_and_system_prompt(
     #     model_name=model_name, revision=revision
     # )

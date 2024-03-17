@@ -1584,7 +1584,7 @@ class TestTrainSentenceTransformer:
                 "Training Data",
                 data={
                     "anchors": ["Base", "Base", "Base", "Base", "Base", "Base"],
-                    "positives": [
+                    "others": [
                         "Wonderful",
                         "Bad",
                         "Great",
@@ -1592,7 +1592,7 @@ class TestTrainSentenceTransformer:
                         "Excellent",
                         "Horrible",
                     ],
-                    "labels": [1, 0, 1, 0, 1, 0],
+                    "labels": [1, -1, 1, -1, 1, -1],
                 },
             )
             val_dataset = dataset.take(2)
@@ -1604,10 +1604,10 @@ class TestTrainSentenceTransformer:
             data_collator_spy = mocker.spy(CustomDataCollatorWithPadding, "__call__")
             train_result = trainer.train_with_labeled_pairs(
                 train_anchors=dataset.output["anchors"],
-                train_positives=dataset.output["positives"],
+                train_others=dataset.output["others"],
                 train_labels=dataset.output["labels"],
                 validation_anchors=val_dataset.output["anchors"],
-                validation_positives=val_dataset.output["positives"],
+                validation_others=val_dataset.output["others"],
                 validation_labels=val_dataset.output["labels"],
                 epochs=1,
                 batch_size=8,
@@ -1630,11 +1630,11 @@ class TestTrainSentenceTransformer:
                 == torch.tensor([[1, 1, 1], [1, 1, 1]])
             ).all()
             assert (
-                data_collator_spy.spy_return["labels"] == torch.tensor([1, 0])
+                data_collator_spy.spy_return["labels"] == torch.tensor([1, -1])
             ).all()
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
-                assert json.load(f) == "55af073e52482d83"
+                assert json.load(f) == "e9156c7c3b03b42e"
             assert train_result is trainer
             assert type(get_orig_model(trainer.model)).__name__ == "SentenceTransformer"
             assert trainer.model_path == os.path.join(trainer_path, "_model")

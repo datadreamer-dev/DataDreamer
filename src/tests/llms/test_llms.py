@@ -47,7 +47,7 @@ from ...llms._chat_prompt_templates import (
 )
 from ...llms._litellm import LiteLLM
 from ...llms.hf_transformers import CachedTokenizer
-from ...llms.llm import _check_temperature_and_top_p
+from ...llms.llm import _check_max_new_tokens_possible, _check_temperature_and_top_p
 from ...utils.hf_model_utils import get_orig_model
 from ...utils.import_utils import (
     ignore_litellm_warnings,
@@ -377,6 +377,55 @@ class TestLLM:
             supports_zero_top_p=False,
             supports_one_top_p=False,
         ) == (0.3, 0.999)
+
+    def test_check_max_new_tokens_possible(create_datadreamer):
+        # Check max output length
+        llm = OpenAI("gpt-4")
+        assert _check_max_new_tokens_possible(
+            self=llm,
+            max_length_func=lambda prompts: 100,
+            prompts=[],
+            max_new_tokens=None,
+        ) == (8174 - 100)
+        assert (
+            _check_max_new_tokens_possible(
+                self=llm,
+                max_length_func=lambda prompts: 100,
+                prompts=[],
+                max_new_tokens=5000,
+            )
+            == 5000
+        )
+        llm = OpenAI("gpt-4-turbo-preview")
+        assert (
+            _check_max_new_tokens_possible(
+                self=llm,
+                max_length_func=lambda prompts: 100,
+                prompts=[],
+                max_new_tokens=None,
+            )
+            == 4096
+        )
+        assert (
+            _check_max_new_tokens_possible(
+                self=llm,
+                max_length_func=lambda prompts: 100,
+                prompts=[],
+                max_new_tokens=4096,
+            )
+            == 4096
+        )
+        # Make sure an error is thrown if the model's output length is surpassed
+        with pytest.raises(ValueError):
+            assert (
+                _check_max_new_tokens_possible(
+                    self=llm,
+                    max_length_func=lambda prompts: 100,
+                    prompts=[],
+                    max_new_tokens=5000,
+                )
+                == 4096
+            )
 
     def test_run_with_no_prompts(self, create_datadreamer):
         llm = OpenAI("gpt-3.5-turbo-instruct")
@@ -997,10 +1046,27 @@ class TestOpenAI:
 
     def test_get_max_context_length(self, create_datadreamer):
         with create_datadreamer():
+            # Check max context length
+            llm = OpenAI("gpt-4")
+            assert llm.get_max_context_length(max_new_tokens=0) == 8174
+            llm = OpenAI("gpt-4-turbo-preview")
+            assert llm.get_max_context_length(max_new_tokens=0) == 127982
+            llm = OpenAI("gpt-3.5-turbo")
+            assert llm.get_max_context_length(max_new_tokens=0) == 16367
             llm = OpenAI("gpt-3.5-turbo-instruct")
             assert llm.get_max_context_length(max_new_tokens=0) == 4096
+
+    def test_get_max_output_length(self, create_datadreamer):
+        with create_datadreamer():
+            # Check max output length
+            llm = OpenAI("gpt-4")
+            assert llm._get_max_output_length() is None
+            llm = OpenAI("gpt-4-turbo-preview")
+            assert llm._get_max_output_length() == 4096
             llm = OpenAI("gpt-3.5-turbo")
-            assert llm.get_max_context_length(max_new_tokens=0) == 4078
+            assert llm._get_max_output_length() == 4096
+            llm = OpenAI("gpt-3.5-turbo-instruct")
+            assert llm._get_max_output_length() is None
 
     @pytest.mark.skipif(
         "OPENAI_API_KEY" not in os.environ, reason="requires OpenAI API key"
@@ -2903,7 +2969,7 @@ class TestPetals:
     @pytest.mark.order("last")
     def test_petals_network(self, create_datadreamer):
         with create_datadreamer():
-            llm = Petals("bigscience/bloom-560m", dtype=torch.float32)
+            llm = Petals("petals-team/StableBeluga2", dtype=torch.float32)
             generated_texts = llm.run(
                 ["A", "B"],
                 max_new_tokens=1,

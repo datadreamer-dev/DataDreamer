@@ -8,7 +8,7 @@ from uuid import uuid4
 import evaluate
 import numpy as np
 import torch
-from datasets import Dataset
+from datasets import Dataset, Value
 from torch.nn import functional as F
 
 from ..datasets import OutputDatasetColumn, OutputIterableDatasetColumn
@@ -366,14 +366,9 @@ class TrainSentenceTransformer(_TrainHFBase):
             # Training with (anchor, other) labeled pairs
             positive_name = "Other"
             loss_cls = default_to(
-                loss,
-                lambda model: losses.ContrastiveLoss(
-                    model,
-                    distance_metric=losses.SiameseDistanceMetric.COSINE_DISTANCE,
-                    margin=default_to(margin, 0.5),
-                ),
+                loss, lambda model: losses.CosineSimilarityLoss(model)
             )
-            metric_for_best_model = "eval_joint_metric"
+            metric_for_best_model = "eval_loss"
             greater_is_better = True
         else:
             assert margin == DEFAULT, (
@@ -414,6 +409,11 @@ class TrainSentenceTransformer(_TrainHFBase):
             validation_columns=validation_columns,
             truncate=truncate,
         )
+        if has_labels:
+            train_dataset = train_dataset.cast_column("labels", Value("float64"))
+            validation_dataset = validation_dataset.cast_column(
+                "labels", Value("float64")
+            )
 
         # Prepare data collator
         fields_to_pad = [
@@ -493,52 +493,6 @@ class TrainSentenceTransformer(_TrainHFBase):
                     "joint_metric": JointMetric(
                         is_joint_metric=True,
                         primary=accuracy_metrics["accuracy"],
-                        primary_name="f1",
-                        secondary=(-1 * loss),
-                        secondary_name="loss",
-                        secondary_inversed=True,
-                    ),
-                }
-            elif has_labels:
-                distance_metric = lambda x, y: 1 - F.cosine_similarity(  # noqa: E731
-                    x, y
-                )
-                distance_margin = 1.0
-                if hasattr(loss_module, "distance_metric") and hasattr(
-                    loss_module, "margin"
-                ):
-                    distance_metric = loss_module.distance_metric
-                    distance_margin = loss_module.margin
-                anchor_embeddings, other_embeddings = all_embeddings
-                preds = []
-                bz = 128
-                idx_iter = iter(range(anchor_embeddings.shape[0]))
-                while True:
-                    idx_batch = list(islice(idx_iter, bz))
-                    if len(idx_batch) == 0:
-                        break
-                    anchor_embeddings_batch = torch.tensor(
-                        anchor_embeddings[idx_batch[0] : idx_batch[-1] + 1]
-                    )
-                    other_embeddings_batch = torch.tensor(
-                        other_embeddings[idx_batch[0] : idx_batch[-1] + 1]
-                    )
-                    distances = distance_metric(
-                        anchor_embeddings_batch, other_embeddings_batch
-                    )
-                    preds = [int(d < distance_margin) for d in distances]
-                accuracy_metrics = accuracy.compute(
-                    predictions=preds, references=labels
-                )
-                f1_metrics = f1.compute(
-                    predictions=preds, references=labels, average="micro"
-                )
-                return {
-                    **accuracy_metrics,
-                    **f1_metrics,
-                    "joint_metric": JointMetric(
-                        is_joint_metric=True,
-                        primary=f1_metrics["f1"],
                         primary_name="f1",
                         secondary=(-1 * loss),
                         secondary_name="loss",
@@ -790,13 +744,12 @@ class TrainSentenceTransformer(_TrainHFBase):
     def train_with_labeled_pairs(
         self,
         train_anchors: OutputDatasetColumn | OutputIterableDatasetColumn,
-        train_positives: OutputDatasetColumn | OutputIterableDatasetColumn,
+        train_others: OutputDatasetColumn | OutputIterableDatasetColumn,
         train_labels: None | OutputDatasetColumn | OutputIterableDatasetColumn,
         validation_anchors: OutputDatasetColumn | OutputIterableDatasetColumn,
-        validation_positives: OutputDatasetColumn | OutputIterableDatasetColumn,
+        validation_others: OutputDatasetColumn | OutputIterableDatasetColumn,
         validation_labels: None | OutputDatasetColumn | OutputIterableDatasetColumn,
         truncate: bool = True,
-        margin: float | Default = DEFAULT,
         epochs: float = 3.0,
         batch_size: int = 8,
         loss: type[torch.nn.Module] | Default = AUTO,
@@ -811,15 +764,14 @@ class TrainSentenceTransformer(_TrainHFBase):
     ) -> "TrainSentenceTransformer":
         self._setup_folder_and_resume(
             train_anchors=train_anchors,
-            train_positives=train_positives,
+            train_positives=train_others,
             train_negatives=None,
             train_labels=train_labels,
             validation_anchors=validation_anchors,
-            validation_positives=validation_positives,
+            validation_positives=validation_others,
             validation_negatives=None,
             validation_labels=validation_labels,
             truncate=truncate,
-            margin=margin,
             epochs=epochs,
             batch_size=batch_size,
             loss=loss,

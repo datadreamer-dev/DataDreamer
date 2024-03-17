@@ -1,6 +1,8 @@
 import inspect
+import locale
 import logging
 import os
+import sys
 from collections import UserDict, defaultdict
 from multiprocessing.context import SpawnProcess
 from threading import Lock
@@ -368,11 +370,36 @@ class DataDreamer:
             setfit_logging.set_verbosity_error()
             setfit_logging.disable_progress_bar()
 
-    def __enter__(self):
+    def __enter__(self):  # noqa: C901
         from .utils.distributed_utils import is_distributed
 
         if hasattr(DataDreamer.ctx, "steps"):
             raise RuntimeError("Only one DataDreamer context may be active at a time.")
+
+        # Set encoding to UTF-8
+        is_utf_8_encoding = lambda: any(  # noqa: E731
+            utf8_locale in (locale.getlocale(locale.LC_CTYPE)[1] or "").lower()
+            for utf8_locale in ["utf8", "utf-8"]
+        )
+        if not is_utf_8_encoding():  # pragma: no cover
+            # Detect if the default encoding is not UTF-8 and try to see if it is available
+            # and can be changed. This is to fix a bug on some improperly configured older
+            # Linux systems.
+            # See: https://github.com/datadreamer-dev/DataDreamer/issues/13
+            for locale_string in ["C.UTF8", "C.UTF-8", "en_US.UTF-8"]:
+                try:
+                    locale.setlocale(locale.LC_CTYPE, locale_string)
+                    if is_utf_8_encoding():
+                        # Worked we were able to reset the encoding back to UTF-8
+                        # Now, we apply hacks to now set the encodings to utf-8 across some of
+                        # the standard places where Python may use the wrong encoding.
+                        sys.stdin.reconfigure(encoding="utf-8")  # type:ignore[attr-defined]
+                        sys.stdout.reconfigure(encoding="utf-8")  # type:ignore[attr-defined]
+                        sys.stderr.reconfigure(encoding="utf-8")  # type:ignore[attr-defined]
+                        locale.getpreferredencoding = lambda do_setlocale=True: "utf-8"
+                        break
+                except locale.Error:
+                    pass
 
         # Initialize
         _DATADREAMER_CTX_LOCK.acquire()

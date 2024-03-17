@@ -155,7 +155,7 @@ def get_model_max_context_length(model_name: str, config: PretrainedConfig) -> i
         # https://huggingface.co/rrivera1849/LUAR-MUD/blob/main/config.json
         max_context_length = config.embedding_size
     else:
-        if "bloom" in model_name:
+        if "bloom" in model_name:  # pragma: no cover
             max_context_length = 2048
         elif config.model_type in ["t5", "mt5"]:
             max_context_length = 512

@@ -48,6 +48,18 @@ def ignore_transformers_warnings():
 
 
 @contextlib.contextmanager
+def ignore_training_warnings():
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            category=FutureWarning,
+            message="Passing the following arguments to.*",
+            module="accelerate.accelerator",
+        )
+        yield None
+
+
+@contextlib.contextmanager
 def ignore_pydantic_warnings():
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", message="Pydantic V1 style .*")
