@@ -378,6 +378,55 @@ class TestLLM:
             supports_one_top_p=False,
         ) == (0.3, 0.999)
 
+    def test_check_max_new_tokens_possible(create_datadreamer):
+        # Check max output length
+        llm = OpenAI("gpt-4")
+        assert _check_max_new_tokens_possible(
+            self=llm,
+            max_length_func=lambda prompts: 100,
+            prompts=[],
+            max_new_tokens=None,
+        ) == (8174 - 100)
+        assert (
+            _check_max_new_tokens_possible(
+                self=llm,
+                max_length_func=lambda prompts: 100,
+                prompts=[],
+                max_new_tokens=5000,
+            )
+            == 5000
+        )
+        llm = OpenAI("gpt-4-turbo-preview")
+        assert (
+            _check_max_new_tokens_possible(
+                self=llm,
+                max_length_func=lambda prompts: 100,
+                prompts=[],
+                max_new_tokens=None,
+            )
+            == 4096
+        )
+        assert (
+            _check_max_new_tokens_possible(
+                self=llm,
+                max_length_func=lambda prompts: 100,
+                prompts=[],
+                max_new_tokens=4096,
+            )
+            == 4096
+        )
+        # Make sure an error is thrown if the model's output length is surpassed
+        with pytest.raises(ValueError):
+            assert (
+                _check_max_new_tokens_possible(
+                    self=llm,
+                    max_length_func=lambda prompts: 100,
+                    prompts=[],
+                    max_new_tokens=5000,
+                )
+                == 4096
+            )
+
     def test_run_with_no_prompts(self, create_datadreamer):
         llm = OpenAI("gpt-3.5-turbo-instruct")
         generated_texts = llm.run(
@@ -1007,6 +1056,8 @@ class TestOpenAI:
             llm = OpenAI("gpt-3.5-turbo-instruct")
             assert llm.get_max_context_length(max_new_tokens=0) == 4096
 
+    def test_get_max_output_length(self, create_datadreamer):
+        with create_datadreamer():
             # Check max output length
             llm = OpenAI("gpt-4")
             assert llm.get_max_output_length() is None
@@ -1016,54 +1067,6 @@ class TestOpenAI:
             assert llm.get_max_output_length() == 4096
             llm = OpenAI("gpt-3.5-turbo-instruct")
             assert llm.get_max_output_length() is None
-
-            # Check max output length
-            llm = OpenAI("gpt-4")
-            assert _check_max_new_tokens_possible(
-                self=llm,
-                max_length_func=lambda prompts: 100,
-                prompts=[],
-                max_new_tokens=None,
-            ) == (8174 - 100)
-            assert (
-                _check_max_new_tokens_possible(
-                    self=llm,
-                    max_length_func=lambda prompts: 100,
-                    prompts=[],
-                    max_new_tokens=5000,
-                )
-                == 5000
-            )
-            llm = OpenAI("gpt-4-turbo-preview")
-            assert (
-                _check_max_new_tokens_possible(
-                    self=llm,
-                    max_length_func=lambda prompts: 100,
-                    prompts=[],
-                    max_new_tokens=None,
-                )
-                == 4096
-            )
-            assert (
-                _check_max_new_tokens_possible(
-                    self=llm,
-                    max_length_func=lambda prompts: 100,
-                    prompts=[],
-                    max_new_tokens=4096,
-                )
-                == 4096
-            )
-            # Make sure an error is thrown if the model's output length is surpassed
-            with pytest.raises(ValueError):
-                assert (
-                    _check_max_new_tokens_possible(
-                        self=llm,
-                        max_length_func=lambda prompts: 100,
-                        prompts=[],
-                        max_new_tokens=5000,
-                    )
-                    == 4096
-                )
 
     @pytest.mark.skipif(
         "OPENAI_API_KEY" not in os.environ, reason="requires OpenAI API key"
@@ -2966,7 +2969,7 @@ class TestPetals:
     @pytest.mark.order("last")
     def test_petals_network(self, create_datadreamer):
         with create_datadreamer():
-            llm = Petals("bigscience/bloom-560m", dtype=torch.float32)
+            llm = Petals("petals-team/StableBeluga2", dtype=torch.float32)
             generated_texts = llm.run(
                 ["A", "B"],
                 max_new_tokens=1,
