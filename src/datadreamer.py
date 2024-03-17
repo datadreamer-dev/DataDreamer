@@ -396,7 +396,7 @@ class DataDreamer:
                         sys.stdin.reconfigure(encoding="utf-8")  # type:ignore[attr-defined]
                         sys.stdout.reconfigure(encoding="utf-8")  # type:ignore[attr-defined]
                         sys.stderr.reconfigure(encoding="utf-8")  # type:ignore[attr-defined]
-                        locale.getpreferredencoding = lambda do_setlocale=True: "utf-8"  # type:ignore[misc,assignment]
+                        locale.getpreferredencoding = lambda do_setlocale=True: "utf-8"
                         break
                 except locale.Error:
                     pass
