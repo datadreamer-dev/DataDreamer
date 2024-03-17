@@ -180,7 +180,7 @@ class OpenAI(LLM):
     def tokenizer(self) -> Encoding:
         try:
             return tiktoken.encoding_for_model(self.model_name)
-        except KeyError:
+        except KeyError:  # pragma: no cover
             return tiktoken.get_encoding("cl100k_base")
 
     @ring.lru(maxsize=128)
