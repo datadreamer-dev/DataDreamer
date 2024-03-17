@@ -202,17 +202,23 @@ class OpenAI(LLM):
             # (system prompt, user prompt, assistant response)
             # and then we have to account for the system prompt
             format_tokens = 4 * 3 + self.count_tokens(cast(str, self.system_prompt))
-        if "-preview" in model_name:
-            max_context_length = 128000
         if "32k" in model_name:
             max_context_length = 32768
         elif "16k" in model_name:
             max_context_length = 16384
+        elif "-preview" in model_name:
+            max_context_length = 128000
         elif "gpt-3.5-turbo" in model_name or "gpt-35-turbo" in model_name:
-            if "-1106" in model_name:
-                max_context_length = 16385
-            else:
+            if (
+                "-0613" in model_name
+                or "-0125" in model_name
+                or (
+                    _is_instruction_tuned(model_name) and not _is_chat_model(model_name)
+                )
+            ):
                 max_context_length = 4096
+            else:
+                max_context_length = 16385
         elif model_name.startswith("text-davinci"):
             max_context_length = 4097
         elif model_name.startswith("code-davinci"):

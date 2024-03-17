@@ -997,10 +997,14 @@ class TestOpenAI:
 
     def test_get_max_context_length(self, create_datadreamer):
         with create_datadreamer():
+            llm = OpenAI("gpt-4")
+            assert llm.get_max_context_length(max_new_tokens=0) == 8174
+            llm = OpenAI("gpt-4-turbo-preview")
+            assert llm.get_max_context_length(max_new_tokens=0) == 127982
+            llm = OpenAI("gpt-3.5-turbo")
+            assert llm.get_max_context_length(max_new_tokens=0) == 16367
             llm = OpenAI("gpt-3.5-turbo-instruct")
             assert llm.get_max_context_length(max_new_tokens=0) == 4096
-            llm = OpenAI("gpt-3.5-turbo")
-            assert llm.get_max_context_length(max_new_tokens=0) == 4078
 
     @pytest.mark.skipif(
         "OPENAI_API_KEY" not in os.environ, reason="requires OpenAI API key"
