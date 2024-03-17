@@ -1060,13 +1060,13 @@ class TestOpenAI:
         with create_datadreamer():
             # Check max output length
             llm = OpenAI("gpt-4")
-            assert llm.get_max_output_length() is None
+            assert llm._get_max_output_length() is None
             llm = OpenAI("gpt-4-turbo-preview")
-            assert llm.get_max_output_length() == 4096
+            assert llm._get_max_output_length() == 4096
             llm = OpenAI("gpt-3.5-turbo")
-            assert llm.get_max_output_length() == 4096
+            assert llm._get_max_output_length() == 4096
             llm = OpenAI("gpt-3.5-turbo-instruct")
-            assert llm.get_max_output_length() is None
+            assert llm._get_max_output_length() is None
 
     @pytest.mark.skipif(
         "OPENAI_API_KEY" not in os.environ, reason="requires OpenAI API key"

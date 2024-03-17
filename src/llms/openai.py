@@ -246,7 +246,7 @@ class OpenAI(LLM):
             max_context_length = 8192
         return max_context_length - max_new_tokens - format_tokens
 
-    def get_max_output_length(self) -> None | int:  # pragma: no cover
+    def _get_max_output_length(self) -> None | int:  # pragma: no cover
         if (_is_gpt_4(self.model_name) and _is_preview_model(self.model_name)) or (
             _is_gpt_3_5(self.model_name) and not (_is_gpt_3_5_legacy(self.model_name))
         ):

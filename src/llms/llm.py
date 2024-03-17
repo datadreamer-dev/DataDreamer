@@ -25,7 +25,7 @@ def _check_max_new_tokens_possible(
 
     # Check max_new_tokens
     max_context_length = self.get_max_context_length(max_new_tokens=0)
-    max_output_length = self.get_max_output_length()
+    max_output_length = self._get_max_output_length()
     max_new_tokens_possible = self.get_max_context_length(
         max_new_tokens=max_prompt_length
     )
@@ -127,7 +127,7 @@ class LLM(_Cachable):
         """
         pass
 
-    def get_max_output_length(self) -> None | int:
+    def _get_max_output_length(self) -> None | int:
         """Gets the maximum output length for the model. If there is no maximum output
         limit and the only limit is the context length of the model, ``None`` is
         returned.
