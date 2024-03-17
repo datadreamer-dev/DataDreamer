@@ -41,8 +41,22 @@ def _normalize_model_name(model_name: str) -> str:
 def _is_gpt_3(model_name: str):
     model_name = _normalize_model_name(model_name)
     return any(
-        gpt3_name in model_name
-        for gpt3_name in ["davinci", "ada", "curie", "gpt-3-", "gpt-3.5-", "gpt-35-"]
+        gpt3_name in model_name for gpt3_name in ["davinci", "ada", "curie", "gpt-3-"]
+    )
+
+
+@lru_cache(maxsize=None)
+def _is_gpt_3_5(model_name: str):
+    model_name = _normalize_model_name(model_name)
+    return any(gpt35_name in model_name for gpt35_name in ["gpt-3.5-", "gpt-35-"])
+
+
+@lru_cache(maxsize=None)
+def _is_gpt_3_5_legacy(model_name: str):
+    model_name = _normalize_model_name(model_name)
+    return _is_gpt_3_5(model_name) and (
+        "-0613" in model_name
+        or (_is_instruction_tuned(model_name) and not _is_chat_model(model_name))
     )
 
 
@@ -55,10 +69,16 @@ def _is_gpt_4(model_name: str):
 
 
 @lru_cache(maxsize=None)
+def _is_preview_model(model_name: str):
+    model_name = _normalize_model_name(model_name)
+    return "-preview" in model_name
+
+
+@lru_cache(maxsize=None)
 def _is_chat_model(model_name: str):
     model_name = _normalize_model_name(model_name)
     return (
-        "gpt-3.5-" in model_name or "gpt-35-" in model_name or _is_gpt_4(model_name)
+        _is_gpt_3_5(model_name) or _is_gpt_4(model_name)
     ) and not model_name.endswith("-instruct")
 
 
@@ -206,16 +226,10 @@ class OpenAI(LLM):
             max_context_length = 32768
         elif "16k" in model_name:
             max_context_length = 16384
-        elif "-preview" in model_name:
+        elif _is_preview_model(model_name):
             max_context_length = 128000
-        elif "gpt-3.5-turbo" in model_name or "gpt-35-turbo" in model_name:
-            if (
-                "-0613" in model_name
-                or "-0125" in model_name
-                or (
-                    _is_instruction_tuned(model_name) and not _is_chat_model(model_name)
-                )
-            ):
+        elif _is_gpt_3_5(self.model_name):
+            if _is_gpt_3_5_legacy(self.model_name):
                 max_context_length = 4096
             else:
                 max_context_length = 16385
@@ -231,6 +245,13 @@ class OpenAI(LLM):
         else:
             max_context_length = 8192
         return max_context_length - max_new_tokens - format_tokens
+
+    def get_max_output_length(self) -> None | int:  # pragma: no cover
+        if (_is_gpt_4(self.model_name) and _is_preview_model(self.model_name)) or (
+            _is_gpt_3_5(self.model_name) and not (_is_gpt_3_5_legacy(self.model_name))
+        ):
+            return 4096
+        return None
 
     @ring.lru(maxsize=5000)
     def count_tokens(self, value: str) -> int:
@@ -404,7 +425,7 @@ class OpenAI(LLM):
 
     @cached_property
     def model_card(self) -> None | str:
-        if _is_gpt_3(self.model_name):
+        if _is_gpt_3(self.model_name) or _is_gpt_3_5(self.model_name):
             return (
                 "https://github.com/openai/gpt-3/blob/"
                 "d7a9bb505df6f630f9bab3b30c889e52f22eb9ea/model-card.md"
@@ -420,7 +441,7 @@ class OpenAI(LLM):
     @cached_property
     def citation(self) -> None | list[str]:
         citations = []
-        if _is_gpt_3(self.model_name):
+        if _is_gpt_3(self.model_name) or _is_gpt_3_5(self.model_name):
             citations.append(
                 """
 @article{brown2020language,
