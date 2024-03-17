@@ -8,7 +8,7 @@ from uuid import uuid4
 import evaluate
 import numpy as np
 import torch
-from datasets import Dataset
+from datasets import Dataset, Value
 from torch.nn import functional as F
 
 from ..datasets import OutputDatasetColumn, OutputIterableDatasetColumn
@@ -366,12 +366,7 @@ class TrainSentenceTransformer(_TrainHFBase):
             # Training with (anchor, other) labeled pairs
             positive_name = "Other"
             loss_cls = default_to(
-                loss,
-                lambda model: losses.ContrastiveLoss(
-                    model,
-                    distance_metric=losses.SiameseDistanceMetric.COSINE_DISTANCE,
-                    margin=default_to(margin, 0.5),
-                ),
+                loss, lambda model: losses.CosineSimilarityLoss(model)
             )
             metric_for_best_model = "eval_joint_metric"
             greater_is_better = True
@@ -414,6 +409,11 @@ class TrainSentenceTransformer(_TrainHFBase):
             validation_columns=validation_columns,
             truncate=truncate,
         )
+        if has_labels:
+            train_dataset = train_dataset.cast_column("labels", Value("float64"))
+            validation_dataset = validation_dataset.cast_column(
+                "labels", Value("float64")
+            )
 
         # Prepare data collator
         fields_to_pad = [
@@ -790,13 +790,12 @@ class TrainSentenceTransformer(_TrainHFBase):
     def train_with_labeled_pairs(
         self,
         train_anchors: OutputDatasetColumn | OutputIterableDatasetColumn,
-        train_positives: OutputDatasetColumn | OutputIterableDatasetColumn,
+        train_others: OutputDatasetColumn | OutputIterableDatasetColumn,
         train_labels: None | OutputDatasetColumn | OutputIterableDatasetColumn,
         validation_anchors: OutputDatasetColumn | OutputIterableDatasetColumn,
-        validation_positives: OutputDatasetColumn | OutputIterableDatasetColumn,
+        validation_others: OutputDatasetColumn | OutputIterableDatasetColumn,
         validation_labels: None | OutputDatasetColumn | OutputIterableDatasetColumn,
         truncate: bool = True,
-        margin: float | Default = DEFAULT,
         epochs: float = 3.0,
         batch_size: int = 8,
         loss: type[torch.nn.Module] | Default = AUTO,
@@ -811,15 +810,14 @@ class TrainSentenceTransformer(_TrainHFBase):
     ) -> "TrainSentenceTransformer":
         self._setup_folder_and_resume(
             train_anchors=train_anchors,
-            train_positives=train_positives,
+            train_positives=train_others,
             train_negatives=None,
             train_labels=train_labels,
             validation_anchors=validation_anchors,
-            validation_positives=validation_positives,
+            validation_positives=validation_others,
             validation_negatives=None,
             validation_labels=validation_labels,
             truncate=truncate,
-            margin=margin,
             epochs=epochs,
             batch_size=batch_size,
             loss=loss,

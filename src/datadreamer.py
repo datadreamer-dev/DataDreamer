@@ -393,10 +393,10 @@ class DataDreamer:
                         # Worked we were able to reset the encoding back to UTF-8
                         # Now, we apply hacks to now set the encodings to utf-8 across some of
                         # the standard places where Python may use the wrong encoding.
-                        sys.stdin.reconfigure(encoding="utf-8")
-                        sys.stdout.reconfigure(encoding="utf-8")
-                        sys.stderr.reconfigure(encoding="utf-8")
-                        locale.getpreferredencoding = lambda: "utf-8"
+                        sys.stdin.reconfigure(encoding="utf-8")  # type:ignore[attr-defined]
+                        sys.stdout.reconfigure(encoding="utf-8")  # type:ignore[attr-defined]
+                        sys.stderr.reconfigure(encoding="utf-8")  # type:ignore[attr-defined]
+                        locale.getpreferredencoding = lambda: "utf-8"  # type:ignore[misc,assignment]
                         break
                 except locale.Error:
                     pass
