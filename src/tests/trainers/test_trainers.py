@@ -169,7 +169,9 @@ class TestTrainHFBase:
             )
         with create_datadreamer():
             trainer = TrainHFFineTune(
-                "Zephyr Trainer", model_name="HuggingFaceH4/zephyr-7b-beta"
+                "Zephyr Trainer",
+                model_name="HuggingFaceH4/zephyr-7b-beta",
+                chat_prompt_template="<|system|>\n</s>\n<|user|>\n{{prompt}}</s>\n<|assistant|>\n",
             )
             assert (
                 trainer.tokenizer.apply_chat_template(
@@ -179,7 +181,7 @@ class TestTrainHFBase:
                     ],
                     tokenize=False,
                 )
-                == "<s><|system|>\nYou are a helpful assistant.</s>\n<|user|>\nA</s>\n<|assistant|>\nB</s>"
+                == "<s><|system|>\n</s>\n<|user|>\nA</s>\n<|assistant|>\nB</s>"
             )
         with create_datadreamer():
             trainer = TrainHFFineTune(
