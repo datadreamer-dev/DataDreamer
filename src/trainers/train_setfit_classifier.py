@@ -28,6 +28,7 @@ from .train_hf_classifier import TrainHFClassifier
 from .train_sentence_transformer import TrainSentenceTransformer
 
 with ignore_transformers_warnings():
+    from huggingface_hub.repocard import ModelCard, ModelCardData
     from sentence_transformers import SentenceTransformer
     from setfit import SetFitModel, logging as setfit_logging
     from transformers import PreTrainedModel
@@ -35,6 +36,9 @@ with ignore_transformers_warnings():
 
 
 class SetFitModelWrapper(SetFitModel):
+    def generate_model_card(self, *args, **kwargs) -> ModelCard:
+        return ModelCard.from_template(ModelCardData())
+
     @classmethod
     def from_pretrained(cls, *args, **kwargs) -> "SetFitModelWrapper":
         model = SetFitModel.from_pretrained(*args, **kwargs)
