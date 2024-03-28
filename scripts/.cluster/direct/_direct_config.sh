@@ -9,6 +9,9 @@ MIN_MEMORY_PER_TASK=10G
 MAX_PARALLEL_TASKS=8
 ################################################################
 
+# Load environment variables for direct running
+source project.env
+
 # Ensure direct environment variables are provided
 source .cluster/direct/_direct_env.sh
 
@@ -57,5 +60,10 @@ TASK_RUNNER() {
 export -f TASK_RUNNER
 
 # Run
-# shellcheck disable=SC1083
-parallel --memfree $MIN_MEMORY_PER_TASK --jobs $MAX_PARALLEL_TASKS TASK_RUNNER {.} "${#ARRAY_TASK_IDS[@]}" "$@" ::: "${ARRAY_TASK_IDS[@]}"
+if [ "$PROJECT_INTERACTIVE" != "1" ]; then
+    # shellcheck disable=SC1083
+    parallel --memfree $MIN_MEMORY_PER_TASK --jobs $MAX_PARALLEL_TASKS TASK_RUNNER {.} "${#ARRAY_TASK_IDS[@]}" "$@" ::: "${ARRAY_TASK_IDS[@]}"
+else
+    # shellcheck disable=SC1083
+    parallel --tty --memfree $MIN_MEMORY_PER_TASK --jobs $MAX_PARALLEL_TASKS TASK_RUNNER {.} "${#ARRAY_TASK_IDS[@]}" "$@" ::: "${ARRAY_TASK_IDS[@]}"
+fi

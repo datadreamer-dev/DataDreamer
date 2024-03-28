@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e # Exit if error occurs
 
 if [ "$PROJECT_INTERACTIVE" == "1" ]; then
     exec 3>&1 4>&2
@@ -17,13 +18,13 @@ fi
 
 # Define helper functions
 function create_alias() {
-    if [ ! -e "$2" ]; then
+    if [ ! -L "$2" ]; then
         mkdir -p "$(dirname "$2")"
         ln -s "$1" "$2"
     fi
 }
 function create_alias_delete() {
-    if [ -e "$2" ]; then
+    if [ -L "$2" ]; then
         (rm "$2" 1>/dev/null 2>/dev/null) || rm -rf "$2"
     fi
     mkdir -p "$(dirname "$2")"

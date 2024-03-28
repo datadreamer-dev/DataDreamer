@@ -53,4 +53,4 @@ export PROJECT_INTERACTIVE=1
 touch .cluster/direct/.last_job/.interactive
 echo -n "" >.cluster/direct/.last_job/submission.out
 shift
-setsid .cluster/direct/_direct_config.sh "$@"
+.cluster/direct/_direct_config.sh "$@"

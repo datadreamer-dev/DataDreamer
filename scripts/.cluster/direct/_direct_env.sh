@@ -2,7 +2,7 @@
 
 # Check for the existence of environment variables
 if [ -z "$PROJECT_DATA" ]; then
-    echo "You must define the 'PROJECT_DATA' environment variable in run.env. Set it to a directory where output files will be written and large data can be saved while running." 1>&2
+    echo "You must define the 'PROJECT_DATA' environment variable in project.env. Set it to a directory where output files will be written and large data can be saved while running." 1>&2
     exit 1
 fi
 if [ -z "$PROJECT_ACCELERATOR_TYPE" ]; then
