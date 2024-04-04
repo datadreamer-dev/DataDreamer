@@ -166,6 +166,8 @@ def _model_name_to_chat_prompt_template_type(  # noqa: C901
             chat_prompt_template_type = "chatml_system"
         elif all(fragment in model_name_lower for fragment in ["qwen-", "-chat"]):
             chat_prompt_template_type = "chatml_system"
+        elif all(fragment in model_name_lower for fragment in ["qwen1.5-", "-chat"]):
+            chat_prompt_template_type = "chatml_system"
         elif all(fragment in model_name_lower for fragment in ["dolphin-", "-mistral"]):
             chat_prompt_template_type = "chatml_system"
         elif all(
