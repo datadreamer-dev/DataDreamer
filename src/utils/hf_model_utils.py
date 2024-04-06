@@ -211,7 +211,12 @@ def validate_peft_config(model, peft_config: None | Any):
         fan_in_fan_out = getattr(peft_config, "fan_in_fan_out", False)
         for name, module in model.named_modules():
             module_type = module.__class__.__name__.lower()
-            if module_type.startswith("linear") or module_type.startswith("conv1d"):
+            if (
+                module_type.startswith("linear")
+                or module_type.startswith("conv1d")
+                or module_type.startswith("qlinear")
+                or module_type.startswith("qconv1d")
+            ):
                 target_module = name.split(".")[-1]
                 if target_module not in ["lm_head"]:
                     if module_type.startswith("conv1d"):
