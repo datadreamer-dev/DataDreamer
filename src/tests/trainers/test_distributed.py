@@ -795,7 +795,7 @@ class TestTrainDistributedSlow:
         }
 
         class ExitCallback(TrainerCallback):
-            def on_epoch_begin(self, args, state, control, **kwargs):
+            def on_epoch_end(self, args, state, control, **kwargs):
                 if state.epoch == exit_on_epoch:
                     raise ReferenceError("CustomError")
 

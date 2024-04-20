@@ -380,7 +380,7 @@ class TestTrainHFBase:
         }
 
         class ExitCallback(TrainerCallback):
-            def on_epoch_begin(self, args, state, control, **kwargs):
+            def on_epoch_end(self, args, state, control, **kwargs):
                 if state.epoch == exit_on_epoch:
                     raise ReferenceError("CustomError")
 
@@ -520,7 +520,7 @@ class TestTrainHFBase:
         peft_config = LoraConfig(r=16, lora_alpha=32, lora_dropout=0.05, bias="none")
 
         class ExitCallback(TrainerCallback):
-            def on_epoch_begin(self, args, state, control, **kwargs):
+            def on_epoch_end(self, args, state, control, **kwargs):
                 if state.epoch == exit_on_epoch:
                     raise ReferenceError("CustomError")
 
@@ -1440,7 +1440,7 @@ class TestTrainSentenceTransformer:
         }
 
         class ExitCallback(TrainerCallback):
-            def on_epoch_begin(self, args, state, control, **kwargs):
+            def on_epoch_end(self, args, state, control, **kwargs):
                 if state.epoch == exit_on_epoch:
                     raise ReferenceError("CustomError")
 
@@ -2785,7 +2785,7 @@ class TestTrainHFPPO:
         data = {"prompts": ["Hi, "] * 6}
 
         class ExitCallback(TrainerCallback):
-            def on_epoch_begin(self, args, state, control, **kwargs):
+            def on_epoch_end(self, args, state, control, **kwargs):
                 if state.epoch == exit_on_epoch:
                     raise ReferenceError("CustomError")
 

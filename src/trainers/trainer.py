@@ -53,6 +53,9 @@ class JointMetric:
             f" {self.secondary_name}={secondary})"
         )
 
+    def __call__(self, *args: Any, **kwargs: Any) -> None:  # pragma: no cover
+        return None
+
     def __str_(self) -> str:  # pragma: no cover
         return self.__repr__()
 

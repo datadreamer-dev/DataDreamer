@@ -1,7 +1,7 @@
 #!/bin/bash
 #
-#SBATCH --time=60:00:00
-#SBATCH --partition=p_nlp
+#SBATCH --time=2:00:00
+#SBATCH --partition=interactive
 #SBATCH --output=.cluster/slurm/.last_job/submission.out
 #SBATCH --ntasks 1
 #SBATCH --cpus-per-task 2

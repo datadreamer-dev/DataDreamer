@@ -38,7 +38,6 @@ _old_spawn_get_preparation_data = spawn.get_preparation_data
 
 def _get_preparation_data__dont_run_main_again(name):
     prep_data = _old_spawn_get_preparation_data(name)
-    del prep_data["init_main_from_path"]
     try:  # pragma: no cover
         import datadreamer  # noqa: F401
 
