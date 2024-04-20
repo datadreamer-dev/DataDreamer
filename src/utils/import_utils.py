@@ -127,7 +127,7 @@ def ignore_hivemind_warnings():
 
 @contextlib.contextmanager
 def ignore_torch_trainer_distributed_warnings():  # pragma: no cover
-    with warnings.catch_warnings():
+    with ignore_training_warnings():
         warnings.filterwarnings(
             "ignore",
             category=UserWarning,

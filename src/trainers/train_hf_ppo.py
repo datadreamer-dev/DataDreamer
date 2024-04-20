@@ -136,6 +136,7 @@ def get_ppo_trainer(  # noqa: C901
                 batch_size=len(query_tensors),
                 return_prompt=False,
                 length_sampler=length_sampler,
+                pad_token_id=self.tokenizer.eos_token_id,
             )
             inputs["prompts"] = self.tokenizer.batch_decode(
                 query_tensors,
@@ -177,7 +178,9 @@ def get_ppo_trainer(  # noqa: C901
                     " = None if you want to continue training."
                 )
                 self.control.should_training_stop = True
-            return torch.tensor(stats["ppo/loss/total"])  # Return dummy loss (not used)
+            return torch.tensor(stats["ppo/loss/total"]).to(
+                model.device
+            )  # Return dummy loss (not used)
 
         def log(self, logs: dict[str, float]) -> None:
             is_training_log = (
@@ -281,6 +284,7 @@ def get_ppo_trainer(  # noqa: C901
                 batch_size=inputs["input_ids"].shape[0],
                 return_prompt=False,
                 length_sampler=length_sampler,
+                pad_token_id=self.tokenizer.eos_token_id,
             )
             inputs["prompts"] = self.tokenizer.batch_decode(
                 query_tensors,
@@ -601,6 +605,7 @@ class TrainHFPPO(TrainHFFineTune):
                 "full_determinism",
                 "split_batches",
                 "dispatch_batches",
+                "dataloader_config",
             ]
             if kwarg in kwargs
         }
