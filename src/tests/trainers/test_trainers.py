@@ -463,7 +463,7 @@ class TestTrainHFBase:
                 DataDreamer.get_output_folder_path(),
                 "_backups",
                 "t5-trainer",
-                "af8fe7c4d25eacaa",
+                "4b62131b23b4abbc",
             )
             assert os.path.isdir(backup_path)
             assert os.path.isfile(os.path.join(backup_path, "fingerprint.json"))
@@ -491,7 +491,7 @@ class TestTrainHFBase:
                 DataDreamer.get_output_folder_path(),
                 "_backups",
                 "t5-trainer",
-                "af8fe7c4d25eacaa",
+                "4b62131b23b4abbc",
             )
             assert os.path.isdir(old_backup_path)
             assert not os.path.isfile(os.path.join(old_backup_path, "fingerprint.json"))
@@ -500,7 +500,7 @@ class TestTrainHFBase:
                 DataDreamer.get_output_folder_path(),
                 "_backups",
                 "t5-trainer",
-                "05cba1c44718d59a",
+                "2a6b67c02195715d",
             )
             assert os.path.isdir(new_backup_path)
             assert os.path.isfile(os.path.join(new_backup_path, "fingerprint.json"))
@@ -3339,7 +3339,11 @@ class TestTrainOpenAIFineTune:
                 return files[file_id]
             else:
                 raise NotFoundError(
-                    response=SimpleNamespace(request=None, status_code=None),  # type:ignore[arg-type]
+                    response=SimpleNamespace(
+                        request=None,
+                        status_code=None,
+                        headers={"x-request-id": f"request-id-{file_id}"},
+                    ),  # type:ignore[arg-type]
                     body=None,
                     message=None,  # type:ignore[arg-type]
                 )
@@ -3367,14 +3371,22 @@ class TestTrainOpenAIFineTune:
                 return ft_jobs[fine_tuning_job_id]
             else:
                 raise NotFoundError(
-                    response=SimpleNamespace(request=None, status_code=None),  # type:ignore[arg-type]
+                    response=SimpleNamespace(
+                        request=None,
+                        status_code=None,
+                        headers={"x-request-id": f"request-id-{fine_tuning_job_id}"},
+                    ),  # type:ignore[arg-type]
                     body=None,
                     message=None,  # type:ignore[arg-type]
                 )
 
         def cancel_fine_tune_job(*args, **kwargs):
             raise BadRequestError(
-                response=SimpleNamespace(request=None, status_code=None),  # type:ignore[arg-type]
+                response=SimpleNamespace(
+                    request=None,
+                    status_code=None,
+                    headers={"x-request-id": f"request-id-{str(args)}"},
+                ),  # type:ignore[arg-type]
                 body=None,
                 message="Fine-tune job already completed successfully.",
             )

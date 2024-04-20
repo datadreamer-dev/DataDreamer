@@ -68,7 +68,7 @@ class OpenAIAssistant(OpenAI):
                 instructions=self.system_prompt,
                 metadata={
                     "datadreamer_version": __version__,
-                    "version": self.version,
+                    "version": str(self.version),
                     "_cache_name": self._cache_name,
                 },
                 name=f"DataDreamer Assistant (created on {date_str})",
