@@ -116,7 +116,9 @@ class TestTrainHFBase:
     def test_hf_chat_template(self, create_datadreamer):
         with create_datadreamer():
             trainer = TrainHFFineTune(
-                "Falcon Trainer", model_name="tiiuae/falcon-180B-chat"
+                "Falcon Trainer",
+                model_name="tiiuae/falcon-180B-chat",
+                chat_prompt_template="{{system_prompt}}\nUser: {{prompt}}\nAssistant: ",
             )
             assert (
                 trainer.tokenizer.apply_chat_template(
@@ -243,35 +245,35 @@ class TestTrainHFBase:
                 "RedPajama Trainer",
                 model_name="togethercomputer/RedPajama-INCITE-7B-Chat",
             )
-            assert (
-                trainer.tokenizer.apply_chat_template(
-                    [
-                        {"role": "user", "content": "A"},
-                        {"role": "assistant", "content": "B"},
-                    ],
-                    tokenize=False,
-                )
-                == "<human>: A\n<bot>: B<|endoftext|>"
+        assert (
+            trainer.tokenizer.apply_chat_template(
+                [
+                    {"role": "user", "content": "A"},
+                    {"role": "assistant", "content": "B"},
+                ],
+                tokenize=False,
             )
-            assert (
-                trainer.tokenizer.apply_chat_template(
-                    [{"role": "user", "content": "A"}],
-                    tokenize=False,
-                    add_generation_prompt=True,
-                )
-                == "<human>: A\n<bot>: "
+            == "<human>: A\n<bot>: B<|endoftext|>"
+        )
+        assert (
+            trainer.tokenizer.apply_chat_template(
+                [{"role": "user", "content": "A"}],
+                tokenize=False,
+                add_generation_prompt=True,
             )
-            assert (
-                trainer.tokenizer.apply_chat_template(
-                    [
-                        {"role": "system", "content": "A"},
-                        {"role": "user", "content": "B"},
-                        {"role": "assistant", "content": "C"},
-                    ],
-                    tokenize=False,
-                )
-                == "<human>: B\n<bot>: C<|endoftext|>"
+            == "<human>: A\n<bot>: "
+        )
+        assert (
+            trainer.tokenizer.apply_chat_template(
+                [
+                    {"role": "system", "content": "A"},
+                    {"role": "user", "content": "B"},
+                    {"role": "assistant", "content": "C"},
+                ],
+                tokenize=False,
             )
+            == "<human>: B\n<bot>: C<|endoftext|>"
+        )
         with create_datadreamer():
             trainer = TrainHFFineTune(
                 "LLaMa-2 Trainer", model_name="meta-llama/Llama-2-7b-chat-hf"
@@ -310,7 +312,7 @@ class TestTrainHFBase:
             )
         with create_datadreamer():
             trainer = TrainHFFineTune(
-                "CodeLLaMa Trainer", model_name="codellama/CodeLlama-7b-Instruct-hf"
+                "MistralAI Trainer", model_name="mistralai/Mistral-7B-Instruct-v0.1"
             )
             assert (
                 trainer.tokenizer.apply_chat_template(
@@ -320,7 +322,7 @@ class TestTrainHFBase:
                     ],
                     tokenize=False,
                 )
-                == "<s>[INST] A [/INST] B</s>"
+                == "<s>[INST] A [/INST]B</s>"
             )
             assert (
                 trainer.tokenizer.apply_chat_template(
@@ -328,7 +330,7 @@ class TestTrainHFBase:
                     tokenize=False,
                     add_generation_prompt=True,
                 )
-                == "<s>[INST] A [/INST] "
+                == "<s>[INST] A [/INST]"
             )
             with pytest.raises(Exception, match=r"Conversation roles must alternate.*"):
                 assert (
@@ -340,7 +342,7 @@ class TestTrainHFBase:
                         ],
                         tokenize=False,
                     )
-                    == "<s>[INST] B [/INST] C</s>"
+                    == "<s>[INST] B [/INST]C</s>"
                 )
 
     def test_validate_peft_config(self, create_datadreamer):

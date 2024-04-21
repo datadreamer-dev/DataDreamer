@@ -48,6 +48,10 @@ from ...llms._chat_prompt_templates import (
 from ...llms._litellm import LiteLLM
 from ...llms.hf_transformers import CachedTokenizer
 from ...llms.llm import _check_max_new_tokens_possible, _check_temperature_and_top_p
+from ...utils.hf_chat_prompt_templates import (
+    COULD_NOT_DETECT,
+    _chat_prompt_template_and_system_prompt_from_tokenizer,
+)
 from ...utils.hf_model_utils import get_orig_model
 from ...utils.import_utils import (
     ignore_litellm_warnings,
@@ -495,9 +499,20 @@ class TestLLM:
             assert generated_texts == [f"Response to: {p}" for p in prompts]
             cache_query = "SELECT key, value FROM run_cache WHERE key IN (?, ?, ?, ?)"
             cache, _ = llm.cache_and_lock  # type: ignore[misc]
+            cpu_memory = psutil.virtual_memory().total
+            if torch.cuda.is_available():
+                cuda_memory = tuple(
+                    [
+                        torch.cuda.get_device_properties(d).total_memory
+                        for d in range(torch.cuda.device_count())
+                    ]
+                )
+            else:
+                cuda_memory = ()
             assert sorted(
                 list(
-                    cache.conn.select(
+                    (k, cache.decode(v))
+                    for k, v in cache.conn.select(
                         cache_query,
                         [
                             "8dadfe9d20ba6f71",
@@ -508,22 +523,20 @@ class TestLLM:
                     )
                 )
             ) == [
-                ("3115a45697fbc214", cache.encode(f"Response to: {prompt_2}")),
-                ("8dadfe9d20ba6f71", cache.encode(f"Response to: {prompt_1}")),
+                ("3115a45697fbc214", f"Response to: {prompt_2}"),
+                ("8dadfe9d20ba6f71", f"Response to: {prompt_1}"),
                 (
                     "adaptive_batch_sizes",
-                    cache.encode(
-                        defaultdict(
-                            SortedDict,
-                            {
-                                ((psutil.virtual_memory().total, ()), 25): SortedDict(
-                                    {678: Counter({2: 2})}
-                                )
-                            },
-                        )
+                    defaultdict(
+                        SortedDict,
+                        {
+                            ((cpu_memory, cuda_memory), 25): SortedDict(
+                                {678: Counter({2: 2})}
+                            )
+                        },
                     ),
                 ),
-                ("e324e48c7e9a3302", cache.encode(f"Response to: {prompt_3}")),
+                ("e324e48c7e9a3302", f"Response to: {prompt_3}"),
             ]
             assert llm._run_batch.call_count == 2  # type: ignore[attr-defined]
             assert llm._run_batch.call_args_list[0].kwargs["inputs"] == [  # type: ignore[attr-defined]
@@ -984,22 +997,33 @@ class TestLLM:
             is None
         )
 
-    # skipping because of https://github.com/huggingface/transformers/pull/26765"
-    # def test_hf_chat_prompt_template_and_system_prompt(self, create_datadreamer):
-    #     with create_datadreamer():
-    #         assert _chat_prompt_template_and_system_prompt("asdasdas") is None
-    #         assert _chat_prompt_template_and_system_prompt("gpt2") is None
-    #         assert _chat_prompt_template_and_system_prompt("t5-small") is None
-    #         assert (
-    #             _chat_prompt_template_and_system_prompt("t5-small", revision="asdasdas")
-    #             is None
-    #         )
-    #         assert _chat_prompt_template_and_system_prompt(
-    #             "meta-llama/Llama-2-7b-chat-hf"
-    #         ) == (CHAT_PROMPT_TEMPLATES["llama_system"], SYSTEM_PROMPTS["llama_system"])
-    #         assert _chat_prompt_template_and_system_prompt(
-    #             "mistralai/Mistral-7B-Instruct-v0.1"
-    #         ) == (CHAT_PROMPT_TEMPLATES["llama"], None)
+    def test_hf_chat_prompt_template_and_system_prompt_from_tokenizer(
+        self, create_datadreamer
+    ):
+        with create_datadreamer():
+            assert (
+                _chat_prompt_template_and_system_prompt_from_tokenizer("asdasdas")
+                is None
+            )
+            assert (
+                _chat_prompt_template_and_system_prompt_from_tokenizer("gpt2") is None
+            )
+            assert (
+                _chat_prompt_template_and_system_prompt_from_tokenizer("t5-small")
+                is None
+            )
+            assert (
+                _chat_prompt_template_and_system_prompt_from_tokenizer(
+                    "t5-small", revision="asdasdas"
+                )
+                is None
+            )
+            assert _chat_prompt_template_and_system_prompt_from_tokenizer(
+                "meta-llama/Llama-2-7b-chat-hf"
+            ) == (CHAT_PROMPT_TEMPLATES["llama_system"], COULD_NOT_DETECT)
+            assert _chat_prompt_template_and_system_prompt_from_tokenizer(
+                "mistralai/Mistral-7B-Instruct-v0.1"
+            ) == (CHAT_PROMPT_TEMPLATES["llama"].rstrip(), None)
 
 
 class TestOpenAI:

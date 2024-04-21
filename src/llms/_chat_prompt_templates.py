@@ -1,5 +1,11 @@
 from functools import cache
 
+from ..utils.hf_chat_prompt_templates import (
+    COULD_NOT_DETECT,
+    HFChatPromptTemplateResponse,
+    _chat_prompt_template_and_system_prompt_from_tokenizer,
+)
+
 # Note: oobabooga has helpful collection of these:
 # https://github.com/oobabooga/text-generation-webui/tree/main/instruction-templates
 
@@ -328,12 +334,11 @@ def _model_name_to_chat_prompt_template(
     model_name: str, revision: None | str = None
 ) -> None | str:
     # Try to get the chat prompt template from `transformers`
-    # Skipping due to https://github.com/huggingface/transformers/pull/26765
-    # result = _chat_prompt_template_and_system_prompt(
-    #     model_name=model_name, revision=revision
-    # )
-    # if result is not None:
-    #     return result[0]
+    result = _chat_prompt_template_and_system_prompt_from_tokenizer(
+        model_name=model_name, revision=revision
+    )
+    if result is not None:
+        return result[0]
 
     # Otherwise, try to detect it...
     chat_prompt_template_type = _model_name_to_chat_prompt_template_type(model_name)
@@ -367,12 +372,12 @@ def _model_name_to_system_prompt(
         return None
 
     # Try to get the system prompt from `transformers`
-    # TODO: Skipping due to https://github.com/huggingface/transformers/pull/26765
-    # result = _chat_prompt_template_and_system_prompt(
-    #     model_name=model_name, revision=revision
-    # )
-    # if result is not None:
-    #     return result[1]
+    result = _chat_prompt_template_and_system_prompt_from_tokenizer(
+        model_name=model_name, revision=revision
+    )
+    if result is not None and result[1] is not COULD_NOT_DETECT:
+        assert not isinstance(result[1], HFChatPromptTemplateResponse)
+        return result[1]
 
     # Otherwise, try to detect it...
     system_prompt_type = _model_name_to_system_prompt_type(model_name)

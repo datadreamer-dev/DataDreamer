@@ -6,105 +6,133 @@ from .import_utils import ignore_transformers_warnings
 with ignore_transformers_warnings():
     from transformers import PreTrainedTokenizer
 
-# from ..utils.import_utils import ignore_transformers_warnings
-# from jinja2.exceptions import TemplateError
-# from transformers import logging as transformers_logging
+from functools import cache
 
-# with ignore_transformers_warnings():
-#     from transformers import AutoConfig, AutoTokenizer
+from jinja2.exceptions import TemplateError
+from transformers import logging as transformers_logging
 
-# @cache
-# def _chat_prompt_template_and_system_prompt(
-#     model_name: str, revision: None | str = None
-# ) -> None | tuple[str, None | str]:
-#     # Check if chat or instruct model
-#     chat_or_instruct = (
-#         "-chat" in model_name.lower() or "-instruct" in model_name.lower()
-#     )
+from ..utils.hf_hub_utils import _has_file
+from ..utils.import_utils import ignore_transformers_warnings
 
-#     # Check if the model exists on HF Hub
-#     if _has_file(
-#         repo_id=model_name,
-#         filename="tokenizer_config.json",
-#         repo_type="model",
-#         revision=revision,
-#     ):
-#         config = AutoConfig.from_pretrained(model_name, revision=revision)
-#         is_encoder_decoder = (
-#             hasattr(config, "is_encoder_decoder") and config.is_encoder_decoder
-#         )
-#         transformers_logging_verbosity = transformers_logging.get_verbosity()
-#         transformers_logging.set_verbosity(transformers_logging.CRITICAL)
+with ignore_transformers_warnings():
+    from transformers import AutoConfig, AutoTokenizer
 
-#         t5_tokenizer = AutoTokenizer.from_pretrained("t5-small")
-#         gpt2_tokenizer = AutoTokenizer.from_pretrained("gpt2")
-#         tokenizer = AutoTokenizer.from_pretrained(model_name, revision=revision)
 
-#         # Check if the tokenizer has a chat template
-#         if (
-#             not is_encoder_decoder
-#             and tokenizer.chat_template
-#             or (
-#                 tokenizer.default_chat_template
-#                 and (
-#                     tokenizer.default_chat_template
-#                     != gpt2_tokenizer.default_chat_template
-#                     or chat_or_instruct
-#                 )
-#                 and (
-#                     tokenizer.default_chat_template
-#                     != t5_tokenizer.default_chat_template
-#                     or chat_or_instruct
-#                 )
-#             )
-#         ):
-#             tokenizer.use_default_system_prompt = False
-#             system_var = "{{system_prompt}}"
-#             user_var = "{{prompt}}"
-#             system_message = {"role": "system", "content": system_var}
-#             user_message = {"role": "user", "content": user_var}
-#             system_chat = [system_message, user_message]
-#             chat = [user_message]
+class HFChatPromptTemplateResponse:
+    def __init__(self, name: str):
+        self.name = name
 
-#             # Check if the chat template supports system prompts
-#             tokenizer.use_default_system_prompt = False
-#             try:
-#                 chat_prompt_template = tokenizer.apply_chat_template(
-#                     system_chat, tokenize=False
-#                 )
-#                 assert system_var in chat_prompt_template
-#                 pre_system = chat_prompt_template[
-#                     : chat_prompt_template.index(system_var)
-#                 ]
-#                 post_system = chat_prompt_template[
-#                     chat_prompt_template.index(system_var) + len(system_var) :
-#                 ]
-#                 tokenizer.use_default_system_prompt = True
-#                 chat_prompt_template_with_default_system = (
-#                     tokenizer.apply_chat_template(chat, tokenize=False)
-#                 )
-#                 tokenizer.use_default_system_prompt = False
-#                 system_prompt = chat_prompt_template_with_default_system.replace(
-#                     pre_system, ""
-#                 ).replace(post_system, "")
-#             except (TemplateError, AssertionError):
-#                 chat_prompt_template = tokenizer.apply_chat_template(
-#                     chat, tokenize=False
-#                 )
-#                 system_prompt = None
+    def __repr__(self):  # pragma: no cover
+        return self.name
 
-#             # Strip special tokens
-#             special_tokens = tokenizer.decode(tokenizer.encode(""))
-#             if chat_prompt_template.startswith(special_tokens):
-#                 chat_prompt_template = chat_prompt_template.replace(
-#                     special_tokens, "", 1
-#                 )
 
-#             # Return the chat prompt template and system prompt
-#             transformers_logging.set_verbosity(transformers_logging_verbosity)
-#             return chat_prompt_template, system_prompt
+COULD_NOT_DETECT = HFChatPromptTemplateResponse("COULD_NOT_DETECT")
 
-#     return None
+
+@cache
+def _chat_prompt_template_and_system_prompt_from_tokenizer(
+    model_name: str, revision: None | str = None
+) -> None | tuple[str, None | HFChatPromptTemplateResponse | str]:
+    # Check if the model exists on HF Hub
+    if _has_file(
+        repo_id=model_name,
+        filename="tokenizer_config.json",
+        repo_type="model",
+        revision=revision,
+    ):
+        config = AutoConfig.from_pretrained(model_name, revision=revision)
+        is_encoder_decoder = (
+            hasattr(config, "is_encoder_decoder") and config.is_encoder_decoder
+        )
+        transformers_logging_verbosity = transformers_logging.get_verbosity()
+        transformers_logging.set_verbosity(transformers_logging.CRITICAL)
+        tokenizer = AutoTokenizer.from_pretrained(model_name, revision=revision)
+
+        # Check if the tokenizer has a chat template
+        if not is_encoder_decoder and tokenizer.chat_template:
+            tokenizer.use_default_system_prompt = False
+            system_var = "{{system_prompt}}"
+            user_var = "{{prompt}}"
+            assistant_var = "{{response}}"
+            system_message = {"role": "system", "content": system_var}
+            user_message = {"role": "user", "content": user_var}
+            assistant_message = {"role": "assistant", "content": assistant_var}
+            system_chat = [system_message, user_message]
+            chat = [user_message]
+
+            # Check if the chat template supports system prompts
+            tokenizer.use_default_system_prompt = False
+            try:
+                without_assistant_message_in_template = tokenizer.apply_chat_template(
+                    system_chat, tokenize=False, add_generation_prompt=True
+                )
+                with_assistant_message_in_template = tokenizer.apply_chat_template(
+                    system_chat + [assistant_message],
+                    tokenize=False,
+                    add_generation_prompt=True,
+                )
+                assistant_message_in_template = (
+                    with_assistant_message_in_template.replace(
+                        without_assistant_message_in_template, ""
+                    ).lstrip()
+                )
+                chat_prompt_template = with_assistant_message_in_template.replace(
+                    assistant_message_in_template, ""
+                )
+                assert system_var in chat_prompt_template
+                pre_system = chat_prompt_template[
+                    : chat_prompt_template.index(system_var)
+                ]
+                post_system = chat_prompt_template[
+                    chat_prompt_template.index(system_var) + len(system_var) :
+                ]
+                tokenizer.use_default_system_prompt = True
+                chat_prompt_template_with_default_system = (
+                    tokenizer.apply_chat_template(
+                        chat, tokenize=False, add_generation_prompt=True
+                    )
+                )
+                tokenizer.use_default_system_prompt = False
+                if (
+                    pre_system not in chat_prompt_template_with_default_system
+                    or post_system not in chat_prompt_template_with_default_system
+                ):
+                    system_prompt = COULD_NOT_DETECT
+                else:
+                    system_prompt = chat_prompt_template_with_default_system.replace(
+                        pre_system, ""
+                    ).replace(post_system, "")
+            except (TemplateError, AssertionError):
+                without_assistant_message_in_template = tokenizer.apply_chat_template(
+                    chat, tokenize=False, add_generation_prompt=True
+                )
+                with_assistant_message_in_template = tokenizer.apply_chat_template(
+                    chat + [assistant_message],
+                    tokenize=False,
+                    add_generation_prompt=True,
+                )
+                assistant_message_in_template = (
+                    with_assistant_message_in_template.replace(
+                        without_assistant_message_in_template, ""
+                    ).lstrip()
+                )
+                chat_prompt_template = with_assistant_message_in_template.replace(
+                    assistant_message_in_template, ""
+                )
+                system_prompt = None
+
+            # Strip special tokens
+            special_tokens = tokenizer.decode(tokenizer.encode(""))
+            if chat_prompt_template.startswith(special_tokens):
+                chat_prompt_template = chat_prompt_template.replace(
+                    special_tokens, "", 1
+                )
+
+            # Return the chat prompt template and system prompt
+            transformers_logging.set_verbosity(transformers_logging_verbosity)
+            return chat_prompt_template, system_prompt
+
+    return None
 
 
 def set_hf_chat_template(
@@ -112,6 +140,7 @@ def set_hf_chat_template(
 ):
     tokenizer.use_default_system_prompt = False
     if "[/INST]" in chat_prompt_template:
+        space_after_inst_end = " " if "[/INST] " in chat_prompt_template else ""
         if "<</SYS>>" in chat_prompt_template:
             tokenizer.chat_template = (
                 "{% if messages[0]['role'] == 'system' %}{% set loop_messages ="
@@ -125,7 +154,8 @@ def set_hf_chat_template(
                 " = '<<SYS>>\\n' + system_message + '\\n<</SYS>>\\n\\n' +"
                 " message['content'] %}{% else %}{% set content = message['content'] %}"
                 "{% endif %}{% if message['role'] == 'user' %}{{ bos_token + '[INST] ' "
-                "+ content + ' [/INST] ' }}{% elif message['role'] == 'assistant'"
+                f"+ content + ' [/INST]{space_after_inst_end}'"
+                " }}{% elif message['role'] == 'assistant'"
                 " %}{{ content + eos_token }}{% endif %}{% endfor %}"
             )
         else:
@@ -138,7 +168,8 @@ def set_hf_chat_template(
                 "'<<SYS>>\\n' + system_message + '\\n<</SYS>>\\n\\n' + "
                 "message['content'] %}{% else %}{% set content = message['content'] %}"
                 "{% endif %}{% if message['role'] == 'user' %}{{ bos_token + '[INST] ' "
-                "+ content + ' [/INST] ' }}{% elif message['role'] == 'assistant'"
+                f"+ content + ' [/INST]{space_after_inst_end}'"
+                " }}{% elif message['role'] == 'assistant'"
                 " %}{{ content + eos_token }}{% endif %}{% endfor %}"
             )
         return
