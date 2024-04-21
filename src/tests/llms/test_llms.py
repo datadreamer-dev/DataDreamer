@@ -1049,6 +1049,8 @@ class TestOpenAI:
             # Check max context length
             llm = OpenAI("gpt-4")
             assert llm.get_max_context_length(max_new_tokens=0) == 8174
+            llm = OpenAI("gpt-4-turbo-2024-04-09")
+            assert llm.get_max_context_length(max_new_tokens=0) == 127982
             llm = OpenAI("gpt-4-turbo-preview")
             assert llm.get_max_context_length(max_new_tokens=0) == 127982
             llm = OpenAI("gpt-3.5-turbo")
@@ -1061,6 +1063,8 @@ class TestOpenAI:
             # Check max output length
             llm = OpenAI("gpt-4")
             assert llm._get_max_output_length() is None
+            llm = OpenAI("gpt-4-turbo-2024-04-09")
+            assert llm._get_max_output_length() == 4096
             llm = OpenAI("gpt-4-turbo-preview")
             assert llm._get_max_output_length() == 4096
             llm = OpenAI("gpt-3.5-turbo")

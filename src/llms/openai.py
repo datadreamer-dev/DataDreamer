@@ -69,9 +69,11 @@ def _is_gpt_4(model_name: str):
 
 
 @lru_cache(maxsize=None)
-def _is_preview_model(model_name: str):
+def _is_128k_model(model_name: str):
     model_name = _normalize_model_name(model_name)
-    return "-preview" in model_name
+    return _is_gpt_4(model_name) and (
+        "-preview" in model_name or "2024-04-09" in model_name
+    )
 
 
 @lru_cache(maxsize=None)
@@ -226,7 +228,7 @@ class OpenAI(LLM):
             max_context_length = 32768
         elif "16k" in model_name:
             max_context_length = 16384
-        elif _is_preview_model(model_name):
+        elif _is_128k_model(model_name):
             max_context_length = 128000
         elif _is_gpt_3_5(self.model_name):
             if _is_gpt_3_5_legacy(self.model_name):
@@ -247,7 +249,7 @@ class OpenAI(LLM):
         return max_context_length - max_new_tokens - format_tokens
 
     def _get_max_output_length(self) -> None | int:  # pragma: no cover
-        if (_is_gpt_4(self.model_name) and _is_preview_model(self.model_name)) or (
+        if _is_128k_model(self.model_name) or (
             _is_gpt_3_5(self.model_name) and not (_is_gpt_3_5_legacy(self.model_name))
         ):
             return 4096
