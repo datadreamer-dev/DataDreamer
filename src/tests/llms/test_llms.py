@@ -48,11 +48,12 @@ from ...llms._chat_prompt_templates import (
 from ...llms._litellm import LiteLLM
 from ...llms.hf_transformers import CachedTokenizer
 from ...llms.llm import _check_max_new_tokens_possible, _check_temperature_and_top_p
+from ...utils.arg_utils import AUTO
 from ...utils.hf_chat_prompt_templates import (
     COULD_NOT_DETECT,
     _chat_prompt_template_and_system_prompt_from_tokenizer,
 )
-from ...utils.hf_model_utils import get_orig_model
+from ...utils.hf_model_utils import get_model_prompt_template, get_orig_model
 from ...utils.import_utils import (
     ignore_litellm_warnings,
     ignore_transformers_warnings,
@@ -1030,6 +1031,21 @@ class TestLLM:
                 "{{system_prompt}}### Instruction:\n{{prompt}}\n### Response:\n",
                 "You are an AI programming assistant, utilizing the Deepseek Coder model, developed by Deepseek Company, and you only answer questions related to computer science. For politically sensitive questions, security and privacy issues, and other non-computer science questions, you will refuse to answer\n",
             )
+            assert get_model_prompt_template(
+                model_name="deepseek-ai/deepseek-coder-1.3b-instruct",
+                revision=None,
+                chat_prompt_template=AUTO,
+                system_prompt=AUTO,
+            ) == (
+                "{{system_prompt}}### Instruction:\n{{prompt}}\n### Response:\n",
+                "You are an AI programming assistant, utilizing the Deepseek Coder model, developed by Deepseek Company, and you only answer questions related to computer science. For politically sensitive questions, security and privacy issues, and other non-computer science questions, you will refuse to answer\n",
+            )
+            assert _chat_prompt_template_and_system_prompt_from_tokenizer(
+                "Qwen/Qwen1.5-0.5B-Chat"
+            ) == (CHAT_PROMPT_TEMPLATES["chatml_system"], "You are a helpful assistant")
+            assert _chat_prompt_template_and_system_prompt_from_tokenizer(
+                "CohereForAI/c4ai-command-r-v01"
+            ) == (CHAT_PROMPT_TEMPLATES["command_r"], None)
 
 
 class TestOpenAI:

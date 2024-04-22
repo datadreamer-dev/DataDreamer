@@ -13,7 +13,7 @@ CHAT_PROMPT_TEMPLATES = {
     "llama_system": "[INST] <<SYS>>\n{{system_prompt}}\n<</SYS>>\n\n{{prompt}} [/INST] ",
     "llama": "[INST] {{prompt}} [/INST] ",
     "olmo": "<|endoftext|><|user|>\n{{prompt}}\n<|assistant|>\n",
-    "command_r": "<BOS_TOKEN><|START_OF_TURN_TOKEN|><|USER_TOKEN|>{{prompt}}<|END_OF_TURN_TOKEN|><|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>",
+    "command_r": "<|START_OF_TURN_TOKEN|><|USER_TOKEN|>{{prompt}}<|END_OF_TURN_TOKEN|><|START_OF_TURN_TOKEN|><|CHATBOT_TOKEN|>",
     "phi": "Instruct: {{prompt}}\nOutput: ",
     "openchat": "GPT4 Correct User: {{prompt}}<|end_of_turn|>GPT4 Correct Assistant: ",
     "orca_hashes": "### System:\n{{system_prompt}}\n\n### User:\n{{prompt}}\n\n### Assistant:\n",

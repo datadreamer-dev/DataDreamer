@@ -33,6 +33,11 @@ COULD_NOT_DETECT = HFChatPromptTemplateResponse("COULD_NOT_DETECT")
 def _chat_prompt_template_and_system_prompt_from_tokenizer(
     model_name: str, revision: None | str = None
 ) -> None | tuple[str, None | HFChatPromptTemplateResponse | str]:
+    from ..llms._chat_prompt_templates import (
+        SYSTEM_PROMPTS,
+        _model_name_to_system_prompt_type,
+    )
+
     # Check if the model exists on HF Hub
     if _has_file(
         repo_id=model_name,
@@ -97,6 +102,9 @@ def _chat_prompt_template_and_system_prompt_from_tokenizer(
                     pre_system not in chat_prompt_template_with_default_system
                     or post_system not in chat_prompt_template_with_default_system
                 ):
+                    assert (
+                        _model_name_to_system_prompt_type(model_name) in SYSTEM_PROMPTS
+                    )
                     system_prompt = COULD_NOT_DETECT
                 else:
                     system_prompt = chat_prompt_template_with_default_system.replace(
