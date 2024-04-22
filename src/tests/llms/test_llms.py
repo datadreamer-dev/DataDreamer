@@ -1024,6 +1024,12 @@ class TestLLM:
             assert _chat_prompt_template_and_system_prompt_from_tokenizer(
                 "mistralai/Mistral-7B-Instruct-v0.1"
             ) == (CHAT_PROMPT_TEMPLATES["llama"].rstrip(), None)
+            assert _chat_prompt_template_and_system_prompt_from_tokenizer(
+                "deepseek-ai/deepseek-coder-1.3b-instruct"
+            ) == (
+                "{{system_prompt}}### Instruction:\n{{prompt}}\n### Response:\n",
+                "You are an AI programming assistant, utilizing the Deepseek Coder model, developed by Deepseek Company, and you only answer questions related to computer science. For politically sensitive questions, security and privacy issues, and other non-computer science questions, you will refuse to answer\n",
+            )
 
 
 class TestOpenAI:
