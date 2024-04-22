@@ -465,7 +465,7 @@ class TestTrainHFBase:
                 DataDreamer.get_output_folder_path(),
                 "_backups",
                 "t5-trainer",
-                "4b62131b23b4abbc",
+                "af8fe7c4d25eacaa",
             )
             assert os.path.isdir(backup_path)
             assert os.path.isfile(os.path.join(backup_path, "fingerprint.json"))
@@ -493,7 +493,7 @@ class TestTrainHFBase:
                 DataDreamer.get_output_folder_path(),
                 "_backups",
                 "t5-trainer",
-                "4b62131b23b4abbc",
+                "af8fe7c4d25eacaa",
             )
             assert os.path.isdir(old_backup_path)
             assert not os.path.isfile(os.path.join(old_backup_path, "fingerprint.json"))
@@ -502,7 +502,7 @@ class TestTrainHFBase:
                 DataDreamer.get_output_folder_path(),
                 "_backups",
                 "t5-trainer",
-                "2a6b67c02195715d",
+                "05cba1c44718d59a",
             )
             assert os.path.isdir(new_backup_path)
             assert os.path.isfile(os.path.join(new_backup_path, "fingerprint.json"))
