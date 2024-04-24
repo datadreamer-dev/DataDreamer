@@ -227,7 +227,7 @@ def model_to_device(
             revision=revision,
             trust_remote_code=trust_remote_code,
             quantization_config=quantization_config,
-        ):
+        ):  # pragma: no cover
             if is_train:
                 to_device_map = {
                     "": get_global_rank() if isinstance(device, list) else device
@@ -261,7 +261,9 @@ def model_to_device(
                     to_device_map_max_memory = None
         else:
             to_device = "cpu" if isinstance(device, list) else device
-    else:
+    else:  # pragma: no cover
         to_device_map = device_map
         to_device_map_max_memory = None
+    if to_device is None and to_device_map is None and to_device_map_max_memory is None:
+        to_device = "cpu"
     return to_device, to_device_map, to_device_map_max_memory

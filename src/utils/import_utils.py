@@ -77,7 +77,9 @@ def ignore_training_warnings():
         ]:
             model_logger = logging.getLogger(model_logger_name)
 
-            class NoUseCacheIsIncompatibleWarningFilter(logging.Filter):
+            class NoUseCacheIsIncompatibleWarningFilter(
+                logging.Filter
+            ):  # pragma: no cover
                 def filter(self, record):
                     return not record.getMessage().startswith(
                         "`use_cache=True` is incompatible with gradient checkpointing"
@@ -136,7 +138,7 @@ def ignore_faiss_warnings():
 
 
 @contextlib.contextmanager
-def ignore_hivemind_warnings():
+def ignore_hivemind_warnings():  # pragma: no cover
     with warnings.catch_warnings():
         warnings.filterwarnings(
             "ignore",

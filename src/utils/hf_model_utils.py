@@ -1,6 +1,6 @@
 from copy import copy
 from functools import cache
-from typing import Any, Type
+from typing import Any
 
 import torch
 
@@ -8,6 +8,7 @@ from .arg_utils import Default, default_to
 from .import_utils import ignore_transformers_warnings
 
 with ignore_transformers_warnings():
+    import transformers
     from transformers import (
         AutoConfig,
         AutoTokenizer,
@@ -233,7 +234,9 @@ def validate_quantization_config(
     dtype: None | str | torch.dtype,
 ):
     quantization_config = copy(quantization_config)
-    if getattr(quantization_config, "quant_method", None) == "bitsandbytes":
+    if (
+        getattr(quantization_config, "quant_method", None) == "bitsandbytes"
+    ):  # pragma: no cover
         quantization_config.bnb_4bit_compute_dtype = dtype  # type:ignore[union-attr]
         quantization_config.bnb_4bit_quant_storage = dtype  # type:ignore[union-attr]
     return quantization_config
@@ -260,10 +263,23 @@ def peft_module_casting_to_dtype(model, dtype: None | str | torch.dtype):
 
 
 def get_attn_implementation(
-    model_cls: Type, model_kwargs: dict[str, Any], optimize: bool
+    model_name: str,
+    revision: None | str,
+    trust_remote_code: bool,
+    model_kwargs: dict[str, Any],
+    optimize: bool,
 ):
+    model_config = get_config(
+        model_name=model_name, revision=revision, trust_remote_code=trust_remote_code
+    )
+    architecture = getattr(model_config, "architectures", ["CannotDetectArchitecture"])[
+        0
+    ]
     attn_implementation = "eager"
-    if getattr(model_cls, "_supports_sdpa", False) and optimize:
+    if (
+        getattr(getattr(transformers, architecture, object()), "_supports_sdpa", False)
+        and optimize
+    ):
         attn_implementation = "sdpa"
     return model_kwargs.get("attn_implementation", attn_implementation)
 
@@ -297,6 +313,6 @@ def get_model_optional_kwargs(
     quantization_config: None | QuantizationConfigMixin | dict,
 ) -> dict[str, Any]:
     optional_kwargs = {}
-    if quantization_config is not None:
+    if quantization_config is not None:  # pragma: no cover
         optional_kwargs["quantization_config"] = quantization_config
     return optional_kwargs

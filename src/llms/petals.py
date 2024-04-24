@@ -20,7 +20,7 @@ with ignore_transformers_warnings():
 _ServerInferenceSession_step: None | Callable = None
 
 
-def _is_batch_size_exception_func(e: BaseException) -> bool:
+def _is_batch_size_exception_func(e: BaseException) -> bool:  # pragma: no cover
     from hivemind.p2p.p2p_daemon_bindings.utils import P2PHandlerError
 
     return (
@@ -66,7 +66,7 @@ def _catch_memory_error__ServerInferenceSession_step(
 
 
 @cache
-def _monkey_patch_ServerInferenceSession_step():
+def _monkey_patch_ServerInferenceSession_step():  # pragma: no cover
     from hivemind.p2p.p2p_daemon_bindings.utils import P2PHandlerError  # noqa: F401
 
     try:

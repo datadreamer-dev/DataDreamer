@@ -239,7 +239,11 @@ class HFTransformers(LLM):
             low_cpu_mem_usage=True,
             torch_dtype=self.dtype,
             attn_implementation=get_attn_implementation(
-                model_cls=auto_cls, model_kwargs=self.kwargs, optimize=True
+                model_name=self.model_name,
+                revision=self.revision,
+                trust_remote_code=self.trust_remote_code,
+                model_kwargs=self.kwargs,
+                optimize=True,
             ),
             device_map=to_device_map,
             max_memory=to_device_map_max_memory,
@@ -425,7 +429,9 @@ class HFTransformers(LLM):
             **kwargs,
         )
         if not use_pipeline:
-            if _is_petals(self) and "attention_mask" in model_inputs:
+            if (
+                _is_petals(self) and "attention_mask" in model_inputs
+            ):  # pragma: no cover
                 del model_inputs["attention_mask"]
             outputs = model.generate(**model_inputs, **generation_kwargs)
             texts = cached_tokenizer.batch_decode(

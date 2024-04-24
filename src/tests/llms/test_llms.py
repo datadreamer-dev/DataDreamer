@@ -1523,6 +1523,25 @@ class TestHFTransformers:
             llm.unload_model()
             assert "model" not in llm.__dict__ and "tokenizer" not in llm.__dict__
 
+    def test_sdpa(self, create_datadreamer):
+        with create_datadreamer():
+            llm = HFTransformers("Qwen/Qwen1.5-0.5B-Chat")
+            generated_texts = llm.run(
+                [
+                    "Question: What color is the sky?\nSingle-Word Answer:",
+                    "Question: What color are trees?\nSingle-Word Answer:",
+                ],
+                max_new_tokens=1,
+                temperature=0.0,
+                top_p=0.0,
+                n=1,
+                stop="Question:",
+                repetition_penalty=None,
+                logit_bias=None,
+                batch_size=2,
+            )
+            assert generated_texts == ["Blue", "Green"]
+
     def test_adapter_metadata(self, create_datadreamer):
         with create_datadreamer():
             # Load LLaMa
@@ -2962,10 +2981,12 @@ class TestMistralAI:
 
 class TestPetals:
     pydantic_version = None
+    bitsandbytes_version = None
 
     @classmethod
     def setup_class(cls):
         cls.pydantic_version = importlib.metadata.version("pydantic")
+        cls.bitsandbytes_version = importlib.metadata.version("bitsandbytes")
         os.system("pip3 install petals==2.2.0")
         os.system("pip3 install 'pydantic>=1.10,<2.0'")
         _reload_pydantic()
@@ -2973,6 +2994,7 @@ class TestPetals:
     @classmethod
     def teardown_class(cls):
         os.system(f"pip3 install pydantic=={cls.pydantic_version}")
+        os.system(f"pip3 install bitsandbytes=={cls.bitsandbytes_version}")
         _reload_pydantic()
 
     @pytest.mark.xfail  # Petals network is unreliable currently

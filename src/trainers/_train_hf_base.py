@@ -1108,7 +1108,11 @@ class _TrainHFBase(DataDreamerTrainer):
             trust_remote_code=self.trust_remote_code,
             torch_dtype=self.dtype,
             attn_implementation=get_attn_implementation(
-                model_cls=self.auto_cls, model_kwargs=self.kwargs, optimize=True
+                model_name=self.model_name,
+                revision=self.revision,
+                trust_remote_code=self.trust_remote_code,
+                model_kwargs=self.kwargs,
+                optimize=True,
             ),
             device_map=to_device_map,
             max_memory=to_device_map_max_memory,
@@ -1143,7 +1147,7 @@ class _TrainHFBase(DataDreamerTrainer):
             with ignore_transformers_warnings():
                 from peft import get_peft_model, prepare_model_for_kbit_training
 
-            if self.quantization_config:
+            if self.quantization_config:  # pragma: no cover
                 model = prepare_model_for_kbit_training(model)
             model = get_peft_model(
                 model, validate_peft_config(model=model, peft_config=self.peft_config)
@@ -1290,7 +1294,9 @@ class _TrainHFBase(DataDreamerTrainer):
                 trust_remote_code=self.trust_remote_code,
                 torch_dtype=self.dtype,
                 attn_implementation=get_attn_implementation(
-                    model_cls=self.auto_cls,
+                    model_name=self.model_name,
+                    revision=self.revision,
+                    trust_remote_code=self.trust_remote_code,
                     model_kwargs=self.kwargs,
                     optimize=with_optimizations,
                 ),
@@ -1316,7 +1322,9 @@ class _TrainHFBase(DataDreamerTrainer):
                 MODEL_DIR,
                 torch_dtype=self.dtype,
                 attn_implementation=get_attn_implementation(
-                    model_cls=self.auto_cls,
+                    model_name=self.model_name,
+                    revision=self.revision,
+                    trust_remote_code=self.trust_remote_code,
                     model_kwargs=self.kwargs,
                     optimize=with_optimizations,
                 ),
