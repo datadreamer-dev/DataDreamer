@@ -3003,6 +3003,7 @@ class TestPetals:
             cache, _ = llm.cache_and_lock  # type: ignore[misc]
             assert os.path.exists(db_path)
 
+    @pytest.mark.xfail  # Petals is only comatible with torch<=2.1.2
     @pytest.mark.order("last")
     def test_metadata(self, create_datadreamer):
         with create_datadreamer():
