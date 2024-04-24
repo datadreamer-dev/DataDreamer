@@ -1106,7 +1106,6 @@ class _TrainHFBase(DataDreamerTrainer):
             self.model_name,
             revision=self.revision,
             trust_remote_code=self.trust_remote_code,
-            low_cpu_mem_usage=True,
             torch_dtype=self.dtype,
             attn_implementation=get_attn_implementation(
                 model_cls=self.auto_cls, model_kwargs=self.kwargs, optimize=True
@@ -1289,7 +1288,6 @@ class _TrainHFBase(DataDreamerTrainer):
                 self.model_name,
                 revision=self.revision,
                 trust_remote_code=self.trust_remote_code,
-                low_cpu_mem_usage=True,
                 torch_dtype=self.dtype,
                 attn_implementation=get_attn_implementation(
                     model_cls=self.auto_cls,
@@ -1316,7 +1314,6 @@ class _TrainHFBase(DataDreamerTrainer):
         else:
             model = self.auto_cls.from_pretrained(
                 MODEL_DIR,
-                low_cpu_mem_usage=True,
                 torch_dtype=self.dtype,
                 attn_implementation=get_attn_implementation(
                     model_cls=self.auto_cls,
