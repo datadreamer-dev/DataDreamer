@@ -23,7 +23,7 @@ bitsandbytes>=0.43.1,<1.0.0
 huggingface-hub>=0.20.3,<1.0.0
 optimum>=1.16.2,<2.0.0
 accelerate>=0.29.3,<1.0.0
-transformers>=4.40.0,<4.50.0
+transformers>=4.40.1,<4.50.0
 ctransformers>=0.2.27,<1.0.0
 Pyro5>=5.15
 litellm==1.31.14

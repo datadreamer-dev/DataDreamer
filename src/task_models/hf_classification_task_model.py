@@ -122,7 +122,6 @@ class HFClassificationTaskModel(TaskModel):
             self.model_name,
             revision=self.revision,
             trust_remote_code=self.trust_remote_code,
-            low_cpu_mem_usage=True,
             device_map=to_device_map,
             max_memory=to_device_map_max_memory,
             torch_dtype=self.dtype,
