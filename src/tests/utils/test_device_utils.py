@@ -29,7 +29,7 @@ class TestDeviceUtils:
         assert not is_cpu_device("cuda:1")
 
     def test_device_to_device_id(self):
-        assert device_to_device_id(None) is None  # type:ignore[arg-type]
+        assert device_to_device_id(None) is None
         assert device_to_device_id(-1) is None
         assert device_to_device_id("cpu") is None
         assert device_to_device_id("cpu:0") is None

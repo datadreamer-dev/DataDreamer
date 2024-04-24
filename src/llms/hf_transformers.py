@@ -14,17 +14,21 @@ from ..logging import logger as datadreamer_logger
 from ..utils import ring_utils as ring
 from ..utils.arg_utils import AUTO, Default
 from ..utils.background_utils import RunIfTimeout
+from ..utils.device_utils import model_to_device, validate_device
 from ..utils.fs_utils import safe_fn
 from ..utils.hf_hub_utils import get_citation_info, get_license_info, get_model_card_url
 from ..utils.hf_model_utils import (
     HF_TRANSFORMERS_CITATION,
     PEFT_CITATION,
     convert_dtype,
+    get_attn_implementation,
     get_config,
     get_model_max_context_length,
+    get_model_optional_kwargs,
     get_model_prompt_template,
     get_tokenizer,
     is_encoder_decoder,
+    validate_quantization_config,
 )
 from ..utils.import_utils import ignore_transformers_warnings
 from .llm import (
@@ -35,8 +39,6 @@ from .llm import (
 )
 
 with ignore_transformers_warnings():
-    from optimum.bettertransformer import BetterTransformer
-    from optimum.bettertransformer.models import BetterTransformerManager
     from transformers import (
         AutoModelForCausalLM,
         AutoModelForSeq2SeqLM,
@@ -157,7 +159,7 @@ class HFTransformers(LLM):
         system_prompt: None | str | Default = AUTO,
         revision: None | str = None,
         trust_remote_code: bool = False,
-        device: None | int | str | torch.device = None,
+        device: None | int | str | torch.device | list[int | str | torch.device] = None,
         device_map: None | dict | str = None,
         dtype: None | str | torch.dtype = None,
         quantization_config: None | QuantizationConfigMixin | dict = None,
@@ -176,10 +178,12 @@ class HFTransformers(LLM):
         )
         self.revision = revision
         self.trust_remote_code = trust_remote_code
-        self.device = device
+        self.device = validate_device(device=device)
         self.device_map = device_map
         self.dtype = convert_dtype(dtype)
-        self.quantization_config = quantization_config
+        self.quantization_config = validate_quantization_config(
+            quantization_config=quantization_config, dtype=self.dtype
+        )
         self.kwargs = kwargs
         self.adapter_name = adapter_name
         self.adapter_kwargs = adapter_kwargs
@@ -203,6 +207,17 @@ class HFTransformers(LLM):
 
     @cached_property
     def model(self) -> PreTrainedModel:
+        # Get device and device_map
+        to_device, to_device_map, to_device_map_max_memory = model_to_device(
+            device=self.device,
+            device_map=self.device_map,
+            is_train=False,
+            model_name=self.model_name,
+            revision=self.revision,
+            trust_remote_code=self.trust_remote_code,
+            quantization_config=self.quantization_config,
+        )
+
         # Load model
         log_if_timeout = RunIfTimeout(
             partial(
@@ -221,15 +236,20 @@ class HFTransformers(LLM):
             self.model_name,
             revision=self.revision,
             trust_remote_code=self.trust_remote_code,
-            device_map=self.device_map,
-            quantization_config=self.quantization_config,
+            low_cpu_mem_usage=True,
             torch_dtype=self.dtype,
+            attn_implementation=get_attn_implementation(
+                model_cls=auto_cls, model_kwargs=self.kwargs, optimize=True
+            ),
+            device_map=to_device_map,
+            max_memory=to_device_map_max_memory,
             **self.kwargs,
+            **get_model_optional_kwargs(quantization_config=self.quantization_config),
         )
 
         # Send model to accelerator device
-        if self.device_map is None:
-            model = model.to(self.device)
+        if to_device is not None:
+            model = model.to(to_device)
 
         # Load adapter
         if self.adapter_name:
@@ -244,14 +264,6 @@ class HFTransformers(LLM):
 
         # Switch model to eval mode
         model.eval()
-
-        # Apply BetterTransformer
-        if BetterTransformerManager.cannot_support(
-            model.config.model_type
-        ) or not BetterTransformerManager.supports(model.config.model_type):
-            model = model  # pragma: no cover
-        else:
-            model = BetterTransformer.transform(model)
 
         # Torch compile
         torch._dynamo.config.suppress_errors = True
@@ -428,7 +440,9 @@ class HFTransformers(LLM):
             transformers_logging.set_verbosity(transformers_logging.CRITICAL)
             original_padding_side = cached_tokenizer.tokenizer.padding_side
             pipeline_optional_kwargs = (
-                {} if self.device_map is not None else {"device": model.device}
+                {}
+                if getattr(model, "hf_device_map", None) is not None
+                else {"device": model.device}
             )
             pipe = pipeline(
                 "text-generation",

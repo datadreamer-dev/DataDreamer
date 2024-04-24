@@ -1,14 +1,16 @@
 import os
 import re
-from typing import TYPE_CHECKING, Any, Type, cast
+from typing import TYPE_CHECKING, Any, Sequence, Type, cast
 
 import torch
 
 from .. import DataDreamer
+from .hf_model_utils import is_bnb_quantized
 from .import_utils import ignore_transformers_warnings
 
 with ignore_transformers_warnings():
     from transformers import TrainerCallback
+    from transformers.utils.quantization_config import QuantizationConfigMixin
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..trainers._train_hf_base import _TrainHFBase
@@ -44,7 +46,7 @@ def is_cpu_device(device: None | int | str | torch.device) -> bool:
     )
 
 
-def device_to_device_id(device: int | str | torch.device) -> None | int:
+def device_to_device_id(device: None | int | str | torch.device) -> None | int:
     if is_cpu_device(device):
         return None
     if isinstance(device, str):
@@ -186,7 +188,7 @@ def get_device_memory_monitoring_callback(trainer: "_TrainHFBase") -> Type:
                             torch.cuda.memory_allocated(device_idx)
                         )
                         for device_idx in range(torch.cuda.device_count())
-                        if device_to_device_id(trainer.device) == device_idx  # type:ignore[arg-type]
+                        if device_to_device_id(trainer.device) == device_idx
                     }
                     trainer.logger.debug(
                         f"Device Memory Usage -- {device_memory_usage}"
@@ -202,3 +204,64 @@ def get_device_memory_monitoring_callback(trainer: "_TrainHFBase") -> Type:
             self._log_device_memory_usage()
 
     return DeviceMemoryMonitoringCallback
+
+
+def model_to_device(
+    device: None | int | str | torch.device | list[int | str | torch.device],
+    device_map: None | dict | str,
+    is_train: bool,
+    model_name: str,
+    revision: None | str,
+    trust_remote_code: bool,
+    quantization_config: None | QuantizationConfigMixin | dict,
+) -> tuple[None | int | str | torch.device, None | dict | str, None | dict[int, int]]:
+    from .distributed_utils import get_global_rank
+
+    to_device: None | int | str | torch.device = None
+    to_device_map: None | dict | str = None
+    to_device_map_max_memory: None | dict[int, int] = None
+
+    if device_map is None:
+        if (not is_train and isinstance(device, list)) or is_bnb_quantized(
+            model_name=model_name,
+            revision=revision,
+            trust_remote_code=trust_remote_code,
+            quantization_config=quantization_config,
+        ):
+            if is_train:
+                to_device_map = {
+                    "": get_global_rank() if isinstance(device, list) else device
+                }
+                to_device_map_max_memory = None
+            else:
+                list_of_devices: Sequence[None | int | str | torch.device] = (
+                    cast(list[None | int | str | torch.device], device)
+                    if isinstance(device, list)
+                    else [device]
+                )
+                list_of_device_ids = [device_to_device_id(d) for d in list_of_devices]
+                if torch.cuda.is_available():
+                    for i in range(torch.cuda.device_count()):
+                        _ = torch.tensor([0], device=i)
+                    max_memory = {
+                        device_id: (
+                            0
+                            if device_id not in list_of_device_ids
+                            else torch.cuda.mem_get_info(device_id)[0]
+                        )
+                        for device_id in range(torch.cuda.device_count())
+                    }
+                    to_device_map = "auto"
+                    to_device_map_max_memory = max_memory
+                else:
+                    assert all(
+                        is_cpu_device(d) for d in list_of_devices
+                    ), f"The device you specified ({list_of_devices}) is invalid (or devices could not be found)."
+                    to_device_map = {"": "cpu"}
+                    to_device_map_max_memory = None
+        else:
+            to_device = "cpu" if isinstance(device, list) else device
+    else:
+        to_device_map = device_map
+        to_device_map_max_memory = None
+    return to_device, to_device_map, to_device_map_max_memory

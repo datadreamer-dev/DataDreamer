@@ -1,5 +1,6 @@
 import contextlib
 import importlib
+import logging
 import warnings
 from types import ModuleType
 
@@ -56,6 +57,33 @@ def ignore_training_warnings():
             message="Passing the following arguments to.*",
             module="accelerate.accelerator",
         )
+        warnings.filterwarnings(
+            "ignore",
+            category=UserWarning,
+            message=".*please pass in use_reentrant.*",
+            module="torch.utils.checkpoint",
+        )
+        warnings.filterwarnings(
+            "ignore",
+            category=UserWarning,
+            message="Merge.*may get different generations due to rounding error.*",
+        )
+
+        # Filter warning logs
+        for model_logger_name in [
+            n
+            for n in logging.Logger.manager.loggerDict.keys()
+            if n.startswith("transformers.models.")
+        ]:
+            model_logger = logging.getLogger(model_logger_name)
+
+            class NoUseCacheIsIncompatibleWarningFilter(logging.Filter):
+                def filter(self, record):
+                    return not record.getMessage().startswith(
+                        "`use_cache=True` is incompatible with gradient checkpointing"
+                    )
+
+            model_logger.addFilter(NoUseCacheIsIncompatibleWarningFilter())
         yield None
 
 

@@ -70,7 +70,7 @@ module = "click,wandb,wandb.*,click.testing,flaky,tensorflow,torch_xla,jax,datas
 ignore_missing_imports = true
 
 [tool.pyright]
-exclude = [".cluster/", ".venv/", ".venv_dev/", ".venv_poetry/"]
+exclude = [".*/"]
 
 [tool.coverage.run]
 omit = ["src/__main__.py", "src/project/*", "src/tests/*"]

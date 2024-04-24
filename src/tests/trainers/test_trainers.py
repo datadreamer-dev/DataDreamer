@@ -356,22 +356,23 @@ class TestTrainHFBase:
             )
             assert set(
                 validate_peft_config(
-                    classification_trainer._create_model(), LoraConfig()
+                    model=classification_trainer._create_model(),
+                    peft_config=LoraConfig(),
                 ).target_modules
             ) == {"wi_1", "wi_0", "wo", "v", "out_proj", "q", "o", "k", "dense"}
             assert not validate_peft_config(
-                classification_trainer._create_model(), LoraConfig()
+                model=classification_trainer._create_model(), peft_config=LoraConfig()
             ).fan_in_fan_out
 
         with create_datadreamer():
             finetune_trainer = TrainHFFineTune("GPT-2 Trainer", model_name="gpt2")
             assert set(
                 validate_peft_config(
-                    finetune_trainer._create_model(), LoraConfig()
+                    model=finetune_trainer._create_model(), peft_config=LoraConfig()
                 ).target_modules
             ) == {"c_attn", "c_fc", "c_proj"}
             assert validate_peft_config(
-                finetune_trainer._create_model(), LoraConfig()
+                model=finetune_trainer._create_model(), peft_config=LoraConfig()
             ).fan_in_fan_out
 
     def test_resume(self, create_datadreamer):

@@ -9,6 +9,7 @@ from transformers import logging as transformers_logging
 
 from ..logging import logger as datadreamer_logger
 from ..utils.background_utils import RunIfTimeout
+from ..utils.device_utils import model_to_device, validate_device
 from ..utils.fs_utils import safe_fn
 from ..utils.hf_hub_utils import get_citation_info, get_license_info, get_model_card_url
 from ..utils.hf_model_utils import (
@@ -38,7 +39,7 @@ class HFClassificationTaskModel(TaskModel):
         model_name: str,
         revision: None | str = None,
         trust_remote_code: bool = False,
-        device: None | int | str | torch.device = None,
+        device: None | int | str | torch.device | list[int | str | torch.device] = None,
         device_map: None | dict | str = None,
         dtype: None | str | torch.dtype = None,
         adapter_name: None | str = None,
@@ -68,7 +69,7 @@ class HFClassificationTaskModel(TaskModel):
         self.model_name = model_name
         self.revision = revision
         self.trust_remote_code = trust_remote_code
-        self.device = device
+        self.device = validate_device(device=device)
         self.device_map = device_map
         self.dtype = convert_dtype(dtype)
         self.kwargs = kwargs
@@ -96,6 +97,17 @@ class HFClassificationTaskModel(TaskModel):
 
     @cached_property
     def model(self) -> PreTrainedModel:
+        # Get device and device_map
+        to_device, to_device_map, to_device_map_max_memory = model_to_device(
+            device=self.device,
+            device_map=self.device_map,
+            is_train=False,
+            model_name=self.model_name,
+            revision=self.revision,
+            trust_remote_code=self.trust_remote_code,
+            quantization_config=None,
+        )
+
         # Load model
         log_if_timeout = RunIfTimeout(
             partial(
@@ -110,7 +122,9 @@ class HFClassificationTaskModel(TaskModel):
             self.model_name,
             revision=self.revision,
             trust_remote_code=self.trust_remote_code,
-            device_map=self.device_map,
+            low_cpu_mem_usage=True,
+            device_map=to_device_map,
+            max_memory=to_device_map_max_memory,
             torch_dtype=self.dtype,
             **self.kwargs,
         )
@@ -118,8 +132,8 @@ class HFClassificationTaskModel(TaskModel):
         model.config.pad_token_id = self.tokenizer.pad_token_id
 
         # Send model to accelerator device
-        if self.device_map is None:
-            model = model.to(self.device)
+        if to_device is not None:
+            model = model.to(to_device)
 
         # Load adapter
         if self.adapter_name:

@@ -1,6 +1,6 @@
 from copy import copy
 from functools import cache
-from typing import Any
+from typing import Any, Type
 
 import torch
 
@@ -15,6 +15,7 @@ with ignore_transformers_warnings():
         PreTrainedModel,
         PreTrainedTokenizer,
     )
+    from transformers.utils.quantization_config import QuantizationConfigMixin
 
 HF_TRANSFORMERS_CITATION = """
 @inproceedings{Wolf_Transformers_State-of-the-Art_Natural_2020,
@@ -225,3 +226,77 @@ def validate_peft_config(model, peft_config: None | Any):
         peft_config.target_modules = list(set(target_modules))
         peft_config.fan_in_fan_out = fan_in_fan_out
     return peft_config
+
+
+def validate_quantization_config(
+    quantization_config: None | QuantizationConfigMixin | dict,
+    dtype: None | str | torch.dtype,
+):
+    quantization_config = copy(quantization_config)
+    if getattr(quantization_config, "quant_method", None) == "bitsandbytes":
+        quantization_config.bnb_4bit_compute_dtype = dtype  # type:ignore[union-attr]
+        quantization_config.bnb_4bit_quant_storage = dtype  # type:ignore[union-attr]
+    return quantization_config
+
+
+def peft_module_casting_to_dtype(model, dtype: None | str | torch.dtype):
+    # From: https://github.com/huggingface/trl/blob/
+    # c050ebc073ef883ad8adae8a3f7a1ab04dc68a0a/trl/trainer/utils.py#L661C1-L672C55
+
+    # A warning is thrown if not run on GPU by bitsandbytes imported by PEFT
+    with ignore_transformers_warnings():
+        from peft.tuners.tuners_utils import BaseTunerLayer
+
+    for name, module in model.named_modules():
+        if isinstance(module, BaseTunerLayer):
+            module = module.to(dtype)  # type:ignore[attr-defined]
+        elif isinstance(module, torch.nn.LayerNorm) or "norm" in name:
+            # See: https://github.com/pytorch/pytorch/issues/
+            # 105348#issuecomment-1645615470
+            module = module.to(dtype)
+        else:
+            if "weight" in module._parameters:
+                module = module.to(dtype)
+
+
+def get_attn_implementation(
+    model_cls: Type, model_kwargs: dict[str, Any], optimize: bool
+):
+    attn_implementation = "eager"
+    if getattr(model_cls, "_supports_sdpa", False) and optimize:
+        attn_implementation = "sdpa"
+    return model_kwargs.get("attn_implementation", attn_implementation)
+
+
+def get_quantization_config(
+    model_name: str, revision: None | str, trust_remote_code: bool
+) -> None | dict:
+    model_config = get_config(
+        model_name=model_name, revision=revision, trust_remote_code=trust_remote_code
+    )
+    return getattr(model_config, "quantization_config", None)
+
+
+def is_bnb_quantized(
+    model_name: str,
+    revision: None | str,
+    trust_remote_code: bool,
+    quantization_config: None | QuantizationConfigMixin | dict,
+):
+    model_config_quantization_config = get_quantization_config(
+        model_name=model_name, revision=revision, trust_remote_code=trust_remote_code
+    )
+    is_mc_bnb = (model_config_quantization_config or {}).get(
+        "quant_method", ""
+    ) == "bitsandbytes"
+    is_qc_bnb = getattr(quantization_config, "quant_method", None) == "bitsandbytes"
+    return is_mc_bnb or is_qc_bnb
+
+
+def get_model_optional_kwargs(
+    quantization_config: None | QuantizationConfigMixin | dict,
+) -> dict[str, Any]:
+    optional_kwargs = {}
+    if quantization_config is not None:
+        optional_kwargs["quantization_config"] = quantization_config
+    return optional_kwargs

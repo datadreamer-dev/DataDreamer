@@ -57,7 +57,7 @@ class VLLM(HFTransformers):  # pragma: no cover
             system_prompt=system_prompt,
             revision=revision,
             trust_remote_code=trust_remote_code,
-            device=device,  # type:ignore[arg-type]
+            device=device,
             dtype=dtype,
             cache_folder_path=cache_folder_path,
             **kwargs,
@@ -87,7 +87,7 @@ class VLLM(HFTransformers):  # pragma: no cover
                         logger.level = logging.ERROR
                         return logger
 
-                    vllm_logging.init_logger = _monkey_patch_init_logger
+                    vllm_logging.init_logger = _monkey_patch_init_logger  # type:ignore[attr-defined]
                     logging.getLogger("vllm.engine.llm_engine").level = logging.ERROR
 
                 # Load model

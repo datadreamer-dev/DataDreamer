@@ -4,7 +4,7 @@
 #SBATCH --partition=interactive
 #SBATCH --output=.cluster/slurm/.last_job/submission.out
 #SBATCH --ntasks 1
-#SBATCH --cpus-per-task 2
+#SBATCH --cpus-per-task 16
 #SBATCH --mem=10G
 #SBATCH --gpus=2
 

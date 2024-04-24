@@ -1,5 +1,6 @@
 import json
 import os
+from contextlib import nullcontext
 from typing import cast
 
 import pytest
@@ -18,11 +19,16 @@ from ...trainers import (
 )
 from ...trainers._train_hf_base import CustomDataCollatorWithPadding
 from ...utils.arg_utils import AUTO
-from ...utils.hf_model_utils import get_orig_model
+from ...utils.hf_model_utils import get_orig_model, is_bnb_quantized
 from ...utils.import_utils import ignore_transformers_warnings
 
 with ignore_transformers_warnings():
-    from transformers import DataCollatorWithPadding, TrainerCallback, pipeline
+    from transformers import (
+        BitsAndBytesConfig,
+        DataCollatorWithPadding,
+        TrainerCallback,
+        pipeline,
+    )
 
 
 class TestInferenceInMultiGPUEnvironment:
@@ -126,7 +132,27 @@ class TestInferenceInMultiGPUEnvironment:
                 batch_size=2,
             )
             assert generated_texts == [["blue"] * 2, ["green"] * 2]
-            assert llm.model.device == torch.device(0)
+            assert set(getattr(llm.model, "hf_device_map", {}).values()) == {0, 1}
+
+    def test_device_list(self, create_datadreamer, mocker):
+        with create_datadreamer():
+            llm = HFTransformers("google/flan-t5-small", device=[0, 1])
+            generated_texts = llm.run(
+                [
+                    "Question: What color is the sky?\nAnswer:",
+                    "Question: What color are trees?\nAnswer:",
+                ],
+                max_new_tokens=25,
+                temperature=0.0,
+                top_p=0.0,
+                n=2,
+                stop="Question:",
+                repetition_penalty=None,
+                logit_bias=None,
+                batch_size=2,
+            )
+            assert generated_texts == [["blue"] * 2, ["green"] * 2]
+            assert set(getattr(llm.model, "hf_device_map", {}).values()) == {0, 1}
 
     def test_parallel_llm(self, create_datadreamer, mocker):
         prompt_1 = "This is a long prompt."
@@ -332,9 +358,17 @@ class TestTrainDistributed:
             #     private=True,
             # )
 
-    def test_fsdp_peft(self, create_datadreamer, mocker):
-        # TODO (fix later if transformers updates)
-        # See: https://github.com/huggingface/transformers/pull/28297
+    @pytest.mark.parametrize("qlora", [False, True])
+    def test_fsdp_peft(self, qlora, create_datadreamer, mocker):
+        if qlora:
+            quantization_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_use_double_quant=True,
+            )
+        else:
+            quantization_config = None
+
         with create_datadreamer():
             dataset = DataSource(
                 "Training Data",
@@ -377,6 +411,8 @@ class TestTrainDistributed:
                 model_name="gpt2",
                 peft_config=peft_config,
                 device=[0, 1],
+                quantization_config=quantization_config,
+                dtype=torch.bfloat16,
             )
             data_collator_spy = mocker.spy(CustomDataCollatorWithPadding, "__call__")
             train_result = trainer.train(
@@ -390,7 +426,9 @@ class TestTrainDistributed:
             assert data_collator_spy.call_count == 0
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
-                assert json.load(f) == "6b385aca0ce684b3"
+                assert (
+                    json.load(f) == "ce4179deefbddefd" if qlora else "6b385aca0ce684b3"
+                )
             assert train_result is trainer
             assert (
                 type(get_orig_model(trainer.model)).__name__ == "PeftModelForCausalLM"
@@ -413,13 +451,69 @@ class TestTrainDistributed:
             ]:
                 assert not os.path.isfile(os.path.join(trainer.model_path, fn))
             assert os.path.isfile(os.path.join(trainer.model_path, "vocab.json"))
-            export_path = os.path.join(trainer_path, "export")
-            export_result = trainer.export_to_disk(path=export_path, adapter_only=True)
+            export_adapter_path = os.path.join(trainer_path, "export_adapter")
+            export_result = trainer.export_to_disk(
+                path=export_adapter_path, adapter_only=True
+            )
             assert type(export_result).__name__ == "PeftModelForCausalLM"
             assert os.path.isfile(
-                os.path.join(export_path, "adapter_model.safetensors")
+                os.path.join(export_adapter_path, "adapter_model.safetensors")
             )
-            assert os.path.isfile(os.path.join(export_path, "vocab.json"))
+            assert os.path.isfile(os.path.join(export_adapter_path, "vocab.json"))
+            export_full_path = os.path.join(trainer_path, "export_full")
+            with pytest.warns(UserWarning) if qlora else nullcontext():  # type:ignore[attr-defined]
+                export_result = trainer.export_to_disk(
+                    path=export_full_path, adapter_only=False
+                )
+            assert type(export_result).__name__ == "GPT2LMHeadModel"
+            assert os.path.isfile(os.path.join(export_full_path, "model.safetensors"))
+            assert os.path.isfile(os.path.join(export_full_path, "vocab.json"))
+            if qlora:
+                assert is_bnb_quantized(
+                    model_name=export_full_path,
+                    revision=None,
+                    trust_remote_code=True,
+                    quantization_config=None,
+                )
+            # trainer.publish_to_hf_hub(
+            #     repo_id=f"test_fsdp_peft_{qlora}",
+            #     private=True,
+            # )
+            trainer.unload_model()
+
+        # Inference with adapter
+        with create_datadreamer():
+            llm = HFTransformers(
+                "gpt2",
+                adapter_name=export_adapter_path,
+                device=[0, 1],
+                quantization_config=quantization_config,
+                dtype=torch.bfloat16,
+            )
+            llm.run(
+                ["A founder of Microsoft is"],
+                max_new_tokens=25,
+                temperature=0.0,
+                top_p=0.0,
+                n=1,
+                batch_size=1,
+            )
+            assert set(getattr(llm.model, "hf_device_map", {}).values()) == {0, 1}
+            llm.unload_model()
+
+        # Inference with merged weights
+        with create_datadreamer():
+            llm = HFTransformers(export_full_path, device=[0, 1], dtype=torch.bfloat16)
+            llm.run(
+                ["A founder of Microsoft is"],
+                max_new_tokens=25,
+                temperature=0.0,
+                top_p=0.0,
+                n=1,
+                batch_size=1,
+            )
+            assert set(getattr(llm.model, "hf_device_map", {}).values()) == {0, 1}
+            llm.unload_model()
 
     def test_fsdp_seq2seq(self, create_datadreamer, mocker):
         with create_datadreamer():
@@ -886,12 +980,6 @@ class TestTrainDistributedSlow:
             assert ("Bill Gates" in outputs[0] and "<|endoftext|>" in outputs[0]) or (
                 "William Henry Gates" in outputs[0]
             )
-
-            # trainer.publish_to_hf_hub(
-            #     repo_id="test_fsdp_peft",
-            #     private=True,
-            # )
-
             # trainer.publish_to_hf_hub(
             #     repo_id=f"test_distributed_resume_{fsdp}_{peft}",
             #     private=True,

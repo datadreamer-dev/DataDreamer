@@ -30,6 +30,7 @@ from ..utils.background_utils import RunIfTimeout
 from ..utils.device_utils import (
     _TrainingArgumentDeviceOverrideMixin,
     get_device_memory_monitoring_callback,
+    model_to_device,
     validate_device,
 )
 from ..utils.distributed_utils import (
@@ -55,18 +56,20 @@ from ..utils.hf_model_utils import (
     HF_TRANSFORMERS_CITATION,
     PEFT_CITATION,
     convert_dtype,
+    get_attn_implementation,
     get_config,
+    get_model_optional_kwargs,
     get_model_prompt_template,
     get_tokenizer,
     is_encoder_decoder,
+    peft_module_casting_to_dtype,
     validate_peft_config,
+    validate_quantization_config,
 )
 from ..utils.import_utils import ignore_transformers_warnings
 from .trainer import Trainer as DataDreamerTrainer
 
 with ignore_transformers_warnings():
-    from optimum.bettertransformer import BetterTransformer
-    from optimum.bettertransformer.models import BetterTransformerManager
     from setfit import logging as setfit_logging
     from transformers import (
         AutoModelForCausalLM,
@@ -1003,7 +1006,9 @@ class _TrainHFBase(DataDreamerTrainer):
         self.trust_remote_code = trust_remote_code
         self.device = validate_device(device=device)
         self.dtype = convert_dtype(dtype)
-        self.quantization_config = quantization_config
+        self.quantization_config = validate_quantization_config(
+            quantization_config=quantization_config, dtype=self.dtype
+        )
         self.peft_config = copy(peft_config)
         self.distributed_config = validate_distributed_config(distributed_config)
         self.fsdp = fsdp
@@ -1070,6 +1075,18 @@ class _TrainHFBase(DataDreamerTrainer):
             if torch.cuda.is_available():  # pragma: no cover
                 torch.cuda.manual_seed_all(self.seed)
 
+        # Get device and device_map
+        model_device = default_to(device, self.device)
+        to_device, to_device_map, to_device_map_max_memory = model_to_device(
+            device=model_device,
+            device_map=None,
+            is_train=True,
+            model_name=self.model_name,
+            revision=self.revision,
+            trust_remote_code=self.trust_remote_code,
+            quantization_config=self.quantization_config,
+        )
+
         # Load model
         log_if_timeout = RunIfTimeout(
             partial(lambda self: self.logger.info("Loading model..."), self),
@@ -1089,9 +1106,15 @@ class _TrainHFBase(DataDreamerTrainer):
             self.model_name,
             revision=self.revision,
             trust_remote_code=self.trust_remote_code,
-            quantization_config=self.quantization_config,
+            low_cpu_mem_usage=True,
             torch_dtype=self.dtype,
+            attn_implementation=get_attn_implementation(
+                model_cls=self.auto_cls, model_kwargs=self.kwargs, optimize=True
+            ),
+            device_map=to_device_map,
+            max_memory=to_device_map_max_memory,
             **self.kwargs,
+            **get_model_optional_kwargs(quantization_config=self.quantization_config),
             **classification_kwargs,
         )
 
@@ -1111,8 +1134,8 @@ class _TrainHFBase(DataDreamerTrainer):
             model.config.pad_token_id = self.tokenizer.pad_token_id
 
         # Send model to accelerator device
-        model_device = default_to(device, self.device)
-        model = model.to("cpu" if isinstance(model_device, list) else model_device)
+        if to_device is not None:
+            model = model.to(to_device)
 
         # Create PeftModel if peft_config
         if self.peft_config:
@@ -1121,12 +1144,18 @@ class _TrainHFBase(DataDreamerTrainer):
             with ignore_transformers_warnings():
                 from peft import get_peft_model, prepare_model_for_kbit_training
 
-            if self.quantization_config:  # pragma: no cover
+            if self.quantization_config:
                 model = prepare_model_for_kbit_training(model)
-            model = get_peft_model(model, validate_peft_config(model, self.peft_config))
+            model = get_peft_model(
+                model, validate_peft_config(model=model, peft_config=self.peft_config)
+            )
+            peft_module_casting_to_dtype(model=model, dtype=self.dtype)
 
         # Switch model to train mode
-        model.train()
+        if is_ref_model:
+            model.eval()
+        else:
+            model.train()
 
         # Finished loading
         log_if_timeout.stop(
@@ -1221,6 +1250,17 @@ class _TrainHFBase(DataDreamerTrainer):
         # Load model metadata
         self._load_model_metadata()
 
+        # Get device and device_map
+        to_device, to_device_map, to_device_map_max_memory = model_to_device(
+            device=self.device,
+            device_map=None,
+            is_train=False,
+            model_name=self.model_name,
+            revision=self.revision,
+            trust_remote_code=self.trust_remote_code,
+            quantization_config=self.quantization_config,
+        )
+
         # Load model
         log_if_timeout = RunIfTimeout(
             partial(
@@ -1249,42 +1289,56 @@ class _TrainHFBase(DataDreamerTrainer):
                 self.model_name,
                 revision=self.revision,
                 trust_remote_code=self.trust_remote_code,
-                quantization_config=self.quantization_config,
+                low_cpu_mem_usage=True,
                 torch_dtype=self.dtype,
+                attn_implementation=get_attn_implementation(
+                    model_cls=self.auto_cls,
+                    model_kwargs=self.kwargs,
+                    optimize=with_optimizations,
+                ),
+                device_map=to_device_map,
+                max_memory=to_device_map_max_memory,
                 **self.kwargs,
+                **get_model_optional_kwargs(
+                    quantization_config=self.quantization_config
+                ),
                 **classification_kwargs,
             )
             model = PeftModel.from_pretrained(
                 model,
                 model_id=MODEL_DIR,
-                quantization_config=self.quantization_config,
                 torch_dtype=self.dtype,
                 **self.kwargs,
+                **get_model_optional_kwargs(
+                    quantization_config=self.quantization_config
+                ),
             )
         else:
             model = self.auto_cls.from_pretrained(
                 MODEL_DIR,
-                quantization_config=self.quantization_config,
+                low_cpu_mem_usage=True,
                 torch_dtype=self.dtype,
+                attn_implementation=get_attn_implementation(
+                    model_cls=self.auto_cls,
+                    model_kwargs=self.kwargs,
+                    optimize=with_optimizations,
+                ),
+                device_map=to_device_map,
+                max_memory=to_device_map_max_memory,
                 **self.kwargs,
+                **get_model_optional_kwargs(
+                    quantization_config=self.quantization_config
+                ),
             )
 
         # Send model to accelerator device
-        model = model.to("cpu" if isinstance(self.device, list) else self.device)
+        if to_device is not None:
+            model = model.to(to_device)
 
         # Switch model to eval mode
         model.eval()
 
         if with_optimizations:
-            # Apply BetterTransformer
-            if self.auto_cls in [AutoModelForSeq2SeqLM, AutoModelForCausalLM]:
-                if BetterTransformerManager.cannot_support(
-                    model.config.model_type
-                ) or not BetterTransformerManager.supports(model.config.model_type):
-                    model = model  # pragma: no cover
-                else:
-                    model = BetterTransformer.transform(model)
-
             # Torch compile
             #
             # Note: Disabling due to a bug in PyTorch where encoder-decoder (T5)
@@ -1294,6 +1348,7 @@ class _TrainHFBase(DataDreamerTrainer):
             #
             # torch._dynamo.config.suppress_errors = True
             # model = torch.compile(model)
+            pass
 
         # Finished loading
         log_if_timeout.stop(
