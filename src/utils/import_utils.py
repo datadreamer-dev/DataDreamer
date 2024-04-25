@@ -60,7 +60,7 @@ def ignore_training_warnings():
         warnings.filterwarnings(
             "ignore",
             category=UserWarning,
-            message=".*please pass in use_reentrant.*",
+            message=".*use_reentrant.*",
             module="torch.utils.checkpoint",
         )
         warnings.filterwarnings(
