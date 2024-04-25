@@ -973,7 +973,7 @@ class TestTrainDistributedSlow:
             # (ensures weights were saved properly)
             inputs = trainer.tokenizer(
                 ["A founder of Microsft is"], padding=True, return_tensors="pt"
-            )
+            ).to(export_result.device)
             outputs = trainer.tokenizer.batch_decode(
                 export_result.generate(**inputs, max_new_tokens=4, do_sample=False)
             )
