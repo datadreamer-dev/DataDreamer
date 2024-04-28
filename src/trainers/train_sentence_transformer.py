@@ -16,6 +16,7 @@ from ..embedders.sentence_transformers_embedder import _normalize_model_name
 from ..utils.arg_utils import AUTO, DEFAULT, Default, default_to
 from ..utils.background_utils import RunIfTimeout
 from ..utils.hf_model_utils import (
+    filter_model_warnings,
     get_base_model_from_peft_model,
     get_model_max_context_length,
     get_tokenizer,
@@ -270,6 +271,9 @@ class TrainSentenceTransformer(_TrainHFBase):
 
         # Switch model to train mode
         model.train()
+
+        # Filter any warnings from the model
+        filter_model_warnings()
 
         # Finished loading
         log_if_timeout.stop(
@@ -857,6 +861,9 @@ class TrainSentenceTransformer(_TrainHFBase):
             # torch._dynamo.config.suppress_errors = True
             # model = torch.compile(model)
             pass
+
+        # Filter any warnings from the model
+        filter_model_warnings()
 
         # Finished loading
         log_if_timeout.stop(

@@ -56,6 +56,7 @@ from ..utils.hf_model_utils import (
     HF_TRANSFORMERS_CITATION,
     PEFT_CITATION,
     convert_dtype,
+    filter_model_warnings,
     get_attn_implementation,
     get_config,
     get_model_optional_kwargs,
@@ -1162,6 +1163,9 @@ class _TrainHFBase(DataDreamerTrainer):
         else:
             model.train()
 
+        # Filter any warnings from the model
+        filter_model_warnings()
+
         # Finished loading
         log_if_timeout.stop(
             partial(lambda self: self.logger.info("Finished loading."), self)
@@ -1356,6 +1360,9 @@ class _TrainHFBase(DataDreamerTrainer):
             # torch._dynamo.config.suppress_errors = True
             # model = torch.compile(model)
             pass
+
+        # Filter any warnings from the model
+        filter_model_warnings()
 
         # Finished loading
         log_if_timeout.stop(

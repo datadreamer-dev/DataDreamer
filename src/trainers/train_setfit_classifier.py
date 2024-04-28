@@ -15,7 +15,11 @@ from .._cachable._cachable import _is_primitive
 from ..datasets import OutputDatasetColumn, OutputIterableDatasetColumn
 from ..utils.arg_utils import AUTO, DEFAULT, Default, default_to
 from ..utils.background_utils import RunIfTimeout
-from ..utils.hf_model_utils import get_base_model_from_peft_model, validate_peft_config
+from ..utils.hf_model_utils import (
+    filter_model_warnings,
+    get_base_model_from_peft_model,
+    validate_peft_config,
+)
 from ..utils.import_utils import ignore_transformers_warnings
 from ._train_hf_base import (
     _prepare_inputs_and_outputs,
@@ -205,6 +209,9 @@ class TrainSetFitClassifier(TrainHFClassifier):
                 model=model.model_body,
                 peft_config=validate_peft_config(model.model_body, self.peft_config),
             )
+
+        # Filter any warnings from the model
+        filter_model_warnings()
 
         # Finished loading
         log_if_timeout.stop(
@@ -580,6 +587,9 @@ class TrainSetFitClassifier(TrainHFClassifier):
             # torch._dynamo.config.suppress_errors = True
             # model = torch.compile(model)
             pass
+
+        # Filter any warnings from the model
+        filter_model_warnings()
 
         # Finished loading
         log_if_timeout.stop(
