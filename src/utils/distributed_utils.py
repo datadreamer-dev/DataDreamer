@@ -47,11 +47,14 @@ def default_fsdp_config(model: PreTrainedModel) -> dict[str, Any]:  # pragma: no
     transformer_layer_cls_to_wrap = list(
         filter(lambda x: x in named_modules, transformer_layer_cls_to_wrap)
     )
+    os.environ["FSDP_OFFLOAD_PARAMS"] = "1"
     return {
         "fsdp": "full_shard auto_wrap",
         "fsdp_config": {
             "backward_prefetch": "backward_pre",
             "transformer_layer_cls_to_wrap": transformer_layer_cls_to_wrap,
+            "cpu_ram_efficient_loading": "true",
+            "sync_module_states": "true",
         },
     }
 
@@ -225,7 +228,7 @@ def run_distributed(
 
         # Create a communication pipe
         spawn_context = get_context(method="spawn")
-        pipe: Any = spawn_context.Queue(2)
+        pipe: Any = spawn_context.Queue(nproc_per_node * 100)
 
         # Launch the spawned child processes (share the parent context with them)
         if final_logger.level > logging.DEBUG:

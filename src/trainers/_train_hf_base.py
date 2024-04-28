@@ -1148,7 +1148,9 @@ class _TrainHFBase(DataDreamerTrainer):
                 from peft import get_peft_model, prepare_model_for_kbit_training
 
             if self.quantization_config:  # pragma: no cover
-                model = prepare_model_for_kbit_training(model)
+                model = prepare_model_for_kbit_training(
+                    model, use_gradient_checkpointing=True
+                )
             model = get_peft_model(
                 model, validate_peft_config(model=model, peft_config=self.peft_config)
             )

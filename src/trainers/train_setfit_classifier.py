@@ -198,7 +198,9 @@ class TrainSetFitClassifier(TrainHFClassifier):
                 from peft import prepare_model_for_kbit_training
 
             if self.quantization_config:  # pragma: no cover
-                model.model_body = prepare_model_for_kbit_training(model.model_body)
+                model.model_body = prepare_model_for_kbit_training(
+                    model.model_body, use_gradient_checkpointing=True
+                )
             model.model_body = get_peft_model_cls()(
                 model=model.model_body,
                 peft_config=validate_peft_config(model.model_body, self.peft_config),

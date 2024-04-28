@@ -263,7 +263,9 @@ class TrainSentenceTransformer(_TrainHFBase):
                 from peft import get_peft_model, prepare_model_for_kbit_training
 
             if self.quantization_config:  # pragma: no cover
-                model = prepare_model_for_kbit_training(model)
+                model = prepare_model_for_kbit_training(
+                    model, use_gradient_checkpointing=True
+                )
             model = get_peft_model(model, validate_peft_config(model, self.peft_config))
 
         # Switch model to train mode
