@@ -597,6 +597,7 @@ class TrainSentenceTransformer(_TrainHFBase):
             weight_decay=weight_decay,
             lr_scheduler_type=lr_scheduler_type,
             warmup_steps=warmup_steps,
+            eval_accumulation_steps=kwargs.pop("eval_accumulation_steps", 1),
             logging_strategy=kwargs.pop("logging_strategy", None) or "steps",
             logging_steps=kwargs.pop("logging_steps", 1),
             evaluation_strategy=kwargs.pop("evaluation_strategy", None) or "epoch",
