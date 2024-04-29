@@ -422,12 +422,13 @@ class TestTrainDistributed:
                 validation_output=val_dataset.output["outputs"],
                 epochs=1,
                 batch_size=8,
+                gradient_checkpointing=qlora,
             )
             assert data_collator_spy.call_count == 0
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
                 assert (
-                    json.load(f) == "ce4179deefbddefd" if qlora else "6b385aca0ce684b3"
+                    json.load(f) == "42a7bd193f804a4a" if qlora else "6b385aca0ce684b3"
                 )
             assert train_result is trainer
             assert (

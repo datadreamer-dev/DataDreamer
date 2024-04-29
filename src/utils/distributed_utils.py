@@ -29,7 +29,9 @@ with ignore_transformers_warnings():
     from transformers import PreTrainedModel
 
 
-def default_fsdp_config(model: PreTrainedModel) -> dict[str, Any]:  # pragma: no cover
+def default_fsdp_config(
+    model: PreTrainedModel, kwargs: dict[str, Any]
+) -> tuple[dict[str, Any], dict[str, Any]]:  # pragma: no cover
     if is_peft_model(model):
         model = get_base_model_from_peft_model(model)
     if isinstance(model, SentenceTransformer):
@@ -47,16 +49,24 @@ def default_fsdp_config(model: PreTrainedModel) -> dict[str, Any]:  # pragma: no
     transformer_layer_cls_to_wrap = list(
         filter(lambda x: x in named_modules, transformer_layer_cls_to_wrap)
     )
+    optional_fsdp_config = {}
+    if kwargs.get("gradient_checkpointing", False):
+        del kwargs["gradient_checkpointing"]
+        optional_fsdp_config["activation_checkpointing"] = "true"
     os.environ["FSDP_OFFLOAD_PARAMS"] = "1"
-    return {
-        "fsdp": "full_shard auto_wrap",
-        "fsdp_config": {
-            "backward_prefetch": "backward_pre",
-            "transformer_layer_cls_to_wrap": transformer_layer_cls_to_wrap,
-            "cpu_ram_efficient_loading": "true",
-            "sync_module_states": "true",
+    return (
+        {
+            "fsdp": "full_shard auto_wrap",
+            "fsdp_config": {
+                "backward_prefetch": "backward_pre",
+                "transformer_layer_cls_to_wrap": transformer_layer_cls_to_wrap,
+                "cpu_ram_efficient_loading": "true",
+                "sync_module_states": "true",
+                **optional_fsdp_config,
+            },
         },
-    }
+        kwargs,
+    )
 
 
 def apply_distributed_config(self, kwargs: dict[str, Any]) -> dict[str, Any]:
@@ -64,10 +74,10 @@ def apply_distributed_config(self, kwargs: dict[str, Any]) -> dict[str, Any]:
     _device = kwargs.pop("_device")
     self._selected_device = _device
     _model = kwargs.pop("_model")
-    default_fsdp_kwargs = (
-        default_fsdp_config(_model)
+    default_fsdp_kwargs, kwargs = (
+        default_fsdp_config(model=_model, kwargs=kwargs)
         if isinstance(_device, list)
-        else {"fsdp": "", "fsdp_config": None}
+        else ({"fsdp": "", "fsdp_config": None}, kwargs)
     )
     fsdp = default_to(kwargs.pop("fsdp"), default_fsdp_kwargs["fsdp"])
     fsdp_is_enabled = (
