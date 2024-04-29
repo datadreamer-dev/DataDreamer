@@ -5,7 +5,7 @@ import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
-from functools import cache, cached_property, partial, total_ordering
+from functools import cached_property, partial, total_ordering
 from logging import Logger
 from typing import Any
 
@@ -17,10 +17,7 @@ from ..project.environment import RUNNING_IN_PYTEST
 from ..steps.data_card import DataCardType, sort_data_card
 from ..utils.distributed_utils import run_distributed
 from ..utils.fs_utils import clear_dir, mkdir, move_dir, safe_fn
-from ..utils.import_utils import ignore_training_warnings, ignore_transformers_warnings
-
-with ignore_transformers_warnings():
-    from transformers import TrainerState
+from ..utils.import_utils import ignore_training_warnings
 
 
 class ModelNoLongerExistsError(Exception):
@@ -58,24 +55,6 @@ class JointMetric:
 
     def __str_(self) -> str:  # pragma: no cover
         return self.__repr__()
-
-
-_old_TrainerState__post_init__ = TrainerState.__post_init__
-
-
-def _deserialize_join_metric__TrainerState__post_init__(self, *args, **kwargs):
-    _old_TrainerState__post_init__(self, *args, **kwargs)
-    if (
-        hasattr(self, "best_metric")
-        and isinstance(self.best_metric, dict)
-        and "is_joint_metric" in self.best_metric
-    ):
-        self.best_metric = JointMetric(**self.best_metric)
-
-
-@cache
-def _monkey_patch_TrainerState__post_init__():
-    TrainerState.__post_init__ = _deserialize_join_metric__TrainerState__post_init__
 
 
 class Trainer(ABC):

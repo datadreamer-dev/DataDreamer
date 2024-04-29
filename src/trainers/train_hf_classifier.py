@@ -10,18 +10,19 @@ from datasets import Sequence, Value  # type:ignore[attr-defined]
 from torch.nn import functional as F
 
 from ..datasets import OutputDatasetColumn, OutputIterableDatasetColumn
+from ..trainers.trainer import JointMetric
 from ..utils.arg_utils import AUTO, Default
 from ..utils.distributed_utils import not_distributed_or_main_process
-from ..utils.import_utils import ignore_transformers_warnings
-from ._train_hf_base import (
+from ..utils.hf_training_utils import (
     TrainingArguments,
-    _prepare_inputs_and_outputs,
-    _start_hf_trainer,
-    _TrainHFBase,
-    _wrap_trainer_cls,
+    _monkey_patch_TrainerState__post_init__,
     get_logging_callback,
+    prepare_inputs_and_outputs,
+    start_hf_trainer,
+    wrap_trainer_cls,
 )
-from .trainer import JointMetric, _monkey_patch_TrainerState__post_init__
+from ..utils.import_utils import ignore_transformers_warnings
+from ._train_hf_base import _TrainHFBase
 
 with ignore_transformers_warnings():
     from transformers import (
@@ -115,7 +116,7 @@ class TrainHFClassifier(_TrainHFBase):
             validation_dataset,
             label2id,
             is_multi_target,
-        ) = _prepare_inputs_and_outputs(
+        ) = prepare_inputs_and_outputs(
             self,
             train_columns={
                 ("input_ids", "Train Input"): train_input,
@@ -270,7 +271,7 @@ class TrainHFClassifier(_TrainHFBase):
         )
 
         # Setup trainer
-        trainer = _wrap_trainer_cls(
+        trainer = wrap_trainer_cls(
             trainer_cls=trainer_cls or Trainer, **trainer_override_kwargs
         )(
             train_dataset=train_dataset,
@@ -286,7 +287,7 @@ class TrainHFClassifier(_TrainHFBase):
         trainer.remove_callback(PrinterCallback)
 
         # Start the trainer
-        _start_hf_trainer(self, trainer)
+        start_hf_trainer(self, trainer)
 
         # Save the model to disk
         self._save_model(

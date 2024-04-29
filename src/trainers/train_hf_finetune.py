@@ -5,17 +5,17 @@ import torch
 
 from ..datasets import OutputDatasetColumn, OutputIterableDatasetColumn
 from ..utils.arg_utils import AUTO, Default
-from ..utils.import_utils import ignore_transformers_warnings
-from ._train_hf_base import (
+from ..utils.hf_training_utils import (
     CustomDataCollatorWithPadding,
     Seq2SeqTrainingArguments,
     TrainingArguments,
-    _prepare_inputs_and_outputs,
-    _start_hf_trainer,
-    _TrainHFBase,
-    _wrap_trainer_cls,
     get_logging_callback,
+    prepare_inputs_and_outputs,
+    start_hf_trainer,
+    wrap_trainer_cls,
 )
+from ..utils.import_utils import ignore_transformers_warnings
+from ._train_hf_base import _TrainHFBase
 
 with ignore_transformers_warnings():
     from transformers import (
@@ -107,7 +107,7 @@ class TrainHFFineTune(_TrainHFBase):
         assert (
             self._is_encoder_decoder or truncate
         ), "`truncate=False` is not supported for this model."
-        train_dataset, validation_dataset, _, _ = _prepare_inputs_and_outputs(
+        train_dataset, validation_dataset, _, _ = prepare_inputs_and_outputs(
             self,
             train_columns={
                 (
@@ -255,7 +255,7 @@ class TrainHFFineTune(_TrainHFBase):
             )
             trainer_cls = trainer_cls or Trainer
             trainer_args = {"data_collator": data_collator}
-        trainer = _wrap_trainer_cls(trainer_cls=trainer_cls, **trainer_override_kwargs)(
+        trainer = wrap_trainer_cls(trainer_cls=trainer_cls, **trainer_override_kwargs)(
             train_dataset=train_dataset,
             eval_dataset=validation_dataset,
             model=model,
@@ -269,7 +269,7 @@ class TrainHFFineTune(_TrainHFBase):
         trainer.remove_callback(PrinterCallback)
 
         # Start the trainer
-        _start_hf_trainer(self, trainer)
+        start_hf_trainer(self, trainer)
 
         # Save the model to disk
         self._save_model(

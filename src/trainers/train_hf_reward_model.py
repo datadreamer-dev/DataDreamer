@@ -9,22 +9,23 @@ import torch
 from torch.nn import functional as F
 
 from ..datasets import OutputDatasetColumn, OutputIterableDatasetColumn
+from ..trainers.trainer import JointMetric
 from ..utils.arg_utils import AUTO, Default
 from ..utils.device_utils import _TrainingArgumentDeviceOverrideMixin
 from ..utils.distributed_utils import not_distributed_or_main_process
 from ..utils.hf_model_utils import get_base_model_from_peft_model
-from ..utils.import_utils import ignore_transformers_warnings, ignore_trl_warnings
-from ._train_hf_base import (
+from ..utils.hf_training_utils import (
     CustomDataCollatorWithPadding,
     TrainingArguments,
-    _prepare_inputs_and_outputs,
-    _start_hf_trainer,
-    _TrainHFBase,
-    _wrap_trainer_cls,
+    _monkey_patch_TrainerState__post_init__,
     get_logging_callback,
+    prepare_inputs_and_outputs,
+    start_hf_trainer,
+    wrap_trainer_cls,
 )
+from ..utils.import_utils import ignore_transformers_warnings, ignore_trl_warnings
+from ._train_hf_base import _TrainHFBase
 from .train_hf_classifier import TrainHFClassifier
-from .trainer import JointMetric, _monkey_patch_TrainerState__post_init__
 
 with ignore_transformers_warnings():
     from transformers import EarlyStoppingCallback, PreTrainedModel
@@ -186,7 +187,7 @@ class TrainHFRewardModel(TrainHFClassifier):
                     ): validation_rejected_scores,
                 }
             )
-        train_dataset, validation_dataset, _, _ = _prepare_inputs_and_outputs(
+        train_dataset, validation_dataset, _, _ = prepare_inputs_and_outputs(
             self,
             train_columns=train_columns,
             validation_columns=validation_columns,
@@ -326,7 +327,7 @@ class TrainHFRewardModel(TrainHFClassifier):
         )
 
         # Setup trainer
-        trainer = _wrap_trainer_cls(
+        trainer = wrap_trainer_cls(
             trainer_cls=trainer_cls or RewardTrainer, **trainer_override_kwargs
         )(
             train_dataset=train_dataset,
@@ -344,7 +345,7 @@ class TrainHFRewardModel(TrainHFClassifier):
         trainer.remove_callback(PrinterCallback)
 
         # Start the trainer
-        _start_hf_trainer(self, trainer)
+        start_hf_trainer(self, trainer)
 
         # Save the model to disk
         self._save_model(
@@ -403,7 +404,7 @@ class TrainHFRewardModel(TrainHFClassifier):
         assert (
             self._is_encoder_decoder or truncate
         ), "`truncate=False` is not supported for this model."
-        train_dataset, validation_dataset, _, _ = _prepare_inputs_and_outputs(
+        train_dataset, validation_dataset, _, _ = prepare_inputs_and_outputs(
             self,
             train_columns={
                 ("train_input", "Train Prompts"): train_prompts,
@@ -522,7 +523,7 @@ class TrainHFRewardModel(TrainHFClassifier):
         )
 
         # Setup trainer
-        trainer = _wrap_trainer_cls(
+        trainer = wrap_trainer_cls(
             trainer_cls=trainer_cls or Trainer, **trainer_override_kwargs
         )(
             train_dataset=train_dataset,
@@ -538,7 +539,7 @@ class TrainHFRewardModel(TrainHFClassifier):
         trainer.remove_callback(PrinterCallback)
 
         # Start the trainer
-        _start_hf_trainer(self, trainer)
+        start_hf_trainer(self, trainer)
 
         # Save the model to disk
         self._save_model(

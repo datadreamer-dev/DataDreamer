@@ -20,13 +20,13 @@ from ..utils.hf_model_utils import (
     get_base_model_from_peft_model,
     validate_peft_config,
 )
-from ..utils.import_utils import ignore_transformers_warnings
-from ._train_hf_base import (
-    _prepare_inputs_and_outputs,
-    _start_hf_trainer,
-    _TrainHFBase,
+from ..utils.hf_training_utils import (
     get_logging_callback,
+    prepare_inputs_and_outputs,
+    start_hf_trainer,
 )
+from ..utils.import_utils import ignore_transformers_warnings
+from ._train_hf_base import _TrainHFBase
 from ._vendored._setfit_helper import get_peft_model_cls  # type:ignore[attr-defined]
 from .train_hf_classifier import TrainHFClassifier
 from .train_sentence_transformer import TrainSentenceTransformer
@@ -258,7 +258,7 @@ class TrainSetFitClassifier(TrainHFClassifier):
             validation_dataset,
             label2id,
             is_multi_target,
-        ) = _prepare_inputs_and_outputs(
+        ) = prepare_inputs_and_outputs(
             self,
             train_columns={
                 ("text", "Train Input"): train_input,
@@ -418,7 +418,7 @@ class TrainSetFitClassifier(TrainHFClassifier):
 
         # Start the trainer
         self.logger.info("Training SetFit model body (embeddings)...")
-        _start_hf_trainer(self, trainer)
+        start_hf_trainer(self, trainer)
         self.logger.info("Running final trained SetFit model evaluation...")
         trainer.evaluate(final=True)  # Run a final evaluation
 

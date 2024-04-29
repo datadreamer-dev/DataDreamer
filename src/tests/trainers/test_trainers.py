@@ -25,9 +25,9 @@ from ...trainers import (
     TrainSentenceTransformer,
     TrainSetFitClassifier,
 )
-from ...trainers._train_hf_base import CustomDataCollatorWithPadding
 from ...utils.fs_utils import clear_dir
 from ...utils.hf_model_utils import get_orig_model, validate_peft_config
+from ...utils.hf_training_utils import CustomDataCollatorWithPadding
 from ...utils.import_utils import ignore_transformers_warnings
 
 with ignore_transformers_warnings():

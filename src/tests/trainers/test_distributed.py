@@ -17,9 +17,9 @@ from ...trainers import (
     TrainHFPPO,
     TrainSentenceTransformer,
 )
-from ...trainers._train_hf_base import CustomDataCollatorWithPadding
 from ...utils.arg_utils import AUTO
 from ...utils.hf_model_utils import get_orig_model, is_bnb_quantized
+from ...utils.hf_training_utils import CustomDataCollatorWithPadding
 from ...utils.import_utils import ignore_transformers_warnings
 
 with ignore_transformers_warnings():
