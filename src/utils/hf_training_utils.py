@@ -26,10 +26,12 @@ from ..utils.device_utils import (
     get_device_memory_monitoring_callback,
 )
 from ..utils.distributed_utils import (
+    get_current_accelerator,
     get_global_rank,
     get_local_world_size,
     is_distributed,
     not_distributed_or_main_process,
+    set_current_accelerator,
 )
 from ..utils.import_utils import ignore_transformers_warnings
 
@@ -37,15 +39,13 @@ with ignore_transformers_warnings():
     from setfit import logging as setfit_logging
     from transformers import (
         PreTrainedTokenizer,
+        Seq2SeqTrainingArguments as _Seq2SeqTrainingArguments,
         TrainerCallback,
         TrainerState,
+        TrainingArguments as _TrainingArguments,
         logging as hf_transformers_logging,
     )
-
-from transformers import (
-    Seq2SeqTrainingArguments as _Seq2SeqTrainingArguments,
-    TrainingArguments as _TrainingArguments,
-)
+    from transformers.trainer_pt_utils import EvalLoopContainer
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..trainers.train_hf_classifier import _TrainHFBase
@@ -90,6 +90,10 @@ def wrap_trainer_cls(
     compute_loss: None | Callable = None,
 ) -> Type["Trainer"]:
     class WrappedTrainer(trainer_cls):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            set_current_accelerator(self.accelerator)
+
         def create_optimizer(self):
             final_optimizer = optimizer or optimizers[0]
             if final_optimizer is not None:  # pragma: no cover
@@ -794,6 +798,9 @@ def prepare_inputs_and_outputs(  # noqa: C901
 
 
 def start_hf_trainer(self: "_TrainHFBase", trainer: Any):  # noqa: C901
+    # Do monkey patches
+    # _monkey_patch_EvalLoopContainer_add()
+
     # Setup loggers the way we need them to be
     if not DataDreamer.ctx.hf_log:
         if self.logger.level <= logging.NOTSET:  # pragma: no cover
@@ -966,8 +973,25 @@ def wrap_compute_metrics(compute_metrics, training_args: "TrainingArguments"):
             if is_distributed():  # pragma: no cover
                 for _ in range(get_local_world_size() - 1):
                     DataDreamer.ctx.distributed_pipe.put(dill.dumps(computed_metrics))
+                get_current_accelerator().wait_for_everyone()
             return computed_metrics
         else:  # pragma: no cover
+            get_current_accelerator().wait_for_everyone()
             return dill.loads(DataDreamer.ctx.distributed_pipe.get())
 
     return _wrapped_compute_metrics if compute_metrics is not None else None
+
+
+_old_EvalLoopContainer_add = EvalLoopContainer.add
+
+
+def _save_memory_in__EvalLoopContainer_add(self, *args, **kwargs):
+    if DataDreamer.initialized() and not_distributed_or_main_process():
+        _old_EvalLoopContainer_add(self, *args, **kwargs)
+    elif not DataDreamer.initialized():  # pragma: no cover
+        _old_EvalLoopContainer_add(self, *args, **kwargs)
+
+
+@cache
+def _monkey_patch_EvalLoopContainer_add():
+    EvalLoopContainer.add = _save_memory_in__EvalLoopContainer_add

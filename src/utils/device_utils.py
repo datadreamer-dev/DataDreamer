@@ -153,6 +153,7 @@ class _TrainingArgumentDeviceOverrideMixin:
 
 def get_device_memory_monitoring_callback(trainer: "_TrainHFBase") -> Type:
     from .distributed_utils import (
+        get_current_accelerator,
         get_global_rank,
         get_local_rank,
         get_local_world_size,
@@ -166,6 +167,7 @@ def get_device_memory_monitoring_callback(trainer: "_TrainHFBase") -> Type:
                     (get_global_rank(), torch.cuda.memory_allocated(get_global_rank()))
                 )
                 if get_local_rank() == 0:
+                    get_current_accelerator().wait_for_everyone()
                     device_memory_usage = dict(
                         map(
                             lambda x: (f"Worker #{x[0]}", memory_usage_format(x[1])),
@@ -180,6 +182,8 @@ def get_device_memory_monitoring_callback(trainer: "_TrainHFBase") -> Type:
                     trainer.logger.debug(
                         f"Device Memory Usage -- {device_memory_usage}"
                     )
+                else:  # pragma: no cover
+                    get_current_accelerator().wait_for_everyone()
             elif not isinstance(trainer.device, list):
                 if (
                     not is_cpu_device(trainer.device) and torch.cuda.is_available()

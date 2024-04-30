@@ -24,6 +24,8 @@ from .import_utils import (
     ignore_transformers_warnings,
 )
 
+CURRENT_ACCELERATOR: Any = None
+
 with ignore_transformers_warnings():
     from sentence_transformers import SentenceTransformer
     from transformers import PreTrainedModel
@@ -100,6 +102,15 @@ def apply_distributed_config(self, kwargs: dict[str, Any]) -> dict[str, Any]:
 
 def is_distributed():
     return int(os.environ.get("DATADREAMER_DISTRIBUTED", -1)) == 1
+
+
+def set_current_accelerator(accelerator: Any):  # pragma: no cover
+    global CURRENT_ACCELERATOR
+    CURRENT_ACCELERATOR = accelerator
+
+
+def get_current_accelerator() -> Any:  # pragma: no cover
+    return CURRENT_ACCELERATOR
 
 
 def get_global_rank() -> int:  # pragma: no cover
