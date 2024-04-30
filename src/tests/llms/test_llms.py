@@ -12,6 +12,7 @@ from random import Random
 from time import sleep
 from types import GeneratorType
 
+import dill
 import psutil
 import pytest
 import torch
@@ -19,7 +20,7 @@ from flaky import flaky
 from sortedcontainers import SortedDict
 
 from ... import DataDreamer
-from ..._cachable._cachable import _is_primitive
+from ..._cachable._cachable import _is_primitive, _StrWithSeed
 from ...llms import (
     AI21,
     VLLM,
@@ -337,6 +338,25 @@ class TestLLM:
         assert _is_primitive((1 == object()))
         assert _is_primitive({"foo": 5})
         assert not _is_primitive({"foo": object()})
+
+    def test_StrWithSeed(self):
+        seed_a = _StrWithSeed("hello", seed=1)
+        seed_b = _StrWithSeed("hello", seed=2)
+        seed_c = _StrWithSeed("hello", seed=1)
+        assert (
+            isinstance(seed_a, str)
+            and isinstance(seed_b, str)
+            and isinstance(seed_c, str)
+        )
+        assert seed_a.seed == 1
+        assert seed_b.seed == 2
+        assert seed_c.seed == 1
+        assert str(seed_a) == "hello"
+        assert str(seed_b) == "hello"
+        assert str(seed_c) == "hello"
+        assert hash(seed_a) != hash(seed_b)
+        assert hash(seed_a) == hash(seed_c)
+        assert hash(seed_a) == hash(dill.loads(dill.dumps(seed_c)))
 
     def test_check_temperature_and_top_p(self):
         assert _check_temperature_and_top_p(

@@ -60,7 +60,7 @@ def _notify_adaptive_batch_sizing(model_logger: Logger, progress_state: dict[str
 class _StrWithSeed(str):
     seed: Any
 
-    def __new__(cls, value: str, seed: "Any | _StrWithSeed"):
+    def __new__(cls, value: str, seed: "Any | _StrWithSeed" = None):
         obj = str.__new__(cls, value)
         obj.seed = seed.seed if isinstance(seed, _StrWithSeed) else seed
         return obj
@@ -74,6 +74,14 @@ class _StrWithSeed(str):
 
     def __hash__(self):
         return hash((self.seed, str(self)))
+
+    def __getstate__(self):
+        state = {"str": str(self), "seed": self.seed}
+
+        return state
+
+    def __setstate__(self, state):
+        self.seed = state["seed"]
 
     @staticmethod
     def total_per_input_seeds(inputs: list["str | _StrWithSeed"]) -> int:
