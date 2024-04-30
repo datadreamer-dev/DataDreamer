@@ -5,6 +5,7 @@ from functools import cache, partial
 from itertools import chain
 from typing import TYPE_CHECKING, Any, Callable, Type, cast
 
+import dill
 import numpy as np
 import torch
 from datasets import Dataset, IterableDataset, Value, concatenate_datasets
@@ -26,6 +27,7 @@ from ..utils.device_utils import (
 )
 from ..utils.distributed_utils import (
     get_global_rank,
+    get_local_world_size,
     is_distributed,
     not_distributed_or_main_process,
 )
@@ -847,11 +849,11 @@ def start_hf_trainer(self: "_TrainHFBase", trainer: Any):  # noqa: C901
                 trainer_logger.info = partial(_info, old_info)
             else:
                 trainer.evaluate()
+
+            # Start training
+            trainer.train()
         except Exception as e:
             raise e from None
-
-        # Start training
-        trainer.train()
     if not DataDreamer.ctx.hf_log:
         if self.logger.level <= logging.NOTSET:  # pragma: no cover
             logging.getLogger(
@@ -960,12 +962,12 @@ def get_logging_callback(trainer: "_TrainHFBase", log_loss: bool = True) -> Type
 def wrap_compute_metrics(compute_metrics, training_args: "TrainingArguments"):
     def _wrapped_compute_metrics(*args, **kwargs):
         if not_distributed_or_main_process():
-            return compute_metrics(*args, **kwargs)
+            computed_metrics = compute_metrics(*args, **kwargs)
+            if is_distributed():  # pragma: no cover
+                for _ in range(get_local_world_size() - 1):
+                    DataDreamer.ctx.distributed_pipe.put(dill.dumps(computed_metrics))
+            return computed_metrics
         else:  # pragma: no cover
-            return (
-                {training_args.metric_for_best_model: 0.0}
-                if training_args.metric_for_best_model is not None
-                else {}
-            )
+            return dill.loads(DataDreamer.ctx.distributed_pipe.get())
 
     return _wrapped_compute_metrics if compute_metrics is not None else None
