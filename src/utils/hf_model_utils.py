@@ -1,3 +1,5 @@
+import logging
+import sys
 from copy import copy
 from functools import cache
 from typing import Any
@@ -316,3 +318,23 @@ def get_model_optional_kwargs(
     if quantization_config is not None:  # pragma: no cover
         optional_kwargs["quantization_config"] = quantization_config
     return optional_kwargs
+
+
+def filter_model_warnings():
+    # Filter warning logs
+    for model_logger_name in [
+        n
+        for n in sys.modules.keys()
+        if (
+            n.startswith("transformers.models.") and "modeling" in n and "auto" not in n
+        )
+    ]:
+        model_logger = logging.getLogger(model_logger_name)
+
+        class NoUseCacheIsIncompatibleWarningFilter(logging.Filter):  # pragma: no cover
+            def filter(self, record):
+                return not record.getMessage().startswith(
+                    "`use_cache=True` is incompatible with gradient checkpointing"
+                )
+
+        model_logger.addFilter(NoUseCacheIsIncompatibleWarningFilter())

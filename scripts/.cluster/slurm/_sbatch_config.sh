@@ -5,7 +5,7 @@
 #SBATCH --output=.cluster/slurm/.last_job/submission.out
 #SBATCH --ntasks 1
 #SBATCH --cpus-per-task 16
-#SBATCH --mem=10G
+#SBATCH --mem=30G
 #SBATCH --gpus=2
 
 # Source the user's bashrc

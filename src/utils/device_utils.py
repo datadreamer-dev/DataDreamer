@@ -89,6 +89,7 @@ def get_device_env_variables(devices: list[int | str | torch.device]) -> dict[st
         len(true_device_ids) == len(devices)
     ), f"The device list you specified ({devices}) is invalid (or devices could not be found)."
     device_env = {"CUDA_VISIBLE_DEVICES": ",".join(map(str, true_device_ids))}
+    device_env["NCCL_P2P_DISABLE"] = "1"
     return device_env
 
 

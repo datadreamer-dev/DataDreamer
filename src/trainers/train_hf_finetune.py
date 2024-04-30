@@ -5,17 +5,18 @@ import torch
 
 from ..datasets import OutputDatasetColumn, OutputIterableDatasetColumn
 from ..utils.arg_utils import AUTO, Default
-from ..utils.import_utils import ignore_transformers_warnings
-from ._train_hf_base import (
+from ..utils.hf_training_utils import (
     CustomDataCollatorWithPadding,
     Seq2SeqTrainingArguments,
     TrainingArguments,
-    _prepare_inputs_and_outputs,
-    _start_hf_trainer,
-    _TrainHFBase,
-    _wrap_trainer_cls,
     get_logging_callback,
+    prepare_inputs_and_outputs,
+    start_hf_trainer,
+    wrap_compute_metrics,
+    wrap_trainer_cls,
 )
+from ..utils.import_utils import ignore_transformers_warnings
+from ._train_hf_base import _TrainHFBase
 
 with ignore_transformers_warnings():
     from transformers import (
@@ -107,7 +108,7 @@ class TrainHFFineTune(_TrainHFBase):
         assert (
             self._is_encoder_decoder or truncate
         ), "`truncate=False` is not supported for this model."
-        train_dataset, validation_dataset, _, _ = _prepare_inputs_and_outputs(
+        train_dataset, validation_dataset, _, _ = prepare_inputs_and_outputs(
             self,
             train_columns={
                 (
@@ -136,19 +137,37 @@ class TrainHFFineTune(_TrainHFBase):
         )
 
         # Prepare compute metrics
+
+        # This computation can use a fair bit of CPU RAM due to the size of these
+        # tensors (batch_size * sequence_length * vocabulary_size), so we should try
+        # to save as much memory as possible
+        compute_perplexity_dtype = torch.float16
+        try:
+            torch.nn.functional.cross_entropy(
+                input=torch.tensor([[1.0]], dtype=compute_perplexity_dtype),
+                target=torch.tensor([0], dtype=torch.long),
+            )
+        except RuntimeError:
+            compute_perplexity_dtype = torch.float32
+
         def compute_perplexity_metrics(eval_pred):
             preds, labels = eval_pred
+            del eval_pred
             if isinstance(preds, tuple):
                 preds = preds[0]
-            preds = torch.tensor(preds)
+            preds = torch.tensor(preds, dtype=compute_perplexity_dtype)
             labels = torch.tensor(labels)
             if self._is_encoder_decoder:
                 nll = torch.nn.functional.cross_entropy(
                     input=preds.view(-1, preds.size(-1)), target=labels.view(-1)
                 )
             else:
+                preds = preds.to(compute_perplexity_dtype)
+                labels = labels
                 shift_preds = preds[..., :-1, :].contiguous()
+                del preds
                 shift_labels = labels[..., 1:].contiguous()
+                del labels
                 nll = torch.nn.functional.cross_entropy(
                     input=shift_preds.view(-1, shift_preds.size(-1)),
                     target=shift_labels.view(-1),
@@ -216,6 +235,7 @@ class TrainHFFineTune(_TrainHFBase):
             weight_decay=weight_decay,
             lr_scheduler_type=lr_scheduler_type,
             warmup_steps=warmup_steps,
+            eval_accumulation_steps=kwargs.pop("eval_accumulation_steps", 1),
             logging_strategy=kwargs.pop("logging_strategy", None) or "steps",
             logging_steps=kwargs.pop("logging_steps", 1),
             evaluation_strategy=kwargs.pop("evaluation_strategy", None) or "epoch",
@@ -254,12 +274,14 @@ class TrainHFFineTune(_TrainHFBase):
             )
             trainer_cls = trainer_cls or Trainer
             trainer_args = {"data_collator": data_collator}
-        trainer = _wrap_trainer_cls(trainer_cls=trainer_cls, **trainer_override_kwargs)(
+        trainer = wrap_trainer_cls(trainer_cls=trainer_cls, **trainer_override_kwargs)(
             train_dataset=train_dataset,
             eval_dataset=validation_dataset,
             model=model,
             tokenizer=self.tokenizer,
-            compute_metrics=compute_metrics,
+            compute_metrics=wrap_compute_metrics(
+                compute_metrics=compute_metrics, training_args=training_args
+            ),
             callbacks=callbacks,
             preprocess_logits_for_metrics=preprocess_logits_for_metrics,
             args=training_args,
@@ -268,7 +290,7 @@ class TrainHFFineTune(_TrainHFBase):
         trainer.remove_callback(PrinterCallback)
 
         # Start the trainer
-        _start_hf_trainer(self, trainer)
+        start_hf_trainer(self, trainer)
 
         # Save the model to disk
         self._save_model(

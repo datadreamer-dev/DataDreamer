@@ -13,26 +13,29 @@ from torch.nn import functional as F
 
 from ..datasets import OutputDatasetColumn, OutputIterableDatasetColumn
 from ..embedders.sentence_transformers_embedder import _normalize_model_name
+from ..trainers.trainer import JointMetric
 from ..utils.arg_utils import AUTO, DEFAULT, Default, default_to
 from ..utils.background_utils import RunIfTimeout
 from ..utils.hf_model_utils import (
+    filter_model_warnings,
     get_base_model_from_peft_model,
     get_model_max_context_length,
     get_tokenizer,
     validate_peft_config,
 )
-from ..utils.import_utils import ignore_transformers_warnings
-from ._train_hf_base import (
+from ..utils.hf_training_utils import (
     CustomDataCollatorWithPadding,
     TrainingArguments,
-    _prepare_inputs_and_outputs,
-    _start_hf_trainer,
-    _TrainHFBase,
-    _wrap_trainer_cls,
+    _monkey_patch_TrainerState__post_init__,
     get_logging_callback,
+    prepare_inputs_and_outputs,
+    start_hf_trainer,
+    wrap_compute_metrics,
+    wrap_trainer_cls,
 )
+from ..utils.import_utils import ignore_transformers_warnings
+from ._train_hf_base import _TrainHFBase
 from ._vendored import _sentence_transformer_helper
-from .trainer import JointMetric, _monkey_patch_TrainerState__post_init__
 
 with ignore_transformers_warnings():
     from sentence_transformers import SentenceTransformer, losses
@@ -263,11 +266,16 @@ class TrainSentenceTransformer(_TrainHFBase):
                 from peft import get_peft_model, prepare_model_for_kbit_training
 
             if self.quantization_config:  # pragma: no cover
-                model = prepare_model_for_kbit_training(model)
+                model = prepare_model_for_kbit_training(
+                    model, use_gradient_checkpointing=True
+                )
             model = get_peft_model(model, validate_peft_config(model, self.peft_config))
 
         # Switch model to train mode
         model.train()
+
+        # Filter any warnings from the model
+        filter_model_warnings()
 
         # Finished loading
         log_if_timeout.stop(
@@ -403,7 +411,7 @@ class TrainSentenceTransformer(_TrainHFBase):
             ] = validation_negatives
         if has_labels and validation_labels is not None:
             validation_columns[("labels", "Validation Labels")] = validation_labels
-        train_dataset, validation_dataset, _, _ = _prepare_inputs_and_outputs(
+        train_dataset, validation_dataset, _, _ = prepare_inputs_and_outputs(
             self,
             train_columns=train_columns,
             validation_columns=validation_columns,
@@ -595,6 +603,7 @@ class TrainSentenceTransformer(_TrainHFBase):
             weight_decay=weight_decay,
             lr_scheduler_type=lr_scheduler_type,
             warmup_steps=warmup_steps,
+            eval_accumulation_steps=kwargs.pop("eval_accumulation_steps", 1),
             logging_strategy=kwargs.pop("logging_strategy", None) or "steps",
             logging_steps=kwargs.pop("logging_steps", 1),
             evaluation_strategy=kwargs.pop("evaluation_strategy", None) or "epoch",
@@ -613,7 +622,7 @@ class TrainSentenceTransformer(_TrainHFBase):
         )
 
         # Setup trainer
-        trainer = _wrap_trainer_cls(
+        trainer = wrap_trainer_cls(
             trainer_cls=trainer_cls or Trainer, **trainer_override_kwargs
         )(
             train_dataset=train_dataset,
@@ -621,7 +630,9 @@ class TrainSentenceTransformer(_TrainHFBase):
             model=wrapped_model_with_loss,
             tokenizer=self.tokenizer,
             data_collator=data_collator,
-            compute_metrics=compute_metrics,
+            compute_metrics=wrap_compute_metrics(
+                compute_metrics=compute_metrics, training_args=training_args
+            ),
             callbacks=callbacks,
             preprocess_logits_for_metrics=preprocess_logits_for_metrics,
             args=training_args,
@@ -629,7 +640,7 @@ class TrainSentenceTransformer(_TrainHFBase):
         trainer.remove_callback(PrinterCallback)
 
         # Start the trainer
-        _start_hf_trainer(self, trainer)
+        start_hf_trainer(self, trainer)
 
         # Save the model to disk
         self._save_model(
@@ -854,6 +865,9 @@ class TrainSentenceTransformer(_TrainHFBase):
             # torch._dynamo.config.suppress_errors = True
             # model = torch.compile(model)
             pass
+
+        # Filter any warnings from the model
+        filter_model_warnings()
 
         # Finished loading
         log_if_timeout.stop(

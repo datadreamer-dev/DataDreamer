@@ -1,6 +1,5 @@
 import contextlib
 import importlib
-import logging
 import warnings
 from types import ModuleType
 
@@ -68,24 +67,6 @@ def ignore_training_warnings():
             category=UserWarning,
             message="Merge.*may get different generations due to rounding error.*",
         )
-
-        # Filter warning logs
-        for model_logger_name in [
-            n
-            for n in logging.Logger.manager.loggerDict.keys()
-            if n.startswith("transformers.models.")
-        ]:
-            model_logger = logging.getLogger(model_logger_name)
-
-            class NoUseCacheIsIncompatibleWarningFilter(
-                logging.Filter
-            ):  # pragma: no cover
-                def filter(self, record):
-                    return not record.getMessage().startswith(
-                        "`use_cache=True` is incompatible with gradient checkpointing"
-                    )
-
-            model_logger.addFilter(NoUseCacheIsIncompatibleWarningFilter())
         yield None
 
 

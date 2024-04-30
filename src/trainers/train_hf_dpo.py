@@ -9,16 +9,17 @@ from ..steps import Step
 from ..steps.step_operations import _INTERNAL_STEP_OPERATION_KEY
 from ..utils.arg_utils import AUTO, Default
 from ..utils.distributed_utils import is_distributed, not_main_process
-from ..utils.import_utils import ignore_transformers_warnings, ignore_trl_warnings
-from ._train_hf_base import (
+from ..utils.hf_training_utils import (
     CustomDataCollatorWithPadding,
     Seq2SeqTrainingArguments,
     TrainingArguments,
-    _prepare_inputs_and_outputs,
-    _start_hf_trainer,
-    _wrap_trainer_cls,
     get_logging_callback,
+    prepare_inputs_and_outputs,
+    start_hf_trainer,
+    wrap_compute_metrics,
+    wrap_trainer_cls,
 )
+from ..utils.import_utils import ignore_transformers_warnings, ignore_trl_warnings
 from .train_hf_finetune import TrainHFFineTune
 
 with ignore_transformers_warnings():
@@ -116,7 +117,7 @@ class TrainHFDPO(TrainHFFineTune):
         assert (
             self._is_encoder_decoder or truncate
         ), "`truncate=False` is not supported for this model."
-        train_dataset, validation_dataset, _, _ = _prepare_inputs_and_outputs(
+        train_dataset, validation_dataset, _, _ = prepare_inputs_and_outputs(
             self,
             train_columns={
                 ("train_prompts", "Train Prompts"): train_prompts,
@@ -217,6 +218,7 @@ class TrainHFDPO(TrainHFFineTune):
             weight_decay=weight_decay,
             lr_scheduler_type=lr_scheduler_type,
             warmup_steps=warmup_steps,
+            eval_accumulation_steps=kwargs.pop("eval_accumulation_steps", 1),
             logging_strategy=kwargs.pop("logging_strategy", None) or "steps",
             logging_steps=kwargs.pop("logging_steps", 1),
             evaluation_strategy=kwargs.pop("evaluation_strategy", None) or "epoch",
@@ -314,7 +316,7 @@ class TrainHFDPO(TrainHFFineTune):
                 ]
                 + other_fields_to_keep,
             )
-        trainer = _wrap_trainer_cls(
+        trainer = wrap_trainer_cls(
             trainer_cls=trainer_cls or DPOTrainer, **trainer_override_kwargs
         )(
             label_pad_token_id=-100,
@@ -326,7 +328,9 @@ class TrainHFDPO(TrainHFFineTune):
             ref_model=ref_model,
             tokenizer=self.tokenizer,
             data_collator=data_collator,
-            compute_metrics=compute_metrics,
+            compute_metrics=wrap_compute_metrics(
+                compute_metrics=compute_metrics, training_args=training_args
+            ),
             callbacks=callbacks,
             preprocess_logits_for_metrics=preprocess_logits_for_metrics,
             args=training_args,
@@ -428,7 +432,7 @@ class TrainHFDPO(TrainHFFineTune):
             assert os.path.isfile(pre_compute_validation_step_done)
 
         # Start the trainer
-        _start_hf_trainer(self, trainer)
+        start_hf_trainer(self, trainer)
 
         # Save the model to disk
         self._save_model(

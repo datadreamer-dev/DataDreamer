@@ -11,6 +11,7 @@ from ..logging import logger as datadreamer_logger
 from ..utils.arg_utils import AUTO, Default
 from ..utils.background_utils import RunIfTimeout
 from ..utils.fs_utils import safe_fn
+from ..utils.hf_model_utils import filter_model_warnings
 from ..utils.import_utils import ignore_hivemind_warnings, ignore_transformers_warnings
 from .hf_transformers import HFTransformers
 
@@ -160,6 +161,9 @@ class Petals(HFTransformers):  # pragma: no cover
         # Torch compile
         # torch._dynamo.config.suppress_errors = True
         # model = torch.compile(model)
+
+        # Filter any warnings from the model
+        filter_model_warnings()
 
         # Finished loading
         log_if_timeout.stop(

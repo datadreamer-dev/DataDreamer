@@ -16,6 +16,7 @@ from ..utils.hf_model_utils import (
     HF_TRANSFORMERS_CITATION,
     PEFT_CITATION,
     convert_dtype,
+    filter_model_warnings,
     get_config,
     get_model_max_context_length,
     get_tokenizer,
@@ -151,6 +152,9 @@ class HFClassificationTaskModel(TaskModel):
         # Torch compile
         # torch._dynamo.config.suppress_errors = True
         # model = torch.compile(model)
+
+        # Filter any warnings from the model
+        filter_model_warnings()
 
         # Finished loading
         log_if_timeout.stop(

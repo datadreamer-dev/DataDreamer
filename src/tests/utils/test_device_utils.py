@@ -89,4 +89,7 @@ class TestDeviceUtils:
             get_device_env_variables([0, 2, 999999, 0, 1, -1, -1])
         with pytest.raises(AssertionError):
             get_device_env_variables([0, 2, 0, 1])
-        assert get_device_env_variables([0, 2, 1]) == {"CUDA_VISIBLE_DEVICES": "6,3,4"}
+        assert get_device_env_variables([0, 2, 1]) == {
+            "CUDA_VISIBLE_DEVICES": "6,3,4",
+            "NCCL_P2P_DISABLE": "1",
+        }

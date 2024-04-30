@@ -15,14 +15,18 @@ from .._cachable._cachable import _is_primitive
 from ..datasets import OutputDatasetColumn, OutputIterableDatasetColumn
 from ..utils.arg_utils import AUTO, DEFAULT, Default, default_to
 from ..utils.background_utils import RunIfTimeout
-from ..utils.hf_model_utils import get_base_model_from_peft_model, validate_peft_config
-from ..utils.import_utils import ignore_transformers_warnings
-from ._train_hf_base import (
-    _prepare_inputs_and_outputs,
-    _start_hf_trainer,
-    _TrainHFBase,
-    get_logging_callback,
+from ..utils.hf_model_utils import (
+    filter_model_warnings,
+    get_base_model_from_peft_model,
+    validate_peft_config,
 )
+from ..utils.hf_training_utils import (
+    get_logging_callback,
+    prepare_inputs_and_outputs,
+    start_hf_trainer,
+)
+from ..utils.import_utils import ignore_transformers_warnings
+from ._train_hf_base import _TrainHFBase
 from ._vendored._setfit_helper import get_peft_model_cls  # type:ignore[attr-defined]
 from .train_hf_classifier import TrainHFClassifier
 from .train_sentence_transformer import TrainSentenceTransformer
@@ -198,11 +202,16 @@ class TrainSetFitClassifier(TrainHFClassifier):
                 from peft import prepare_model_for_kbit_training
 
             if self.quantization_config:  # pragma: no cover
-                model.model_body = prepare_model_for_kbit_training(model.model_body)
+                model.model_body = prepare_model_for_kbit_training(
+                    model.model_body, use_gradient_checkpointing=True
+                )
             model.model_body = get_peft_model_cls()(
                 model=model.model_body,
                 peft_config=validate_peft_config(model.model_body, self.peft_config),
             )
+
+        # Filter any warnings from the model
+        filter_model_warnings()
 
         # Finished loading
         log_if_timeout.stop(
@@ -249,7 +258,7 @@ class TrainSetFitClassifier(TrainHFClassifier):
             validation_dataset,
             label2id,
             is_multi_target,
-        ) = _prepare_inputs_and_outputs(
+        ) = prepare_inputs_and_outputs(
             self,
             train_columns={
                 ("text", "Train Input"): train_input,
@@ -409,7 +418,7 @@ class TrainSetFitClassifier(TrainHFClassifier):
 
         # Start the trainer
         self.logger.info("Training SetFit model body (embeddings)...")
-        _start_hf_trainer(self, trainer)
+        start_hf_trainer(self, trainer)
         self.logger.info("Running final trained SetFit model evaluation...")
         trainer.evaluate(final=True)  # Run a final evaluation
 
@@ -578,6 +587,9 @@ class TrainSetFitClassifier(TrainHFClassifier):
             # torch._dynamo.config.suppress_errors = True
             # model = torch.compile(model)
             pass
+
+        # Filter any warnings from the model
+        filter_model_warnings()
 
         # Finished loading
         log_if_timeout.stop(

@@ -18,14 +18,15 @@ from ..llms.llm import _check_temperature_and_top_p
 from ..utils.arg_utils import AUTO, Default, default_to
 from ..utils.fs_utils import mkdir
 from ..utils.hf_model_utils import is_peft_model
-from ..utils.import_utils import ignore_transformers_warnings, ignore_trl_warnings
-from ._train_hf_base import (
+from ..utils.hf_training_utils import (
     CustomDataCollatorWithPadding,
     TrainingArguments,
-    _prepare_inputs_and_outputs,
-    _start_hf_trainer,
     get_logging_callback,
+    prepare_inputs_and_outputs,
+    start_hf_trainer,
+    wrap_compute_metrics,
 )
+from ..utils.import_utils import ignore_transformers_warnings, ignore_trl_warnings
 from .train_hf_finetune import TrainHFFineTune
 from .train_hf_reward_model import TrainHFRewardModel
 
@@ -507,7 +508,7 @@ class TrainHFPPO(TrainHFFineTune):
         assert (
             self._is_encoder_decoder or truncate
         ), "`truncate=False` is not supported for this model."
-        train_dataset, validation_dataset, _, _ = _prepare_inputs_and_outputs(
+        train_dataset, validation_dataset, _, _ = prepare_inputs_and_outputs(
             self,
             train_columns={("input_ids", "Train Input"): train_prompts},
             validation_columns={("input_ids", "Validation Input"): validation_prompts},
@@ -768,7 +769,9 @@ class TrainHFPPO(TrainHFFineTune):
             model=model,
             tokenizer=self.tokenizer,
             data_collator=data_collator,
-            compute_metrics=compute_metrics,
+            compute_metrics=wrap_compute_metrics(
+                compute_metrics=compute_metrics, training_args=training_args
+            ),
             callbacks=callbacks,
             preprocess_logits_for_metrics=preprocess_logits_for_metrics,
             args=training_args,
@@ -776,7 +779,7 @@ class TrainHFPPO(TrainHFFineTune):
         trainer.remove_callback(PrinterCallback)
 
         # Start the trainer
-        _start_hf_trainer(self, trainer)
+        start_hf_trainer(self, trainer)
 
         # Save the model to disk
         self._save_model(

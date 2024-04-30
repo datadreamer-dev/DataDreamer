@@ -10,18 +10,20 @@ from datasets import Sequence, Value  # type:ignore[attr-defined]
 from torch.nn import functional as F
 
 from ..datasets import OutputDatasetColumn, OutputIterableDatasetColumn
+from ..trainers.trainer import JointMetric
 from ..utils.arg_utils import AUTO, Default
 from ..utils.distributed_utils import not_distributed_or_main_process
-from ..utils.import_utils import ignore_transformers_warnings
-from ._train_hf_base import (
+from ..utils.hf_training_utils import (
     TrainingArguments,
-    _prepare_inputs_and_outputs,
-    _start_hf_trainer,
-    _TrainHFBase,
-    _wrap_trainer_cls,
+    _monkey_patch_TrainerState__post_init__,
     get_logging_callback,
+    prepare_inputs_and_outputs,
+    start_hf_trainer,
+    wrap_compute_metrics,
+    wrap_trainer_cls,
 )
-from .trainer import JointMetric, _monkey_patch_TrainerState__post_init__
+from ..utils.import_utils import ignore_transformers_warnings
+from ._train_hf_base import _TrainHFBase
 
 with ignore_transformers_warnings():
     from transformers import (
@@ -115,7 +117,7 @@ class TrainHFClassifier(_TrainHFBase):
             validation_dataset,
             label2id,
             is_multi_target,
-        ) = _prepare_inputs_and_outputs(
+        ) = prepare_inputs_and_outputs(
             self,
             train_columns={
                 ("input_ids", "Train Input"): train_input,
@@ -253,6 +255,7 @@ class TrainHFClassifier(_TrainHFBase):
             weight_decay=weight_decay,
             lr_scheduler_type=lr_scheduler_type,
             warmup_steps=warmup_steps,
+            eval_accumulation_steps=kwargs.pop("eval_accumulation_steps", 1),
             logging_strategy=kwargs.pop("logging_strategy", None) or "steps",
             logging_steps=kwargs.pop("logging_steps", 1),
             evaluation_strategy=kwargs.pop("evaluation_strategy", None) or "epoch",
@@ -269,7 +272,7 @@ class TrainHFClassifier(_TrainHFBase):
         )
 
         # Setup trainer
-        trainer = _wrap_trainer_cls(
+        trainer = wrap_trainer_cls(
             trainer_cls=trainer_cls or Trainer, **trainer_override_kwargs
         )(
             train_dataset=train_dataset,
@@ -277,7 +280,9 @@ class TrainHFClassifier(_TrainHFBase):
             model=model,
             tokenizer=self.tokenizer,
             data_collator=data_collator,
-            compute_metrics=compute_metrics,
+            compute_metrics=wrap_compute_metrics(
+                compute_metrics=compute_metrics, training_args=training_args
+            ),
             callbacks=callbacks,
             preprocess_logits_for_metrics=preprocess_logits_for_metrics,
             args=training_args,
@@ -285,7 +290,7 @@ class TrainHFClassifier(_TrainHFBase):
         trainer.remove_callback(PrinterCallback)
 
         # Start the trainer
-        _start_hf_trainer(self, trainer)
+        start_hf_trainer(self, trainer)
 
         # Save the model to disk
         self._save_model(

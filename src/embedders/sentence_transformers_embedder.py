@@ -19,6 +19,7 @@ from ..utils.hf_hub_utils import (
 )
 from ..utils.hf_model_utils import (
     convert_dtype,
+    filter_model_warnings,
     get_model_max_context_length,
     get_tokenizer,
 )
@@ -121,6 +122,9 @@ class SentenceTransformersEmbedder(Embedder):
         # Torch compile
         # torch._dynamo.config.suppress_errors = True
         # model = torch.compile(model)
+
+        # Filter any warnings from the model
+        filter_model_warnings()
 
         # Finished loading
         log_if_timeout.stop(

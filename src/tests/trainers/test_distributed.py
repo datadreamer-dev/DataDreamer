@@ -17,9 +17,9 @@ from ...trainers import (
     TrainHFPPO,
     TrainSentenceTransformer,
 )
-from ...trainers._train_hf_base import CustomDataCollatorWithPadding
 from ...utils.arg_utils import AUTO
 from ...utils.hf_model_utils import get_orig_model, is_bnb_quantized
+from ...utils.hf_training_utils import CustomDataCollatorWithPadding
 from ...utils.import_utils import ignore_transformers_warnings
 
 with ignore_transformers_warnings():
@@ -422,12 +422,13 @@ class TestTrainDistributed:
                 validation_output=val_dataset.output["outputs"],
                 epochs=1,
                 batch_size=8,
+                gradient_checkpointing=qlora,
             )
             assert data_collator_spy.call_count == 0
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
                 assert (
-                    json.load(f) == "ce4179deefbddefd" if qlora else "6b385aca0ce684b3"
+                    json.load(f) == "42a7bd193f804a4a" if qlora else "6b385aca0ce684b3"
                 )
             assert train_result is trainer
             assert (
