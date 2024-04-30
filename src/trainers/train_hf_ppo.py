@@ -24,6 +24,7 @@ from ..utils.hf_training_utils import (
     get_logging_callback,
     prepare_inputs_and_outputs,
     start_hf_trainer,
+    wrap_compute_metrics,
 )
 from ..utils.import_utils import ignore_transformers_warnings, ignore_trl_warnings
 from .train_hf_finetune import TrainHFFineTune
@@ -768,7 +769,9 @@ class TrainHFPPO(TrainHFFineTune):
             model=model,
             tokenizer=self.tokenizer,
             data_collator=data_collator,
-            compute_metrics=compute_metrics,
+            compute_metrics=wrap_compute_metrics(
+                compute_metrics=compute_metrics, training_args=training_args
+            ),
             callbacks=callbacks,
             preprocess_logits_for_metrics=preprocess_logits_for_metrics,
             args=training_args,

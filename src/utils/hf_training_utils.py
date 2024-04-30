@@ -24,7 +24,11 @@ from ..utils.device_utils import (
     _TrainingArgumentDeviceOverrideMixin,
     get_device_memory_monitoring_callback,
 )
-from ..utils.distributed_utils import get_global_rank, is_distributed
+from ..utils.distributed_utils import (
+    get_global_rank,
+    is_distributed,
+    not_distributed_or_main_process,
+)
 from ..utils.import_utils import ignore_transformers_warnings
 
 with ignore_transformers_warnings():
@@ -946,3 +950,17 @@ def get_logging_callback(trainer: "_TrainHFBase", log_loss: bool = True) -> Type
                     trainer.logger.info(f"Train Epoch: {epoch} -- {logs}")
 
     return LoggingCallback
+
+
+def wrap_compute_metrics(compute_metrics, training_args: "TrainingArguments"):
+    def _wrapped_compute_metrics(*args, **kwargs):
+        if not_distributed_or_main_process():
+            return compute_metrics(*args, **kwargs)
+        else:  # pragma: no cover
+            return (
+                {training_args.metric_for_best_model: 0.0}
+                if training_args.metric_for_best_model is not None
+                else {}
+            )
+
+    return _wrapped_compute_metrics

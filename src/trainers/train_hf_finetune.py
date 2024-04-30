@@ -12,6 +12,7 @@ from ..utils.hf_training_utils import (
     get_logging_callback,
     prepare_inputs_and_outputs,
     start_hf_trainer,
+    wrap_compute_metrics,
     wrap_trainer_cls,
 )
 from ..utils.import_utils import ignore_transformers_warnings
@@ -136,19 +137,37 @@ class TrainHFFineTune(_TrainHFBase):
         )
 
         # Prepare compute metrics
+
+        # This computation can use a fair bit of CPU RAM due to the size of these
+        # tensors (batch_size * sequence_length * vocabulary_size), so we should try
+        # to save as much memory as possible
+        compute_perplexity_dtype = torch.float16
+        try:
+            torch.nn.functional.cross_entropy(
+                input=torch.tensor([[1.0]], dtype=compute_perplexity_dtype),
+                target=torch.tensor([0], dtype=torch.long),
+            )
+        except RuntimeError:
+            compute_perplexity_dtype = torch.float32
+
         def compute_perplexity_metrics(eval_pred):
             preds, labels = eval_pred
+            del eval_pred
             if isinstance(preds, tuple):
                 preds = preds[0]
-            preds = torch.tensor(preds)
+            preds = torch.tensor(preds, dtype=compute_perplexity_dtype)
             labels = torch.tensor(labels)
             if self._is_encoder_decoder:
                 nll = torch.nn.functional.cross_entropy(
                     input=preds.view(-1, preds.size(-1)), target=labels.view(-1)
                 )
             else:
+                preds = preds.to(compute_perplexity_dtype)
+                labels = labels
                 shift_preds = preds[..., :-1, :].contiguous()
+                del preds
                 shift_labels = labels[..., 1:].contiguous()
+                del labels
                 nll = torch.nn.functional.cross_entropy(
                     input=shift_preds.view(-1, shift_preds.size(-1)),
                     target=shift_labels.view(-1),
@@ -260,7 +279,9 @@ class TrainHFFineTune(_TrainHFBase):
             eval_dataset=validation_dataset,
             model=model,
             tokenizer=self.tokenizer,
-            compute_metrics=compute_metrics,
+            compute_metrics=wrap_compute_metrics(
+                compute_metrics=compute_metrics, training_args=training_args
+            ),
             callbacks=callbacks,
             preprocess_logits_for_metrics=preprocess_logits_for_metrics,
             args=training_args,
