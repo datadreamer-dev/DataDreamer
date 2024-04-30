@@ -519,7 +519,7 @@ def prepare_inputs_and_outputs(  # noqa: C901
         if TYPE_CHECKING:  # pragma: no cover
             DPODataCollatorWithPadding: Any = None
         else:
-            from ._vendored._dpo_helper import DPODataCollatorWithPadding
+            from ..trainers._vendored._dpo_helper import DPODataCollatorWithPadding
 
         # Get data collator
         data_collator = DPODataCollatorWithPadding(
@@ -821,29 +821,34 @@ def start_hf_trainer(self: "_TrainHFBase", trainer: Any):  # noqa: C901
         else:
             raise ValueError()
     except ValueError:
-        # Nothing to resume from, so start a new training run
+        try:
+            # Nothing to resume from, so start a new training run
 
-        # Evaluate before starting training so we can see how the model
-        # performs before any weight updates
-        if device_memory_monitoring_callback:
-            device_memory_monitoring_callback()._log_device_memory_usage()
-        if is_distributed() and trainer.is_fsdp_enabled:  # pragma: no cover
-            from transformers.trainer import logger as trainer_logger
+            # Evaluate before starting training so we can see how the model
+            # performs before any weight updates
+            if device_memory_monitoring_callback:
+                device_memory_monitoring_callback()._log_device_memory_usage()
+            if is_distributed() and trainer.is_fsdp_enabled:  # pragma: no cover
+                from transformers.trainer import logger as trainer_logger
 
-            # This is a hack to run .evaluate() before training happens on FSDP
-            # but after the FSDP is set up
-            old_info = trainer_logger.info
+                # This is a hack to run .evaluate() before training happens on FSDP
+                # but after the FSDP is set up
+                old_info = trainer_logger.info
 
-            def _info(old_info, *args, **kwargs):
-                if len(args) > 0 and args[0].startswith("***** Running training *****"):
-                    trainer.evaluate()
-                    trainer.model.train()  # Switch the model back to train mode
-                    trainer_logger.info = old_info  # Undo the monkey-patch
-                return old_info(*args, **kwargs)
+                def _info(old_info, *args, **kwargs):
+                    if len(args) > 0 and args[0].startswith(
+                        "***** Running training *****"
+                    ):
+                        trainer.evaluate()
+                        trainer.model.train()  # Switch the model back to train mode
+                        trainer_logger.info = old_info  # Undo the monkey-patch
+                    return old_info(*args, **kwargs)
 
-            trainer_logger.info = partial(_info, old_info)
-        else:
-            trainer.evaluate()
+                trainer_logger.info = partial(_info, old_info)
+            else:
+                trainer.evaluate()
+        except Exception as e:
+            raise e from None
 
         # Start training
         trainer.train()
@@ -963,4 +968,4 @@ def wrap_compute_metrics(compute_metrics, training_args: "TrainingArguments"):
                 else {}
             )
 
-    return _wrapped_compute_metrics
+    return _wrapped_compute_metrics if compute_metrics is not None else None
