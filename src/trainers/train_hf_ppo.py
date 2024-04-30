@@ -16,6 +16,7 @@ from transformers import logging as transformers_logging
 from ..datasets import OutputDatasetColumn, OutputIterableDatasetColumn
 from ..llms.llm import _check_temperature_and_top_p
 from ..utils.arg_utils import AUTO, Default, default_to
+from ..utils.distributed_utils import set_current_accelerator
 from ..utils.fs_utils import mkdir
 from ..utils.hf_model_utils import is_peft_model
 from ..utils.hf_training_utils import (
@@ -116,6 +117,7 @@ def get_ppo_trainer(  # noqa: C901
             self.accelerator.prepare_optimizer = (
                 lambda optimizer, *args, **kwargs: optimizer
             )
+            set_current_accelerator(self.accelerator)
 
         def get_train_dataloader(self) -> DataLoader:
             # PPOTrainer's .step() method does not allow smaller than batch size inputs
