@@ -799,7 +799,7 @@ def prepare_inputs_and_outputs(  # noqa: C901
 
 def start_hf_trainer(self: "_TrainHFBase", trainer: Any):  # noqa: C901
     # Do monkey patches
-    # _monkey_patch_EvalLoopContainer_add()
+    _monkey_patch_EvalLoopContainer_add()
 
     # Setup loggers the way we need them to be
     if not DataDreamer.ctx.hf_log:
@@ -990,6 +990,9 @@ def _save_memory_in__EvalLoopContainer_add(self, *args, **kwargs):
         _old_EvalLoopContainer_add(self, *args, **kwargs)
     elif not DataDreamer.initialized():  # pragma: no cover
         _old_EvalLoopContainer_add(self, *args, **kwargs)
+    else:  # pragma: no cover
+        # Don't save when distributed and not the main process to save memory
+        self.tensors = torch.tensor([0.0])  # Dummy list
 
 
 @cache
