@@ -1062,7 +1062,10 @@ class TestLLM:
             )
             assert _chat_prompt_template_and_system_prompt_from_tokenizer(
                 "Qwen/Qwen1.5-0.5B-Chat"
-            ) == (CHAT_PROMPT_TEMPLATES["chatml_system"], "You are a helpful assistant")
+            ) == (
+                CHAT_PROMPT_TEMPLATES["chatml_system"],
+                "You are a helpful assistant.",
+            )
             assert _chat_prompt_template_and_system_prompt_from_tokenizer(
                 "CohereForAI/c4ai-command-r-v01"
             ) == (CHAT_PROMPT_TEMPLATES["command_r"], None)
