@@ -48,6 +48,7 @@ def _DatasetGeneratorPickleHack_raise(*args, **kwargs):  # pragma: no cover
 
 
 def stable_fingerprint(value: Any) -> str:
+    from ..steps import Step
     from ..trainers import Trainer
 
     if isinstance(value, (list, tuple, set)):
@@ -55,8 +56,9 @@ def stable_fingerprint(value: Any) -> str:
     elif isinstance(value, dict):
         return Hasher.hash({k: stable_fingerprint(v) for k, v in value.items()})
     else:
-        if isinstance(value, Trainer):
-            assert value._done, f"Trainer '{value.name}' has not been run yet. Use `.train()` to start training."
+        if isinstance(value, Step) or isinstance(value, Trainer):
+            if isinstance(value, Trainer):
+                assert value._done, f"Trainer '{value.name}' has not been run yet. Use `.train()` to start training."
             return cast(str, value.fingerprint)
         if is_peft_model(value):  # pragma: no cover
             return stable_fingerprint(
