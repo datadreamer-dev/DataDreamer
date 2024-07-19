@@ -140,8 +140,9 @@ class RAGPrompt(_PromptBase, SuperStep):
                 )
 
         # Generate
+        run_args = {k:v for k,v in args.items() if k not in ["retriever", "k"]}
         return self._run_prompts(
-            args=args,
+            args=run_args,
             prompts=partial(
                 create_prompts,
                 llm,
