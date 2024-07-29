@@ -23,7 +23,6 @@ def ignore_transformers_warnings():
         "ignore",
         category=FutureWarning,
         message="You are using `torch.load` with `weights_only=False`.*",
-        module="peft.utils.save_and_load",
     )
 
     # Filter these within the context manager
