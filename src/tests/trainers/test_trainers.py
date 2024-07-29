@@ -322,7 +322,7 @@ class TestTrainHFBase:
                     ],
                     tokenize=False,
                 )
-                == "<s>[INST] A [/INST]B</s>"
+                == "<s>[INST] A [/INST] B</s>"
             )
             assert (
                 trainer.tokenizer.apply_chat_template(
@@ -330,7 +330,7 @@ class TestTrainHFBase:
                     tokenize=False,
                     add_generation_prompt=True,
                 )
-                == "<s>[INST] A [/INST]"
+                == "<s>[INST] A [/INST] "
             )
             with pytest.raises(Exception, match=r"Conversation roles must alternate.*"):
                 assert (

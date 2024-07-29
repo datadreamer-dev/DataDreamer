@@ -316,7 +316,7 @@ class TrainSetFitClassifier(TrainHFClassifier):
             max_length=sys.maxsize if not truncate else self.tokenizer.model_max_length,
             logging_strategy=kwargs.pop("logging_strategy", None) or "steps",
             logging_steps=kwargs.pop("logging_steps", 1),
-            evaluation_strategy=kwargs.pop("evaluation_strategy", None) or "epoch",
+            eval_strategy=kwargs.pop("eval_strategy", None) or "epoch",
             save_strategy=kwargs.pop("save_strategy", None) or "epoch",
             save_total_limit=kwargs.pop("save_total_limit", 1),
             load_best_model_at_end=kwargs.pop("load_best_model_at_end", True),
