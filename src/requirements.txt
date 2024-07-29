@@ -27,4 +27,4 @@ transformers>=4.42.0,<4.50.0
 ctransformers>=0.2.27,<1.0.0
 Pyro5>=5.15
 litellm==1.42.5
-trl==0.8.1
+trl==0.9.6

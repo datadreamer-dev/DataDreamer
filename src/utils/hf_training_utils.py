@@ -88,6 +88,7 @@ def wrap_trainer_cls(
     optimizer: None | Optimizer = None,
     lr_scheduler: None | LambdaLR = None,
     compute_loss: None | Callable = None,
+    trainer: "None | _TrainHFBase" = None,
 ) -> Type["Trainer"]:
     class WrappedTrainer(trainer_cls):
         def __init__(self, *args, **kwargs):
@@ -119,6 +120,14 @@ def wrap_trainer_cls(
                 return super().compute_loss(
                     model, inputs, return_outputs=return_outputs
                 )
+
+        def visualize_samples(self, *args, **kwargs):
+            if (
+                not_distributed_or_main_process()
+                and trainer is not None
+                and trainer.logger.level <= logging.DEBUG
+            ):
+                return super().visualize_samples(*args, **kwargs)
 
     return WrappedTrainer
 

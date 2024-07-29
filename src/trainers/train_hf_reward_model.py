@@ -329,7 +329,9 @@ class TrainHFRewardModel(TrainHFClassifier):
 
         # Setup trainer
         trainer = wrap_trainer_cls(
-            trainer_cls=trainer_cls or RewardTrainer, **trainer_override_kwargs
+            trainer_cls=trainer_cls or RewardTrainer,
+            **trainer_override_kwargs,
+            trainer=self,
         )(
             train_dataset=train_dataset,
             eval_dataset=validation_dataset,
@@ -527,7 +529,7 @@ class TrainHFRewardModel(TrainHFClassifier):
 
         # Setup trainer
         trainer = wrap_trainer_cls(
-            trainer_cls=trainer_cls or Trainer, **trainer_override_kwargs
+            trainer_cls=trainer_cls or Trainer, **trainer_override_kwargs, trainer=self
         )(
             train_dataset=train_dataset,
             eval_dataset=validation_dataset,
