@@ -1441,6 +1441,11 @@ class TestHFTransformers:
                     batch_size=1,
                 )
 
+            try:
+                mocker.stopall()
+            except AttributeError:
+                pass
+
     @pytest.mark.skipif(
         sys.platform == "darwin", reason="instable on macOS/M2 (floating point diffs)"
     )
