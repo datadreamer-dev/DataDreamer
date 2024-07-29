@@ -85,6 +85,9 @@ def ignore_litellm_warnings():
         warnings.filterwarnings("ignore", message="Deprecated call to.*pkg_resources.*")
         warnings.filterwarnings("ignore", message="pkg_resources.*")
         warnings.filterwarnings("ignore", message="open_text is deprecated.*")
+        warnings.filterwarnings(
+            "ignore", message="Use 'content=<...>' to upload raw bytes/text content."
+        )
         yield None
 
 
