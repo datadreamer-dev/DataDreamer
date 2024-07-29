@@ -238,7 +238,7 @@ class TrainSentenceTransformer(_TrainHFBase):
         model = SentenceTransformer(
             self.model_name,
             trust_remote_code=self.trust_remote_code,
-            device="cpu" if isinstance(model_device, list) else model_device,
+            device="cpu" if isinstance(model_device, list) else model_device,  # type:ignore[arg-type]
             **self.kwargs,
         )
         model[0].tokenizer = get_tokenizer(
@@ -824,7 +824,7 @@ class TrainSentenceTransformer(_TrainHFBase):
             model = SentenceTransformer(
                 self.model_name,
                 trust_remote_code=self.trust_remote_code,
-                device="cpu" if isinstance(self.device, list) else self.device,
+                device="cpu" if isinstance(self.device, list) else self.device,  # type:ignore[arg-type]
                 **self.kwargs,
             )
             model[0].tokenizer = get_tokenizer(
@@ -849,7 +849,7 @@ class TrainSentenceTransformer(_TrainHFBase):
             model = SentenceTransformer(
                 os.path.join(self._output_folder_path, "_model"),
                 trust_remote_code=self.trust_remote_code,
-                device="cpu" if isinstance(self.device, list) else self.device,
+                device="cpu" if isinstance(self.device, list) else self.device,  # type:ignore[arg-type]
                 **self.kwargs,
             )
         self.max_seq_length = model.max_seq_length

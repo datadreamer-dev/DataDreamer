@@ -1374,7 +1374,7 @@ class TestTrainSentenceTransformer:
                 type(get_orig_model(trainer.model)).__name__
                 == "PeftModelForFeatureExtraction"
             )
-            assert trainer.model.encode(["Sentence A.", "Sentence B."]).shape == (
+            assert trainer.model.encode(["Sentence A.", "Sentence B."]).shape == (  # type:ignore  [union-attr]
                 2,
                 768,
             )

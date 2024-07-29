@@ -374,7 +374,7 @@ class TrainSetFitClassifier(TrainHFClassifier):
                         torch_dtype=self.dtype,
                         **self.kwargs,
                     )
-                    model.model_body.forward = partial(
+                    model.model_body.forward = partial(  # type:ignore[method-assign]
                         get_peft_model_cls().forward, model.model_body
                     )
 
