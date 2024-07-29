@@ -4,6 +4,7 @@ from functools import cached_property
 from itertools import chain, islice
 from typing import Any, Callable, Generator, Iterable, cast
 
+import dill
 import numpy as np
 import torch
 from datasets.fingerprint import Hasher
@@ -11,6 +12,7 @@ from sqlitedict import SqliteDict
 
 from ..datasets import OutputDatasetColumn, OutputIterableDatasetColumn
 from ..embedders.embedder import Embedder
+from ..utils.background_utils import proxy_resource_in_background
 from ..utils.device_utils import device_to_device_id
 from ..utils.fs_utils import safe_fn
 from ..utils.import_utils import ignore_faiss_warnings
@@ -75,88 +77,132 @@ class EmbeddingRetriever(Retriever):
         self.kwargs = kwargs
 
     @cached_property
-    def index(self):
-        index_logger = self.get_logger(key="index")
-        with self._retriever_index_folder_lock():
-            # Create the index if it doesn't exist
-            if not self._retriever_index_folder or not os.path.exists(
-                self._retriever_index_folder
-            ):
-                self._initialize_retriever_index_folder()
-                index_logger.info("Building index.")
-                index = faiss.IndexFlatIP(self.embedder.dims)
-                if self.device is not None:  # pragma: no cover
-                    index = faiss.index_cpu_to_gpus_list(index=index, gpus=self.device)
-                index_lookup = SqliteDict(
-                    ":memory:"
-                    if not self._tmp_retriever_index_folder
-                    else os.path.join(self._tmp_retriever_index_folder, "faiss.db"),
-                    tablename="lookup",
-                    journal_mode="WAL",
-                    autocommit=False,
-                )
+    def index(self):  # noqa: C901
+        class FAISSIndexResource:
+            """
+            FAISS has some issue that makes it deadlock PyTorch when running in the
+            the same process on PyTorch version 2.2.0 or greater. So we run FAISS in its
+            own process. This is due to FAISS using OpenBLAS which has some issues:
+            https://github.com/facebookresearch/faiss/issues/828
 
-                # Add texts to index
-                assert self.texts is not None
-                texts_iter = iter(enumerate(self.texts))
-                while True:
-                    batch = list(zip(*list(islice(texts_iter, self.index_batch_size))))
-                    if len(batch) == 0:
-                        break
-                    ids_batch, texts_batch = batch
-                    texts_embedded = np.vstack(
-                        cast(
-                            list,
-                            self.embedder.run(
-                                texts=texts_batch,
-                                truncate=self.truncate,
-                                instruction=self.index_instruction,
-                                batch_size=self.index_batch_size,
-                                **self.kwargs,
+            Maybe in the future this will be fixed, but for now FAISS needs to be
+            isolated like this.
+            """
+
+            def __init__(self_resource) -> None:
+                index_logger = self.get_logger(key="index")
+                with self._retriever_index_folder_lock():
+                    # Create the index if it doesn't exist
+                    if not self._retriever_index_folder or not os.path.exists(
+                        self._retriever_index_folder
+                    ):
+                        self._initialize_retriever_index_folder()
+                        index_logger.info("Building index.")
+                        index = faiss.IndexFlatIP(self.embedder.dims)
+                        if self.device is not None:  # pragma: no cover
+                            index = faiss.index_cpu_to_gpus_list(
+                                index=index, gpus=self.device
+                            )
+                        index_lookup = SqliteDict(
+                            ":memory:"
+                            if not self._tmp_retriever_index_folder
+                            else os.path.join(
+                                self._tmp_retriever_index_folder, "faiss.db"
                             ),
+                            tablename="lookup",
+                            journal_mode="WAL",
+                            autocommit=False,
                         )
-                    )
-                    index.add(texts_embedded)
-                    for id_, text in zip(ids_batch, texts_batch):
-                        index_lookup[id_] = text
-                    index_lookup.commit()
 
-                # Write the index to disk
-                if self._tmp_retriever_index_folder:
-                    index_logger.info("Writing index to disk.")
-                    faiss.write_index(
-                        index,
-                        os.path.join(self._tmp_retriever_index_folder, "faiss.index"),
-                    )
-                    del index
-                    index_lookup.conn.execute("PRAGMA journal_mode=OFF")
-                    index_lookup.commit()
-                    index_lookup.close()
-                    del index_lookup
-                    gc.collect()
-                    self._finalize_retriever_index_folder()
-                    index_logger.info("Finished writing index to disk.")
+                        # Add texts to index
+                        assert self.texts is not None
+                        texts_iter = iter(enumerate(self.texts))
+                        while True:
+                            batch = list(
+                                zip(*list(islice(texts_iter, self.index_batch_size)))
+                            )
+                            if len(batch) == 0:
+                                break
+                            ids_batch, texts_batch = batch
+                            texts_embedded = np.vstack(
+                                cast(
+                                    list,
+                                    self.embedder.run(
+                                        texts=texts_batch,
+                                        truncate=self.truncate,
+                                        instruction=self.index_instruction,
+                                        batch_size=self.index_batch_size,
+                                        **self.kwargs,
+                                    ),
+                                )
+                            )
+                            index.add(texts_embedded)
+                            for id_, text in zip(ids_batch, texts_batch):
+                                index_lookup[id_] = text
+                            index_lookup.commit()
 
-            # Load the index from disk
-            if self._retriever_index_folder and os.path.exists(
-                self._retriever_index_folder
-            ):
-                index = faiss.read_index(
-                    os.path.join(self._retriever_index_folder, "faiss.index"),
-                    faiss.IO_FLAG_MMAP | faiss.IO_FLAG_READ_ONLY,
-                )
-                if self.device is not None:  # pragma: no cover
-                    index = faiss.index_cpu_to_gpus_list(index=index, gpus=self.device)
-                index_lookup = SqliteDict(
-                    ":memory:"
-                    if not self._retriever_index_folder
-                    else os.path.join(self._retriever_index_folder, "faiss.db"),
-                    tablename="lookup",
-                    journal_mode="WAL",
-                    autocommit=False,
-                )
+                        self_resource.index = index
+                        self_resource.index_lookup = index_lookup
 
-            return index, index_lookup
+                        # Write the index to disk
+                        if self._tmp_retriever_index_folder:
+                            index_logger.info("Writing index to disk.")
+                            faiss.write_index(
+                                index,
+                                os.path.join(
+                                    self._tmp_retriever_index_folder, "faiss.index"
+                                ),
+                            )
+                            del index
+                            index_lookup.conn.execute("PRAGMA journal_mode=OFF")
+                            index_lookup.commit()
+                            index_lookup.close()
+                            del index_lookup
+                            gc.collect()
+                            self._finalize_retriever_index_folder()
+                            index_logger.info("Finished writing index to disk.")
+
+                    # Load the index from disk
+                    if self._retriever_index_folder and os.path.exists(
+                        self._retriever_index_folder
+                    ):
+                        index = faiss.read_index(
+                            os.path.join(self._retriever_index_folder, "faiss.index"),
+                            faiss.IO_FLAG_MMAP | faiss.IO_FLAG_READ_ONLY,
+                        )
+                        if self.device is not None:  # pragma: no cover
+                            index = faiss.index_cpu_to_gpus_list(
+                                index=index, gpus=self.device
+                            )
+                        index_lookup = SqliteDict(
+                            ":memory:"
+                            if not self._retriever_index_folder
+                            else os.path.join(self._retriever_index_folder, "faiss.db"),
+                            tablename="lookup",
+                            journal_mode="WAL",
+                            autocommit=False,
+                        )
+                        self_resource.index = index
+                        self_resource.index_lookup = index_lookup
+
+            def wait_for_load(self_resource) -> bool:
+                return True
+
+            def search(self_resource, args, kwargs) -> None:
+                args = dill.loads(args)
+                kwargs = dill.loads(kwargs)
+                return dill.dumps(self_resource.index.search(*args, **kwargs))
+
+            def decode(self_resource, *args, **kwargs):
+                return self_resource.index_lookup.decode(*args, **kwargs)
+
+            def select(self_resource, *args, **kwargs):
+                return self_resource.index_lookup.conn.select(*args, **kwargs)
+
+        env = os.environ.copy()
+        faiss_resource = proxy_resource_in_background(FAISSIndexResource, env=env)
+        faiss_resource.proxy.wait_for_load()
+        return (faiss_resource, faiss_resource)
 
     def _batch_lookup(self, indices: list[int]) -> dict[int, dict[str, Any]]:
         _, index_lookup = self.index
@@ -172,8 +218,8 @@ class EmbeddingRetriever(Retriever):
             )
             results.update(
                 {
-                    int(result[0]): index_lookup.decode(result[1])
-                    for result in index_lookup.conn.select(
+                    int(result[0]): index_lookup.proxy.decode(result[1])
+                    for result in index_lookup.proxy.select(
                         lookup_query, [str(idx) for idx in indices_batch]
                     )
                 }
@@ -204,7 +250,11 @@ class EmbeddingRetriever(Retriever):
             )
         )
         index, _ = self.index
-        scores, results = index.search(queries_embedded, k=k)
+        scores, results = dill.loads(
+            index.proxy.search(
+                args=dill.dumps((queries_embedded,)), kwargs=dill.dumps({"k": k})
+            )
+        )
         texts_lookup = self._batch_lookup(indices=list(chain.from_iterable(results)))
         return [
             {

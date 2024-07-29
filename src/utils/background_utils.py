@@ -340,6 +340,7 @@ def proxy_resource_in_background(resource: Type, env=None):  # pragma: no cover
             wait_for_port(free_port)
 
         def __del__(self):
+            self.proxy._pyroClaimOwnership()
             self.proxy._pyroRelease()
             if process.is_alive():
                 process.terminate()
