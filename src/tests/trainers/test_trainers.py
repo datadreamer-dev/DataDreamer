@@ -823,7 +823,7 @@ class TestTrainHFClassifier:
             )
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
-                assert json.load(f) == "20e922308e991ad1"
+                assert json.load(f) == "20ec363e6f5565b0"
             assert train_result is trainer
             assert trainer.id2label == {0: "negative", 1: "positive"}
             assert trainer.label2id == {"negative": 0, "positive": 1}
@@ -1368,7 +1368,7 @@ class TestTrainSentenceTransformer:
             )
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
-                assert json.load(f) == "68976ab7fcd57f0d"
+                assert json.load(f) == "5434b95080eaab52"
             assert train_result is trainer
             assert (
                 type(get_orig_model(trainer.model)).__name__
@@ -1955,7 +1955,7 @@ class TestTrainHFDPO:
             )
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
-                assert json.load(f) == "6b080f19aab99e87"
+                assert json.load(f) == "8e615905aaa80f2d"
             assert train_result is trainer
             assert (
                 type(get_orig_model(trainer.model)).__name__ == "PeftModelForCausalLM"
@@ -2282,7 +2282,7 @@ class TestTrainHFRewardModel:
             )
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
-                assert json.load(f) == "d5fb42f31ec01c06"
+                assert json.load(f) == "323eba506fdec6f3"
             assert train_result is trainer
             assert trainer.id2label == {0: "reward"}
             assert trainer.label2id == {"reward": 0}
@@ -2591,7 +2591,7 @@ class TestTrainHFRewardModel:
             )
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
-                assert json.load(f) == "96e03ac3e8b98563"
+                assert json.load(f) == "975cd93b8a2f01f8"
             assert train_result is trainer
             assert trainer.id2label == {0: "reward"}
             assert trainer.label2id == {"reward": 0}
@@ -2896,7 +2896,7 @@ class TestTrainHFPPO:
             )
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
-                assert json.load(f) == "ee3443e790ed6c7e"
+                assert json.load(f) == "269c417e685d0b39"
             assert train_result is trainer
             assert (
                 type(get_orig_model(trainer.model)).__name__ == "PeftModelForCausalLM"
@@ -3021,7 +3021,7 @@ class TestTrainHFPPO:
             )
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
-                assert json.load(f) == "23dda09c9de08043"
+                assert json.load(f) == "8c3d4ea5c3d5fbbb"
             reward_trainer.unload_model()
             trainer.unload_model()
             # trainer.publish_to_hf_hub(
@@ -3048,7 +3048,7 @@ class TestTrainHFPPO:
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
                 assert json.load(f) == (
-                    "f6a02f718efd4892"
+                    "163e313c78643f85"
                     if sys.platform == "darwin"
                     else "163e313c78643f85"
                 )
@@ -3243,7 +3243,7 @@ class TestTrainSetFitClassifier:
             )
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
-                assert json.load(f) == "f41b586199a5d273"
+                assert json.load(f) == "7045f2a62c9faf27"
             assert train_result is trainer
             assert trainer.id2label == {0: "negative", 1: "positive"}
             assert trainer.label2id == {"negative": 0, "positive": 1}
