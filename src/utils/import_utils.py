@@ -19,6 +19,12 @@ def ignore_transformers_warnings():
         message=".*byte fallback option.*",
         module="transformers.convert_slow_tokenizer",
     )
+    warnings.filterwarnings(
+        "ignore",
+        category=FutureWarning,
+        message="You are using `torch.load` with `weights_only=False`.*",
+        module="peft.utils.save_and_load",
+    )
 
     # Filter these within the context manager
     try:
