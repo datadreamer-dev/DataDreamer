@@ -561,7 +561,7 @@ class TrainSentenceTransformer(_TrainHFBase):
                 SentenceTransformerLossWrapper, PeftModel
             ):
                 @property
-                def module(self):
+                def module(self):  # pragma: no cover
                     return self.orig_model
 
                 def __getattr__(self, name):

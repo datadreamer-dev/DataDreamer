@@ -126,7 +126,7 @@ def wrap_trainer_cls(
                 not_distributed_or_main_process()
                 and trainer is not None
                 and trainer.logger.level <= logging.DEBUG
-            ):
+            ):  # pragma: no cover
                 return super().visualize_samples(*args, **kwargs)
 
     return WrappedTrainer

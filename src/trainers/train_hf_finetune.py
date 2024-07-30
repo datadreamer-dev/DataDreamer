@@ -147,7 +147,7 @@ class TrainHFFineTune(_TrainHFBase):
                 input=torch.tensor([[1.0]], dtype=compute_perplexity_dtype),
                 target=torch.tensor([0], dtype=torch.long),
             )
-        except RuntimeError:
+        except RuntimeError:  # pragma: no cover
             compute_perplexity_dtype = torch.float32
 
         def compute_perplexity_metrics(eval_pred):
