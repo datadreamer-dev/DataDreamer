@@ -309,41 +309,88 @@ def wait_for_port(port: int):  # pragma: no cover
             pass
 
 
-def proxy_resource_in_background(resource: Type, env=None):  # pragma: no cover
+def dill_serializer(func):
+    def server_pickling_wrapper(self, run_in_background, args, kwargs):
+        args = dill.loads(args) if run_in_background else args
+        kwargs = dill.loads(kwargs) if run_in_background else kwargs
+        result = func(self, *args, **kwargs)
+        return dill.dumps(result) if run_in_background else result
+
+    server_pickling_wrapper._is_dill_serialized = True  # type:ignore[attr-defined]
+    return server_pickling_wrapper
+
+
+def proxy_resource_in_background(resource: Type, env=None, run_in_background=True):  # noqa: C901
     from .. import DataDreamer
 
-    # Configuration options for the connection between a client/server
-    Pyro5.config.SERIALIZER = "marshal"
-    Pyro5.config.DETAILED_TRACEBACK = True
-    free_port = find_free_port()
-    uri = f"PYRO:resource@localhost:{free_port}"
-    resource = Pyro5.server.expose(resource)
+    # Detected decorated methods
+    dill_serialized_meth_names = []
+    for meth_name in dir(resource):
+        meth = getattr(resource, meth_name)
+        if hasattr(meth, "_is_dill_serialized") and meth._is_dill_serialized:
+            dill_serialized_meth_names.append(meth_name)
 
-    # Define a server
-    def _server_function(pipe, resource, free_port):  # pragma: no cover
-        Pyro5.server.serve(
-            {resource: "resource"}, port=free_port, use_ns=False, verbose=False
+    if run_in_background:  # pragma: no cover
+        # Configuration options for the connection between a client/server
+        Pyro5.config.SERIALIZER = "marshal"
+        Pyro5.config.DETAILED_TRACEBACK = True
+        free_port = find_free_port()
+        uri = f"PYRO:resource@localhost:{free_port}"
+
+        # Create Pyro server resource
+        resource = Pyro5.server.expose(resource)
+
+        # Define a serve function to serve the resource
+        def _server_function(pipe, resource, free_port):  # pragma: no cover
+            Pyro5.server.serve(
+                {resource: "resource"}, port=free_port, use_ns=False, verbose=False
+            )
+
+        # Run server in a background process
+        process, _ = run_in_background_process(
+            _server_function, resource, free_port, env=env
         )
+        if DataDreamer.initialized() and not DataDreamer.is_background_process():
+            DataDreamer._add_process(process)
 
-    # Run server in a background process
-    process, _ = run_in_background_process(
-        _server_function, resource, free_port, env=env
-    )
-    if DataDreamer.initialized() and not DataDreamer.is_background_process():
-        DataDreamer._add_process(process)
+        # Get a client proxy
+        _proxy = Pyro5.api.Proxy(uri)
+    else:
+        _proxy = resource()
 
     # Create client object that proxys to the server
     class BackgroundResource(object):
         def __init__(self):
-            self.proxy = Pyro5.api.Proxy(uri)
-            self.process = process
-            wait_for_port(free_port)
+            class ClientProxyWrapper:
+                def __getattr__(self, name):
+                    if name in dill_serialized_meth_names:
+                        orig_meth = getattr(_proxy, name)
+
+                        def client_pickling_wrapper(orig_meth, *args, **kwargs):
+                            args = dill.dumps(args) if run_in_background else args
+                            kwargs = dill.dumps(kwargs) if run_in_background else kwargs
+                            result = orig_meth(run_in_background, args, kwargs)
+                            return dill.loads(result) if run_in_background else result
+
+                        client_pickling_wrapper = partial(
+                            client_pickling_wrapper, orig_meth
+                        )
+                        return client_pickling_wrapper
+                    else:
+                        return getattr(_proxy, name)
+
+            self.proxy = ClientProxyWrapper()
+            if run_in_background:  # pragma: no cover
+                self._proxy = _proxy
+                self.process = process
+                wait_for_port(free_port)
 
         def __del__(self):
-            self.proxy._pyroClaimOwnership()
-            self.proxy._pyroRelease()
-            if process.is_alive():
-                process.terminate()
+            if run_in_background:  # pragma: no cover
+                self._proxy._pyroClaimOwnership()
+                self._proxy._pyroRelease()
+                if process.is_alive():
+                    process.terminate()
 
     return BackgroundResource()
 

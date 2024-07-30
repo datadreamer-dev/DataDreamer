@@ -98,6 +98,12 @@ class TestEmbeddingRetriever:
                     ],
                 },
             ]
+            if sys.platform != "darwin":
+                logs = [rec.message for rec in caplog.records]
+                caplog.clear()
+                assert "Building index." in logs
+                assert "Writing index to disk." in logs
+                assert "Finished writing index to disk." in logs
             retriever_index_path = os.path.join(
                 DataDreamer.get_output_folder_path(),
                 ".cache",
@@ -136,6 +142,10 @@ class TestEmbeddingRetriever:
                     ],
                 },
             ]
+            if sys.platform != "darwin":
+                logs = [rec.message for rec in caplog.records]
+                caplog.clear()
+                assert len(logs) == 0
 
             # Test unload model
             assert "index" in retriever.__dict__
@@ -182,6 +192,12 @@ class TestEmbeddingRetriever:
                     ],
                 },
             ]
+            if sys.platform != "darwin":
+                logs = [rec.message for rec in caplog.records]
+                caplog.clear()
+                assert "Building index." in logs
+                assert "Writing index to disk." not in logs
+                assert "Finished writing index to disk." not in logs
 
             # Test index is cached
             retriever = EmbeddingRetriever(
@@ -209,6 +225,12 @@ class TestEmbeddingRetriever:
                     ],
                 },
             ]
+            if sys.platform != "darwin":
+                logs = [rec.message for rec in caplog.records]
+                caplog.clear()
+                assert "Building index." in logs
+                assert "Writing index to disk." not in logs
+                assert "Finished writing index to disk." not in logs
 
     def test_run(self, create_datadreamer):
         with create_datadreamer():

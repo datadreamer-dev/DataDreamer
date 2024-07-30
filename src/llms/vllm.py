@@ -4,14 +4,17 @@ import os
 from functools import cached_property, partial
 from typing import Any, Callable, Generator, Iterable
 
-import dill
 import torch
 from datasets.fingerprint import Hasher
 
 from .. import DataDreamer
 from ..logging import logger as datadreamer_logger
 from ..utils.arg_utils import AUTO, Default
-from ..utils.background_utils import RunIfTimeout, proxy_resource_in_background
+from ..utils.background_utils import (
+    RunIfTimeout,
+    dill_serializer,
+    proxy_resource_in_background,
+)
 from ..utils.device_utils import get_device_env_variables, is_cpu_device
 from ..utils.fs_utils import safe_fn
 from ..utils.hf_model_utils import get_tokenizer
@@ -124,9 +127,8 @@ class VLLM(HFTransformers):  # pragma: no cover
                     )
                 )
 
-            def get_generated_texts_batch(self_resource, args, kwargs):
-                args = dill.loads(args)
-                kwargs = dill.loads(kwargs)
+            @dill_serializer
+            def get_generated_texts_batch(self_resource, *args, **kwargs):
                 outputs = self_resource.model.generate(*args, **kwargs)
                 generated_texts_batch = [
                     [o.text for o in batch.outputs] for batch in outputs
@@ -202,8 +204,7 @@ class VLLM(HFTransformers):  # pragma: no cover
             **kwargs,
         )
         generated_texts_batch = self.model.proxy.get_generated_texts_batch(
-            args=dill.dumps((prompts, sampling_params)),
-            kwargs=dill.dumps({"use_tqdm": False}),
+            prompts, sampling_params, use_tqdm=False
         )
 
         # Post-process and return

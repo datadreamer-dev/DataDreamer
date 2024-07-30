@@ -1,10 +1,10 @@
 import gc
 import os
+import sys
 from functools import cached_property
 from itertools import chain, islice
 from typing import Any, Callable, Generator, Iterable, cast
 
-import dill
 import numpy as np
 import torch
 from datasets.fingerprint import Hasher
@@ -12,7 +12,7 @@ from sqlitedict import SqliteDict
 
 from ..datasets import OutputDatasetColumn, OutputIterableDatasetColumn
 from ..embedders.embedder import Embedder
-from ..utils.background_utils import proxy_resource_in_background
+from ..utils.background_utils import dill_serializer, proxy_resource_in_background
 from ..utils.device_utils import device_to_device_id
 from ..utils.fs_utils import safe_fn
 from ..utils.import_utils import ignore_faiss_warnings
@@ -81,8 +81,9 @@ class EmbeddingRetriever(Retriever):
         class FAISSIndexResource:
             """
             FAISS has some issue that makes it deadlock PyTorch when running in the
-            the same process on PyTorch version 2.2.0 or greater. So we run FAISS in its
-            own process. This is due to FAISS using OpenBLAS which has some issues:
+            the same process on PyTorch version 2.2.0 or greater on macOS. So we run
+            FAISS in its own process. This is due to FAISS using OpenBLAS which has some
+            issues, for example:
             https://github.com/facebookresearch/faiss/issues/828
 
             Maybe in the future this will be fixed, but for now FAISS needs to be
@@ -185,13 +186,9 @@ class EmbeddingRetriever(Retriever):
                         self_resource.index = index
                         self_resource.index_lookup = index_lookup
 
-            def wait_for_load(self_resource) -> bool:
-                return True
-
-            def search(self_resource, args, kwargs) -> None:
-                args = dill.loads(args)
-                kwargs = dill.loads(kwargs)
-                return dill.dumps(self_resource.index.search(*args, **kwargs))
+            @dill_serializer
+            def search(self_resource, *args, **kwargs) -> None:
+                return self_resource.index.search(*args, **kwargs)
 
             def decode(self_resource, *args, **kwargs):
                 return self_resource.index_lookup.decode(*args, **kwargs)
@@ -200,8 +197,9 @@ class EmbeddingRetriever(Retriever):
                 return self_resource.index_lookup.conn.select(*args, **kwargs)
 
         env = os.environ.copy()
-        faiss_resource = proxy_resource_in_background(FAISSIndexResource, env=env)
-        faiss_resource.proxy.wait_for_load()
+        faiss_resource = proxy_resource_in_background(
+            FAISSIndexResource, env=env, run_in_background=(sys.platform == "darwin")
+        )
         return (faiss_resource, faiss_resource)
 
     def _batch_lookup(self, indices: list[int]) -> dict[int, dict[str, Any]]:
@@ -250,11 +248,7 @@ class EmbeddingRetriever(Retriever):
             )
         )
         index, _ = self.index
-        scores, results = dill.loads(
-            index.proxy.search(
-                args=dill.dumps((queries_embedded,)), kwargs=dill.dumps({"k": k})
-            )
-        )
+        scores, results = index.proxy.search(queries_embedded, k=k)
         texts_lookup = self._batch_lookup(indices=list(chain.from_iterable(results)))
         return [
             {
