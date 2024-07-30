@@ -62,15 +62,25 @@ def ignore_training_warnings():
             module="accelerate.accelerator",
         )
         warnings.filterwarnings(
+            "ignore", category=UserWarning, message=".*use_reentrant.*"
+        )
+        warnings.filterwarnings(
+            "ignore", category=FutureWarning, message=".*torch.cpu.amp.autocast.*"
+        )
+        warnings.filterwarnings(
             "ignore",
-            category=UserWarning,
-            message=".*use_reentrant.*",
-            module="torch.utils.checkpoint",
+            category=FutureWarning,
+            message=".*FSDP.state_dict_type.*deprecated.*",
         )
         warnings.filterwarnings(
             "ignore",
             category=UserWarning,
             message="Merge.*may get different generations due to rounding error.*",
+        )
+        warnings.filterwarnings(
+            "ignore",
+            category=FutureWarning,
+            message="You are using `torch.load` with `weights_only=False`.*",
         )
         yield None
 
@@ -107,6 +117,17 @@ def ignore_trl_warnings():
                 module="trl.trainer.ppo_config",
             )
             yield None
+
+
+@contextlib.contextmanager
+def ignore_setfit_warnings():
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            category=FutureWarning,
+            message="You are using `torch.load` with `weights_only=False`.*",
+        )
+        yield None
 
 
 @contextlib.contextmanager

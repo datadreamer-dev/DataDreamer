@@ -25,7 +25,7 @@ from ..utils.hf_training_utils import (
     prepare_inputs_and_outputs,
     start_hf_trainer,
 )
-from ..utils.import_utils import ignore_transformers_warnings
+from ..utils.import_utils import ignore_setfit_warnings, ignore_transformers_warnings
 from ._train_hf_base import _TrainHFBase
 from ._vendored._setfit_helper import get_peft_model_cls  # type:ignore[attr-defined]
 from .train_hf_classifier import TrainHFClassifier
@@ -532,17 +532,18 @@ class TrainSetFitClassifier(TrainHFClassifier):
                         "adapter_config.json.hidden",
                     ),
                 )  # Hide
-            model = self.auto_cls.from_pretrained(
-                os.path.join(self._output_folder_path, "_model"),
-                device=self.device,
-                multi_target_strategy=default_to(
-                    self.multi_target_strategy,
-                    "one-vs-rest" if is_multi_target else None,
-                ),
-                use_differentiable_head=True,
-                labels=list(label2id.keys()),
-                **self.kwargs,
-            )
+            with ignore_setfit_warnings():
+                model = self.auto_cls.from_pretrained(
+                    os.path.join(self._output_folder_path, "_model"),
+                    device=self.device,
+                    multi_target_strategy=default_to(
+                        self.multi_target_strategy,
+                        "one-vs-rest" if is_multi_target else None,
+                    ),
+                    use_differentiable_head=True,
+                    labels=list(label2id.keys()),
+                    **self.kwargs,
+                )
             if os.path.exists(
                 os.path.join(
                     os.path.join(self._output_folder_path, "_model"),
@@ -567,17 +568,18 @@ class TrainSetFitClassifier(TrainHFClassifier):
             )
             model.model_body = model.model_body.merge_and_unload()
         else:
-            model = self.auto_cls.from_pretrained(
-                os.path.join(self._output_folder_path, "_model"),
-                device=self.device,
-                multi_target_strategy=default_to(
-                    self.multi_target_strategy,
-                    "one-vs-rest" if is_multi_target else None,
-                ),
-                use_differentiable_head=True,
-                labels=list(label2id.keys()),
-                **self.kwargs,
-            )
+            with ignore_setfit_warnings():
+                model = self.auto_cls.from_pretrained(
+                    os.path.join(self._output_folder_path, "_model"),
+                    device=self.device,
+                    multi_target_strategy=default_to(
+                        self.multi_target_strategy,
+                        "one-vs-rest" if is_multi_target else None,
+                    ),
+                    use_differentiable_head=True,
+                    labels=list(label2id.keys()),
+                    **self.kwargs,
+                )
 
         # Set model dtype
         model.model_body = model.model_body.to(self.dtype)

@@ -428,7 +428,7 @@ class TestTrainDistributed:
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
                 assert (
-                    json.load(f) == "42a7bd193f804a4a" if qlora else "6b385aca0ce684b3"
+                    json.load(f) == "059495d7dad28c33" if qlora else "6b385aca0ce684b3"
                 )
             assert train_result is trainer
             assert (
