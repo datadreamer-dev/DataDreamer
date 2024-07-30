@@ -2560,11 +2560,12 @@ class TestBedrock:
             assert llm.license is not None
 
     @pytest.mark.order("last")
-    def test_run(self, create_datadreamer):
+    def test_run(self, create_datadreamer, mocker):
         with create_datadreamer():
             llm = Bedrock(
                 "anthropic.claude-v2",
-                api_key="fake-key",
+                aws_access_key_id="fake-key",
+                aws_secret_access_key="fake-key",
                 aws_region_name="us-east-1",
                 retry_on_fail=False,
             )
