@@ -17,6 +17,7 @@ import Pyro5
 import Pyro5.api
 import Pyro5.server
 import torch
+from Pyro5.errors import CommunicationError
 
 from .. import logging as datadreamer_logging
 
@@ -300,11 +301,16 @@ def find_free_port():  # pragma: no cover
         return s.getsockname()[1]
 
 
-def wait_for_port(port: int):  # pragma: no cover
+def wait_for_port(port: int, _proxy=None):  # pragma: no cover
     while True:
         try:
             with socket.create_connection(("localhost", port), timeout=5):
-                break
+                try:
+                    if _proxy is not None:
+                        _proxy._Proxy__pyroCreateConnection()
+                    break
+                except CommunicationError:
+                    pass
         except OSError:
             pass
 
@@ -383,7 +389,7 @@ def proxy_resource_in_background(resource: Type, env=None, run_in_background=Tru
             if run_in_background:  # pragma: no cover
                 self._proxy = _proxy
                 self.process = process
-                wait_for_port(free_port)
+                wait_for_port(free_port, _proxy=_proxy)
 
         def __del__(self):
             if run_in_background:  # pragma: no cover
