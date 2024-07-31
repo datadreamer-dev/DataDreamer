@@ -3,8 +3,9 @@ import re
 from io import BytesIO
 from itertools import chain
 from typing import TYPE_CHECKING, Any, Callable
+from unittest import mock
 
-from .import_utils import ignore_pydantic_warnings
+from .import_utils import ignore_hf_token_warnings, ignore_pydantic_warnings
 
 with ignore_pydantic_warnings():
     from huggingface_hub import HfApi, hf_hub_download, login
@@ -179,22 +180,27 @@ def get_citation_info(
 
 def hf_hub_login(token: None | str = None) -> HfApi:  # pragma: no cover
     # Login
-    api = HfApi()
-    if token is not None:
-        try:
-            login(token=token, add_to_git_credential=False, write_permission=True)
-        except ValueError:
-            pass
-    while True:
-        try:
-            api.whoami()
-            break
-        except LocalTokenNotFoundError:
+    with ignore_hf_token_warnings(), mock.patch(
+        "huggingface_hub._login.is_notebook", new=lambda: False
+    ):
+        api = HfApi()
+        if token is not None:
             try:
                 login(token=token, add_to_git_credential=False, write_permission=True)
             except ValueError:
                 pass
-    return api
+        while True:
+            try:
+                api.whoami()
+                break
+            except LocalTokenNotFoundError:
+                try:
+                    login(
+                        token=token, add_to_git_credential=False, write_permission=True
+                    )
+                except ValueError:
+                    pass
+        return api
 
 
 def prepare_to_publish(

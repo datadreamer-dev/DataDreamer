@@ -134,6 +134,13 @@ def ignore_setfit_warnings():
 
 
 @contextlib.contextmanager
+def ignore_hf_token_warnings():  # pragma: no cover
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=UserWarning)
+        yield None
+
+
+@contextlib.contextmanager
 def ignore_faiss_warnings():
     with warnings.catch_warnings():
         warnings.filterwarnings(
