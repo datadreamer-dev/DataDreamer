@@ -18,7 +18,11 @@ from ..utils.background_utils import (
 from ..utils.device_utils import get_device_env_variables, is_cpu_device
 from ..utils.fs_utils import safe_fn
 from ..utils.hf_model_utils import get_tokenizer
-from ..utils.import_utils import ignore_transformers_warnings, import_module
+from ..utils.import_utils import (
+    ignore_tqdm,
+    ignore_transformers_warnings,
+    import_module,
+)
 from .hf_transformers import CachedTokenizer, HFTransformers
 from .llm import (
     DEFAULT_BATCH_SIZE,
@@ -95,6 +99,10 @@ class VLLM(HFTransformers):  # pragma: no cover
 
                     vllm_logging.init_logger = _monkey_patch_init_logger  # type:ignore[attr-defined]
                     logging.getLogger("vllm.engine.llm_engine").level = logging.ERROR
+                    logging.getLogger("vllm.config").level = logging.ERROR
+                    logging.getLogger(
+                        "vllm.distributed.parallel_state"
+                    ).level = logging.ERROR
 
                 # Load model
                 log_if_timeout = RunIfTimeout(
@@ -107,18 +115,19 @@ class VLLM(HFTransformers):  # pragma: no cover
                     timeout=10.0,
                 )
                 LLM = import_module("vllm").LLM
-                self_resource.model = LLM(
-                    model=self.model_name,
-                    trust_remote_code=self.trust_remote_code,
-                    dtype=str(self.dtype).replace("torch.", "")
-                    if self.dtype is not None
-                    else "auto",
-                    quantization=self.quantization,
-                    revision=self.revision,
-                    swap_space=self.swap_space,
-                    tensor_parallel_size=tensor_parallel_size,
-                    **kwargs,
-                )
+                with ignore_tqdm():
+                    self_resource.model = LLM(
+                        model=self.model_name,
+                        trust_remote_code=self.trust_remote_code,
+                        dtype=str(self.dtype).replace("torch.", "")
+                        if self.dtype is not None
+                        else "auto",
+                        quantization=self.quantization,
+                        revision=self.revision,
+                        swap_space=self.swap_space,
+                        tensor_parallel_size=tensor_parallel_size,
+                        **kwargs,
+                    )
 
                 # Finished loading
                 log_if_timeout.stop(

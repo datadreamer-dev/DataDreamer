@@ -2,6 +2,9 @@ import contextlib
 import importlib
 import warnings
 from types import ModuleType
+from unittest import mock
+
+from tqdm.auto import tqdm
 
 # These Pydantic warnings happen way too much and needs to be done
 # as a module-level ignore
@@ -162,6 +165,18 @@ def ignore_hivemind_warnings():  # pragma: no cover
             message="The given NumPy array is not writable.*",
             module="hivemind.compression.base",
         )
+        yield None
+
+
+@contextlib.contextmanager
+def ignore_tqdm():  # pragma: no cover
+    original_tqdm_init = tqdm.__init__
+
+    def mock_tqdm_init(self, *args, **kwargs):
+        kwargs["disable"] = True
+        original_tqdm_init(self, *args, **kwargs)
+
+    with mock.patch("tqdm.auto.tqdm.__init__", new=mock_tqdm_init):
         yield None
 
 
