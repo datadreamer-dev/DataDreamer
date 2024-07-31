@@ -1,4 +1,5 @@
 import os
+import sys
 from types import GeneratorType
 
 import pytest
@@ -55,6 +56,10 @@ class TestEmbeddingRetriever:
             assert isinstance(retriever.citation, list)
             assert len(retriever.citation) == 1
 
+    @pytest.mark.skipif(
+        sys.platform == "darwin",
+        reason="instable on macOS/M2 (OpenMP issues between FAISS and PyTorch)",
+    )
     def test_index(self, create_datadreamer, caplog):
         with create_datadreamer():
             # Simple test
@@ -93,11 +98,12 @@ class TestEmbeddingRetriever:
                     ],
                 },
             ]
-            logs = [rec.message for rec in caplog.records]
-            caplog.clear()
-            assert "Building index." in logs
-            assert "Writing index to disk." in logs
-            assert "Finished writing index to disk." in logs
+            if sys.platform != "darwin":
+                logs = [rec.message for rec in caplog.records]
+                caplog.clear()
+                assert "Building index." in logs
+                assert "Writing index to disk." in logs
+                assert "Finished writing index to disk." in logs
             retriever_index_path = os.path.join(
                 DataDreamer.get_output_folder_path(),
                 ".cache",
@@ -136,9 +142,10 @@ class TestEmbeddingRetriever:
                     ],
                 },
             ]
-            logs = [rec.message for rec in caplog.records]
-            caplog.clear()
-            assert len(logs) == 0
+            if sys.platform != "darwin":
+                logs = [rec.message for rec in caplog.records]
+                caplog.clear()
+                assert len(logs) == 0
 
             # Test unload model
             assert "index" in retriever.__dict__
@@ -185,11 +192,12 @@ class TestEmbeddingRetriever:
                     ],
                 },
             ]
-            logs = [rec.message for rec in caplog.records]
-            caplog.clear()
-            assert "Building index." in logs
-            assert "Writing index to disk." not in logs
-            assert "Finished writing index to disk." not in logs
+            if sys.platform != "darwin":
+                logs = [rec.message for rec in caplog.records]
+                caplog.clear()
+                assert "Building index." in logs
+                assert "Writing index to disk." not in logs
+                assert "Finished writing index to disk." not in logs
 
             # Test index is cached
             retriever = EmbeddingRetriever(
@@ -217,11 +225,12 @@ class TestEmbeddingRetriever:
                     ],
                 },
             ]
-            logs = [rec.message for rec in caplog.records]
-            caplog.clear()
-            assert "Building index." in logs
-            assert "Writing index to disk." not in logs
-            assert "Finished writing index to disk." not in logs
+            if sys.platform != "darwin":
+                logs = [rec.message for rec in caplog.records]
+                caplog.clear()
+                assert "Building index." in logs
+                assert "Writing index to disk." not in logs
+                assert "Finished writing index to disk." not in logs
 
     def test_run(self, create_datadreamer):
         with create_datadreamer():

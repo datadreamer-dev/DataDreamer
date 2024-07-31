@@ -1044,7 +1044,10 @@ class TestLLM:
             ) == (CHAT_PROMPT_TEMPLATES["llama_system"], COULD_NOT_DETECT)
             assert _chat_prompt_template_and_system_prompt_from_tokenizer(
                 "mistralai/Mistral-7B-Instruct-v0.1"
-            ) == (CHAT_PROMPT_TEMPLATES["llama"].rstrip(), None)
+            ) == (
+                " " + CHAT_PROMPT_TEMPLATES["llama"].rstrip() + " ",
+                None,
+            )  # There seems to be an HF bug that adds spaces around the template
             assert _chat_prompt_template_and_system_prompt_from_tokenizer(
                 "deepseek-ai/deepseek-coder-1.3b-instruct"
             ) == (
@@ -1067,8 +1070,11 @@ class TestLLM:
                 "You are a helpful assistant.",
             )
             assert _chat_prompt_template_and_system_prompt_from_tokenizer(
-                "CohereForAI/c4ai-command-r-v01"
-            ) == (CHAT_PROMPT_TEMPLATES["command_r"], None)
+                "google/gemma-2-9b-it"
+            ) == (
+                "<start_of_turn>user\n{{prompt}}<end_of_turn>\n<start_of_turn>model\n",
+                None,
+            )
 
 
 class TestOpenAI:
@@ -1434,6 +1440,11 @@ class TestHFTransformers:
                     logit_bias=None,
                     batch_size=1,
                 )
+
+            try:
+                mocker.stopall()
+            except AttributeError:
+                pass
 
     @pytest.mark.skipif(
         sys.platform == "darwin", reason="instable on macOS/M2 (floating point diffs)"
@@ -2177,7 +2188,7 @@ class TestVLLM:
     @classmethod
     def setup_class(cls):
         cls.pydantic_version = importlib.metadata.version("pydantic")
-        os.system("pip3 install vllm==0.2.7")
+        os.system("pip3 install vllm==0.5.3.post1")
         _reload_pydantic()
 
     @classmethod
@@ -2521,7 +2532,12 @@ class TestAnthropic:
             assert model_calls[0]["additional_args"]["complete_input_dict"] == {
                 "model": "claude-3-opus-20240229",
                 "messages": [
-                    {"content": "Who was the first president?", "role": "user"}
+                    {
+                        "content": [
+                            {"text": "Who was the first president?", "type": "text"}
+                        ],
+                        "role": "user",
+                    }
                 ],
                 "stop_sequences": ["\n"],
                 "temperature": 1.0,
@@ -2533,7 +2549,7 @@ class TestAnthropic:
 class TestBedrock:
     @classmethod
     def setup_class(cls):
-        os.system("pip3 install boto3==1.34.7")
+        os.system("pip3 install boto3==1.34.149")
 
     @pytest.mark.order("last")
     def test_init(self, create_datadreamer):
@@ -2544,11 +2560,12 @@ class TestBedrock:
             assert llm.license is not None
 
     @pytest.mark.order("last")
-    def test_run(self, create_datadreamer):
+    def test_run(self, create_datadreamer, mocker):
         with create_datadreamer():
             llm = Bedrock(
                 "anthropic.claude-v2",
-                api_key="fake-key",
+                aws_access_key_id="fake-key",
+                aws_secret_access_key="fake-key",
                 aws_region_name="us-east-1",
                 retry_on_fail=False,
             )
@@ -2560,13 +2577,19 @@ class TestBedrock:
 
             with ignore_litellm_warnings():
                 from litellm.exceptions import (
+                    APIConnectionError,
                     AuthenticationError,
                     PermissionDeniedError,
                     ServiceUnavailableError,
                 )
 
             with pytest.raises(
-                (AuthenticationError, PermissionDeniedError, ServiceUnavailableError)
+                (
+                    AuthenticationError,
+                    PermissionDeniedError,
+                    ServiceUnavailableError,
+                    APIConnectionError,
+                )
             ):
                 llm.run(
                     ["Who was the first president?"],
@@ -2580,14 +2603,32 @@ class TestBedrock:
                 )
 
             assert len(model_calls) == 2
-            assert json.loads(
-                model_calls[0]["additional_args"]["complete_input_dict"]
-            ) == {
-                "prompt": "\n\nHuman: Who was the first president?\n\nAssistant: ",
-                "max_tokens_to_sample": 250,
-                "temperature": 1.0,
-                "top_p": 0.001,
-                "stop_sequences": ["\n"],
+            assert {
+                k: v
+                for k, v in json.loads(
+                    model_calls[0]["additional_args"]["complete_input_dict"]
+                ).items()
+                if k
+                in [
+                    "messages",
+                    "system",
+                    "inferenceConfig",
+                    "additionalModelRequestFields",
+                ]
+            } == {
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [{"text": "Who was the first president?"}],
+                    }
+                ],
+                "system": [],
+                "inferenceConfig": {
+                    "maxTokens": 250,
+                    "temperature": 1.0,
+                    "topP": 0.001,
+                },
+                "additionalModelRequestFields": {"stop_sequences": ["\n"]},
             }
 
 
@@ -2674,9 +2715,16 @@ class TestVertexAI:
                 model_calls.append(model_call_dict)
 
             with ignore_litellm_warnings():
-                from litellm.exceptions import APIError, BadRequestError, RateLimitError
+                from litellm.exceptions import (
+                    APIError,
+                    BadRequestError,
+                    InternalServerError,
+                    RateLimitError,
+                )
 
-            with pytest.raises((BadRequestError, APIError, RateLimitError)):
+            with pytest.raises(
+                (BadRequestError, APIError, RateLimitError, InternalServerError)
+            ):
                 llm.run(
                     ["Who was the first president?"],
                     max_new_tokens=250,

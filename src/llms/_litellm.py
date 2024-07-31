@@ -58,6 +58,7 @@ class LiteLLM(LLMAPI):
             from litellm.exceptions import (
                 APIConnectionError,
                 APIError,
+                InternalServerError,
                 RateLimitError,
                 ServiceUnavailableError,
             )
@@ -82,6 +83,14 @@ class LiteLLM(LLMAPI):
             reraise=True,
         )
         @retry(
+            retry=retry_if_exception_type(InternalServerError),
+            wait=wait_exponential(multiplier=1, min=3, max=300),
+            before_sleep=before_sleep_log(tenacity_logger, logging.INFO),
+            after=after_log(tenacity_logger, logging.INFO),
+            stop=stop_any(lambda _: not self.retry_on_fail),  # type: ignore[arg-type]
+            reraise=True,
+        )
+        @retry(
             retry=retry_if_exception_type(APIError),
             wait=wait_exponential(multiplier=1, min=3, max=300),
             before_sleep=before_sleep_log(tenacity_logger, logging.INFO),
@@ -98,7 +107,8 @@ class LiteLLM(LLMAPI):
             reraise=True,
         )
         def _retry_wrapper(func, **kwargs):
-            return func(**kwargs)
+            with ignore_litellm_warnings():
+                return func(**kwargs)
 
         _retry_wrapper.__wrapped__.__module__ = None  # type: ignore[attr-defined]
         _retry_wrapper.__wrapped__.__qualname__ = f"{self.__class__.__name__}.run"  # type: ignore[attr-defined]
@@ -126,7 +136,11 @@ class LiteLLM(LLMAPI):
         with ignore_litellm_warnings():
             from litellm import get_max_tokens
 
-        return get_max_tokens(model=self._model_name_prefix + self.model_name)
+        max_tokens = get_max_tokens(model=self._model_name_prefix + self.model_name)
+        assert (
+            max_tokens is not None
+        ), f"Failed to get the maximum context length for model: {self.model_name}."
+        return max_tokens
 
     @ring.lru(maxsize=5000)
     def count_tokens(self, value: str) -> int:

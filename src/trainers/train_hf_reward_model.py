@@ -314,7 +314,7 @@ class TrainHFRewardModel(TrainHFClassifier):
             eval_accumulation_steps=kwargs.pop("eval_accumulation_steps", 1),
             logging_strategy=kwargs.pop("logging_strategy", None) or "steps",
             logging_steps=kwargs.pop("logging_steps", 1),
-            evaluation_strategy=kwargs.pop("evaluation_strategy", None) or "epoch",
+            eval_strategy=kwargs.pop("eval_strategy", None) or "epoch",
             save_strategy=kwargs.pop("save_strategy", None) or "epoch",
             save_total_limit=kwargs.pop("save_total_limit", 1),
             save_safetensors=True,
@@ -329,7 +329,9 @@ class TrainHFRewardModel(TrainHFClassifier):
 
         # Setup trainer
         trainer = wrap_trainer_cls(
-            trainer_cls=trainer_cls or RewardTrainer, **trainer_override_kwargs
+            trainer_cls=trainer_cls or RewardTrainer,
+            **trainer_override_kwargs,
+            trainer=self,
         )(
             train_dataset=train_dataset,
             eval_dataset=validation_dataset,
@@ -512,7 +514,7 @@ class TrainHFRewardModel(TrainHFClassifier):
             eval_accumulation_steps=kwargs.pop("eval_accumulation_steps", 1),
             logging_strategy=kwargs.pop("logging_strategy", None) or "steps",
             logging_steps=kwargs.pop("logging_steps", 1),
-            evaluation_strategy=kwargs.pop("evaluation_strategy", None) or "epoch",
+            eval_strategy=kwargs.pop("eval_strategy", None) or "epoch",
             save_strategy=kwargs.pop("save_strategy", None) or "epoch",
             save_total_limit=kwargs.pop("save_total_limit", 1),
             save_safetensors=True,
@@ -527,7 +529,7 @@ class TrainHFRewardModel(TrainHFClassifier):
 
         # Setup trainer
         trainer = wrap_trainer_cls(
-            trainer_cls=trainer_cls or Trainer, **trainer_override_kwargs
+            trainer_cls=trainer_cls or Trainer, **trainer_override_kwargs, trainer=self
         )(
             train_dataset=train_dataset,
             eval_dataset=validation_dataset,

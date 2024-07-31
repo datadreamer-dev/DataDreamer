@@ -2,6 +2,9 @@ import contextlib
 import importlib
 import warnings
 from types import ModuleType
+from unittest import mock
+
+from tqdm.auto import tqdm
 
 # These Pydantic warnings happen way too much and needs to be done
 # as a module-level ignore
@@ -18,6 +21,11 @@ def ignore_transformers_warnings():
         category=UserWarning,
         message=".*byte fallback option.*",
         module="transformers.convert_slow_tokenizer",
+    )
+    warnings.filterwarnings(
+        "ignore",
+        category=FutureWarning,
+        message="You are using `torch.load` with `weights_only=False`.*",
     )
 
     # Filter these within the context manager
@@ -57,15 +65,25 @@ def ignore_training_warnings():
             module="accelerate.accelerator",
         )
         warnings.filterwarnings(
+            "ignore", category=UserWarning, message=".*use_reentrant.*"
+        )
+        warnings.filterwarnings(
+            "ignore", category=FutureWarning, message=".*torch.cpu.amp.autocast.*"
+        )
+        warnings.filterwarnings(
             "ignore",
-            category=UserWarning,
-            message=".*use_reentrant.*",
-            module="torch.utils.checkpoint",
+            category=FutureWarning,
+            message=".*FSDP.state_dict_type.*deprecated.*",
         )
         warnings.filterwarnings(
             "ignore",
             category=UserWarning,
             message="Merge.*may get different generations due to rounding error.*",
+        )
+        warnings.filterwarnings(
+            "ignore",
+            category=FutureWarning,
+            message="You are using `torch.load` with `weights_only=False`.*",
         )
         yield None
 
@@ -85,6 +103,9 @@ def ignore_litellm_warnings():
         warnings.filterwarnings("ignore", message="Deprecated call to.*pkg_resources.*")
         warnings.filterwarnings("ignore", message="pkg_resources.*")
         warnings.filterwarnings("ignore", message="open_text is deprecated.*")
+        warnings.filterwarnings(
+            "ignore", message="Use 'content=<...>' to upload raw bytes/text content."
+        )
         yield None
 
 
@@ -99,6 +120,17 @@ def ignore_trl_warnings():
                 module="trl.trainer.ppo_config",
             )
             yield None
+
+
+@contextlib.contextmanager
+def ignore_setfit_warnings():
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            category=FutureWarning,
+            message="You are using `torch.load` with `weights_only=False`.*",
+        )
+        yield None
 
 
 @contextlib.contextmanager
@@ -133,6 +165,18 @@ def ignore_hivemind_warnings():  # pragma: no cover
             message="The given NumPy array is not writable.*",
             module="hivemind.compression.base",
         )
+        yield None
+
+
+@contextlib.contextmanager
+def ignore_tqdm():  # pragma: no cover
+    original_tqdm_init = tqdm.__init__
+
+    def mock_tqdm_init(self, *args, **kwargs):
+        kwargs["disable"] = True
+        original_tqdm_init(self, *args, **kwargs)
+
+    with mock.patch("tqdm.auto.tqdm.__init__", new=mock_tqdm_init):
         yield None
 
 

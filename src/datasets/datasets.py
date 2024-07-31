@@ -7,6 +7,7 @@ from datasets.features.features import Features, Value
 from datasets.fingerprint import Hasher
 from pandas import DataFrame
 
+from .._patches.datasets_reset_state_hack import apply_datasets_reset_state_hack
 from ..datasets.utils import get_column_names
 from ..pickling import unpickle_transform
 
@@ -42,11 +43,14 @@ class OutputDatasetMixin:
             return Features()
 
     def __iter__(self):
-        if self._pickled or self._pickled_inferred:  # type:ignore[attr-defined]
-            for row in iter(self.dataset):  # type:ignore[attr-defined]
-                yield unpickle_transform(row, features=self._features, batched=False)
-        else:
-            yield from iter(self.dataset)  # type:ignore[attr-defined]
+        with apply_datasets_reset_state_hack():
+            if self._pickled or self._pickled_inferred:  # type:ignore[attr-defined]
+                for row in iter(self.dataset):  # type:ignore[attr-defined]
+                    yield unpickle_transform(
+                        row, features=self._features, batched=False
+                    )
+            else:
+                yield from iter(self.dataset)  # type:ignore[attr-defined]
 
     def __getitem__(self, key: int | slice | str | Iterable[int]) -> Any:
         """Get a row or column from the dataset.
@@ -316,7 +320,8 @@ class _SizedIterableDataset(torch.utils.data.IterableDataset):
         )
 
     def __iter__(self):
-        return iter(self.dataset)
+        with apply_datasets_reset_state_hack():
+            return iter(self.dataset)
 
     def __len__(self) -> int:
         return self.total_num_rows

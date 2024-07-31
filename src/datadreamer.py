@@ -15,6 +15,10 @@ from filelock import FileLock
 from sqlitedict import SqliteDict
 
 from . import logging as datadreamer_logging
+from ._patches.datasets_reset_state_hack import (
+    start_datasets_reset_state_hack,
+    stop_datasets_reset_state_hack,
+)
 from .logging import DATEFMT, logger
 from .utils.background_utils import get_thread_id
 from .utils.fs_utils import safe_fn
@@ -22,6 +26,9 @@ from .utils.import_utils import ignore_pydantic_warnings, ignore_transformers_wa
 
 with ignore_transformers_warnings():
     from optimum.utils import logging as optimum_logging
+    from ._patches.setfit_import_hack import apply_setfit_import_hack  # isort:skip
+
+    apply_setfit_import_hack()
     from setfit import logging as setfit_logging
     from transformers import logging as transformers_logging
 
@@ -517,6 +524,9 @@ class DataDreamer:
         )
         self._patch_tqdm()
 
+        # Activate datasets reset state hack
+        start_datasets_reset_state_hack()
+
         # Set initialized to True
         DataDreamer.ctx.instance = self
         DataDreamer.ctx.initialized = True
@@ -546,6 +556,7 @@ class DataDreamer:
 
         self._unpatch_loggers()
         self._unpatch_tqdm()
+        stop_datasets_reset_state_hack()
         processes_to_terminate = DataDreamer.ctx.background_processes
         DataDreamer.ctx = UserDict()
         if self.output_folder_path:

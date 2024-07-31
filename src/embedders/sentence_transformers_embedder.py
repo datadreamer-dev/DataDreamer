@@ -97,7 +97,7 @@ class SentenceTransformersEmbedder(Embedder):
         model = cls(
             self.model_name,
             trust_remote_code=self.trust_remote_code,
-            device=self.device,
+            device=self.device,  # type:ignore[arg-type]
             **self.kwargs,
         )
         model[0].tokenizer = get_tokenizer(
@@ -160,7 +160,11 @@ class SentenceTransformersEmbedder(Embedder):
 
     @cached_property
     def dims(self) -> int:
-        return self.model.get_sentence_embedding_dimension()
+        dims = self.model.get_sentence_embedding_dimension()
+        assert (
+            dims is not None
+        ), f"Failed to get the embedding dimension for {self.model_name}."
+        return dims
 
     @torch.no_grad()
     def _run_batch(
@@ -181,8 +185,8 @@ class SentenceTransformersEmbedder(Embedder):
             model_input = [[cast(str, instruction), t] for t in texts]
 
         return list(
-            self.model.encode(
-                sentences=model_input,
+            self.model.encode(  # type:ignore[arg-type]
+                sentences=model_input,  # type:ignore[arg-type]
                 batch_size=len(texts),
                 show_progress_bar=False,
                 convert_to_numpy=True,

@@ -1,7 +1,7 @@
-import json
 import os
 import tempfile
 
+import jsonlines
 import pytest
 from datasets import Dataset, DatasetDict
 
@@ -93,7 +93,9 @@ class TestJSONDataSource:
     def test_from_json_file(self, create_datadreamer):
         with create_datadreamer():
             with tempfile.NamedTemporaryFile(mode="w+") as f:
-                json.dump([{"out1": i} for i in range(1, 11)], f)
+                with jsonlines.Writer(f) as writer:
+                    for i in range(1, 11):
+                        writer.write({"out1": i})
                 f.flush()
                 data_source = JSONDataSource("my-dataset", data_files=f.name)
             assert isinstance(data_source, Step)
@@ -104,7 +106,9 @@ class TestJSONDataSource:
     def test_from_json_file_splits_error(self, create_datadreamer):
         with create_datadreamer():
             with tempfile.NamedTemporaryFile(mode="w+") as f:
-                json.dump([{"out1": i} for i in range(1, 11)], f)
+                with jsonlines.Writer(f) as writer:
+                    for i in range(1, 11):
+                        writer.write({"out1": i})
                 f.flush()
                 with pytest.raises(ValueError):
                     JSONDataSource(

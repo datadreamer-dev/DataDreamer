@@ -238,7 +238,7 @@ class TrainSentenceTransformer(_TrainHFBase):
         model = SentenceTransformer(
             self.model_name,
             trust_remote_code=self.trust_remote_code,
-            device="cpu" if isinstance(model_device, list) else model_device,
+            device="cpu" if isinstance(model_device, list) else model_device,  # type:ignore[arg-type]
             **self.kwargs,
         )
         model[0].tokenizer = get_tokenizer(
@@ -561,7 +561,7 @@ class TrainSentenceTransformer(_TrainHFBase):
                 SentenceTransformerLossWrapper, PeftModel
             ):
                 @property
-                def module(self):
+                def module(self):  # pragma: no cover
                     return self.orig_model
 
                 def __getattr__(self, name):
@@ -606,7 +606,7 @@ class TrainSentenceTransformer(_TrainHFBase):
             eval_accumulation_steps=kwargs.pop("eval_accumulation_steps", 1),
             logging_strategy=kwargs.pop("logging_strategy", None) or "steps",
             logging_steps=kwargs.pop("logging_steps", 1),
-            evaluation_strategy=kwargs.pop("evaluation_strategy", None) or "epoch",
+            eval_strategy=kwargs.pop("eval_strategy", None) or "epoch",
             save_strategy=kwargs.pop("save_strategy", None) or "epoch",
             save_total_limit=kwargs.pop("save_total_limit", 1),
             # save_safetensors=True breaks if True when using "t5-base" for
@@ -824,7 +824,7 @@ class TrainSentenceTransformer(_TrainHFBase):
             model = SentenceTransformer(
                 self.model_name,
                 trust_remote_code=self.trust_remote_code,
-                device="cpu" if isinstance(self.device, list) else self.device,
+                device="cpu" if isinstance(self.device, list) else self.device,  # type:ignore[arg-type]
                 **self.kwargs,
             )
             model[0].tokenizer = get_tokenizer(
@@ -849,7 +849,7 @@ class TrainSentenceTransformer(_TrainHFBase):
             model = SentenceTransformer(
                 os.path.join(self._output_folder_path, "_model"),
                 trust_remote_code=self.trust_remote_code,
-                device="cpu" if isinstance(self.device, list) else self.device,
+                device="cpu" if isinstance(self.device, list) else self.device,  # type:ignore[arg-type]
                 **self.kwargs,
             )
         self.max_seq_length = model.max_seq_length

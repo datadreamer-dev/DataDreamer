@@ -221,7 +221,7 @@ class TrainHFDPO(TrainHFFineTune):
             eval_accumulation_steps=kwargs.pop("eval_accumulation_steps", 1),
             logging_strategy=kwargs.pop("logging_strategy", None) or "steps",
             logging_steps=kwargs.pop("logging_steps", 1),
-            evaluation_strategy=kwargs.pop("evaluation_strategy", None) or "epoch",
+            eval_strategy=kwargs.pop("eval_strategy", None) or "epoch",
             save_strategy=kwargs.pop("save_strategy", None) or "epoch",
             save_total_limit=kwargs.pop("save_total_limit", 1),
             save_safetensors=True,

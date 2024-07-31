@@ -147,7 +147,7 @@ class TrainHFFineTune(_TrainHFBase):
                 input=torch.tensor([[1.0]], dtype=compute_perplexity_dtype),
                 target=torch.tensor([0], dtype=torch.long),
             )
-        except RuntimeError:
+        except RuntimeError:  # pragma: no cover
             compute_perplexity_dtype = torch.float32
 
         def compute_perplexity_metrics(eval_pred):
@@ -238,7 +238,7 @@ class TrainHFFineTune(_TrainHFBase):
             eval_accumulation_steps=kwargs.pop("eval_accumulation_steps", 1),
             logging_strategy=kwargs.pop("logging_strategy", None) or "steps",
             logging_steps=kwargs.pop("logging_steps", 1),
-            evaluation_strategy=kwargs.pop("evaluation_strategy", None) or "epoch",
+            eval_strategy=kwargs.pop("eval_strategy", None) or "epoch",
             save_strategy=kwargs.pop("save_strategy", None) or "epoch",
             save_total_limit=kwargs.pop("save_total_limit", 1),
             save_safetensors=True,
