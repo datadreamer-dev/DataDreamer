@@ -65,6 +65,9 @@ class VLLM(HFTransformers):  # pragma: no cover
             cache_folder_path=cache_folder_path,
             **kwargs,
         )
+        self.device = (
+            [self.device] if not isinstance(self.device, list) else self.device  # type:ignore[list-item]
+        )
         self.quantization = quantization
         if self.quantization is None and "-awq" in model_name.lower():
             self.quantization = "awq"
