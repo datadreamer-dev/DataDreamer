@@ -190,7 +190,7 @@ class TestTogetherEmbedder:
     @classmethod
     def setup_class(cls):
         cls.pydantic_version = importlib.metadata.version("pydantic")
-        os.system("pip3 install together==0.2.10")
+        os.system("pip3 install together==1.2.5")
         _reload_pydantic()
 
     @classmethod

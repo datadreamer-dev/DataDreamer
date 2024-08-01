@@ -90,7 +90,7 @@ class Together(LLMAPI):
         tenacity_logger = self.get_logger(key="retry", verbose=True, log_level=None)
 
         @retry(
-            retry=retry_if_exception_type(together.RateLimitError),
+            retry=retry_if_exception_type(together.error.RateLimitError),
             wait=wait_exponential(multiplier=1, min=10, max=60),
             before_sleep=before_sleep_log(tenacity_logger, logging.INFO),
             after=after_log(tenacity_logger, logging.INFO),
@@ -98,7 +98,23 @@ class Together(LLMAPI):
             reraise=True,
         )
         @retry(
-            retry=retry_if_exception_type(together.ResponseError),
+            retry=retry_if_exception_type(together.error.ResponseError),
+            wait=wait_exponential(multiplier=1, min=3, max=300),
+            before_sleep=before_sleep_log(tenacity_logger, logging.INFO),
+            after=after_log(tenacity_logger, logging.INFO),
+            stop=stop_any(lambda _: not self.retry_on_fail),  # type: ignore[arg-type]
+            reraise=True,
+        )
+        @retry(
+            retry=retry_if_exception_type(together.error.APIConnectionError),
+            wait=wait_exponential(multiplier=1, min=3, max=300),
+            before_sleep=before_sleep_log(tenacity_logger, logging.INFO),
+            after=after_log(tenacity_logger, logging.INFO),
+            stop=stop_any(lambda _: not self.retry_on_fail),  # type: ignore[arg-type]
+            reraise=True,
+        )
+        @retry(
+            retry=retry_if_exception_type(together.error.ServiceUnavailableError),
             wait=wait_exponential(multiplier=1, min=3, max=300),
             before_sleep=before_sleep_log(tenacity_logger, logging.INFO),
             after=after_log(tenacity_logger, logging.INFO),
@@ -114,7 +130,7 @@ class Together(LLMAPI):
             reraise=True,
         )
         @retry(
-            retry=retry_if_exception_type(together.TogetherException),
+            retry=retry_if_exception_type(together.error.TogetherException),
             wait=wait_exponential(multiplier=1, min=3, max=300),
             before_sleep=before_sleep_log(tenacity_logger, logging.INFO),
             after=after_log(tenacity_logger, logging.INFO),

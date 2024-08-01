@@ -2756,7 +2756,7 @@ class TestTogether:
     @classmethod
     def setup_class(cls):
         cls.pydantic_version = importlib.metadata.version("pydantic")
-        os.system("pip3 install together==0.2.10")
+        os.system("pip3 install together==1.2.5")
         _reload_pydantic()
 
     @classmethod
@@ -2940,7 +2940,7 @@ class TestMistralAI:
     @classmethod
     def setup_class(cls):
         cls.pydantic_version = importlib.metadata.version("pydantic")
-        os.system("pip3 install mistralai==0.0.8")
+        os.system("pip3 install mistralai==0.4.2")
         _reload_pydantic()
 
     @classmethod
@@ -3014,10 +3014,10 @@ class TestMistralAI:
                     "total_tokens": 0,
                 },
             }
-            return ChatCompletionResponse(**response)
+            return ChatCompletionResponse(**response)  # type: ignore[arg-type]
 
         with create_datadreamer():
-            llm = MistralAI("mistral-tiny")
+            llm = MistralAI("mistral-tiny", api_key="fakeapikey")
 
             # Mock Complete.create()
             mocker.patch.object(llm.client, "chat", side_effect=chat_mocked)
