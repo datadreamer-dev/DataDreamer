@@ -1,6 +1,7 @@
 import gc
 import logging
 import os
+from contextlib import nullcontext
 from functools import cached_property, partial
 from typing import Any, Callable, Generator, Iterable
 
@@ -115,7 +116,7 @@ class VLLM(HFTransformers):  # pragma: no cover
                     timeout=10.0,
                 )
                 LLM = import_module("vllm").LLM
-                with ignore_tqdm():
+                with ignore_tqdm() if datadreamer_logger.level > logging.DEBUG else nullcontext():
                     self_resource.model = LLM(
                         model=self.model_name,
                         trust_remote_code=self.trust_remote_code,
@@ -216,7 +217,9 @@ class VLLM(HFTransformers):  # pragma: no cover
             **kwargs,
         )
         generated_texts_batch = self.model.proxy.get_generated_texts_batch(
-            prompts, sampling_params, use_tqdm=False
+            prompts,
+            sampling_params,
+            use_tqdm=(datadreamer_logger.level <= logging.DEBUG),
         )
 
         # Post-process and return
