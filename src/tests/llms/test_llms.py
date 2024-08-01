@@ -1102,17 +1102,20 @@ class TestOpenAI:
         assert llm.citation[0].endswith("year={2020}\n}")
         assert llm.citation[1].startswith("@article{ouyang2022training")
         assert llm.citation[1].endswith("year={2022}\n}")
-        llm = OpenAI("gpt-4")
-        assert llm.model_card == "https://cdn.openai.com/papers/gpt-4-system-card.pdf"
-        assert llm.license == "https://openai.com/policies"
-        assert isinstance(llm.citation, list)
-        assert len(llm.citation) == 2
-        assert llm.citation[0].startswith("@article{OpenAI2023GPT4TR,")
-        assert llm.citation[0].endswith(
-            "url={https://api.semanticscholar.org/CorpusID:257532815}\n}"
-        )
-        assert llm.citation[1].startswith("@article{ouyang2022training")
-        assert llm.citation[1].endswith("year={2022}\n}")
+        for gpt_4_model_name in ["gpt-4", "gpt-4o", "gpt-4o-mini"]:
+            llm = OpenAI(gpt_4_model_name)
+            assert (
+                llm.model_card == "https://cdn.openai.com/papers/gpt-4-system-card.pdf"
+            )
+            assert llm.license == "https://openai.com/policies"
+            assert isinstance(llm.citation, list)
+            assert len(llm.citation) == 2
+            assert llm.citation[0].startswith("@article{OpenAI2023GPT4TR,")
+            assert llm.citation[0].endswith(
+                "url={https://api.semanticscholar.org/CorpusID:257532815}\n}"
+            )
+            assert llm.citation[1].startswith("@article{ouyang2022training")
+            assert llm.citation[1].endswith("year={2022}\n}")
 
     def test_count_tokens(self, create_datadreamer):
         with create_datadreamer():
@@ -1122,6 +1125,10 @@ class TestOpenAI:
     def test_get_max_context_length(self, create_datadreamer):
         with create_datadreamer():
             # Check max context length
+            llm = OpenAI("gpt-4o")
+            assert llm.get_max_context_length(max_new_tokens=0) == 127982
+            llm = OpenAI("gpt-4o-mini")
+            assert llm.get_max_context_length(max_new_tokens=0) == 127982
             llm = OpenAI("gpt-4")
             assert llm.get_max_context_length(max_new_tokens=0) == 8174
             llm = OpenAI("gpt-4-turbo-2024-04-09")
@@ -1136,6 +1143,10 @@ class TestOpenAI:
     def test_get_max_output_length(self, create_datadreamer):
         with create_datadreamer():
             # Check max output length
+            llm = OpenAI("gpt-4o")
+            assert llm._get_max_output_length() == 4096
+            llm = OpenAI("gpt-4o-mini")
+            assert llm._get_max_output_length() == 16384
             llm = OpenAI("gpt-4")
             assert llm._get_max_output_length() is None
             llm = OpenAI("gpt-4-turbo-2024-04-09")

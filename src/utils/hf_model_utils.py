@@ -238,7 +238,7 @@ def validate_quantization_config(
     quantization_config = copy(quantization_config)
     if (
         getattr(quantization_config, "quant_method", None) == "bitsandbytes"
-    ):  # pragma: no cover
+    ) and dtype is not None:  # pragma: no cover
         quantization_config.bnb_4bit_compute_dtype = dtype  # type:ignore[union-attr]
         quantization_config.bnb_4bit_quant_storage = dtype  # type:ignore[union-attr]
     return quantization_config
