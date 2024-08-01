@@ -63,16 +63,30 @@ def _is_gpt_3_5_legacy(model_name: str):
 @lru_cache(maxsize=None)
 def _is_gpt_4(model_name: str):
     model_name = _normalize_model_name(model_name)
-    return model_name == "gpt-4" or any(
-        gpt4_name in model_name for gpt4_name in ["gpt-4-"]
+    return (
+        model_name == "gpt-4"
+        or any(gpt4_name in model_name for gpt4_name in ["gpt-4-"])
+        or _is_gpt_4o(model_name)
     )
+
+
+@lru_cache(maxsize=None)
+def _is_gpt_4o(model_name: str):
+    model_name = _normalize_model_name(model_name)
+    return any(gpt4_name in model_name for gpt4_name in ["gpt-4o"])
+
+
+@lru_cache(maxsize=None)
+def _is_gpt_mini(model_name: str):
+    model_name = _normalize_model_name(model_name)
+    return any(gpt_mini_name in model_name for gpt_mini_name in ["-mini"])
 
 
 @lru_cache(maxsize=None)
 def _is_128k_model(model_name: str):
     model_name = _normalize_model_name(model_name)
     return _is_gpt_4(model_name) and (
-        "-preview" in model_name or "2024-04-09" in model_name
+        _is_gpt_4o(model_name) or "-preview" in model_name or "2024-04-09" in model_name
     )
 
 
@@ -249,11 +263,14 @@ class OpenAI(LLM):
         return max_context_length - max_new_tokens - format_tokens
 
     def _get_max_output_length(self) -> None | int:  # pragma: no cover
-        if _is_128k_model(self.model_name) or (
+        if _is_128k_model(self.model_name) and _is_gpt_mini(self.model_name):
+            return 16384
+        elif _is_128k_model(self.model_name) or (
             _is_gpt_3_5(self.model_name) and not (_is_gpt_3_5_legacy(self.model_name))
         ):
             return 4096
-        return None
+        else:
+            return None
 
     @ring.lru(maxsize=5000)
     def count_tokens(self, value: str) -> int:
