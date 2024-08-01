@@ -99,6 +99,8 @@ class RAGPrompt(_PromptBase, SuperStep):
     def run(self):
         # Get inputs and arguments
         args = self.args
+        args.pop("retriever")
+        args.pop("k")
         llm = args["llm"]
         prompts = self.inputs["prompts"]
         retrieved_text_label = args.pop("retrieved_text_label")

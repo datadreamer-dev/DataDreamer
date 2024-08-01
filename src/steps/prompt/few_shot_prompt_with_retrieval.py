@@ -143,5 +143,10 @@ class FewShotPromptWithRetrieval(FewShotPrompt, SuperStep):
 
         return input_examples_generator, output_examples_generator
 
+    def _run_prompts(self, args, *positionalargs, **kwargs):
+        args.pop("embedder")
+        args.pop("k")
+        return super()._run_prompts(args, *positionalargs, **kwargs)
+
 
 __all__ = ["FewShotPromptWithRetrieval"]
