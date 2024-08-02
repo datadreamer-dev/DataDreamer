@@ -4,6 +4,7 @@ import json
 import multiprocessing
 import os
 import sys
+import typing
 import uuid
 from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor
@@ -2988,6 +2989,7 @@ class TestMistralAI:
             )
 
     @pytest.mark.order("last")
+    @typing.no_type_check
     def test_run(self, create_datadreamer, mocker):
         def chat_mocked(**kwargs):
             from mistralai.models.chat_completion import ChatCompletionResponse
@@ -3014,7 +3016,7 @@ class TestMistralAI:
                     "total_tokens": 0,
                 },
             }
-            return ChatCompletionResponse(**response)  # type: ignore[arg-type]
+            return ChatCompletionResponse(**response)
 
         with create_datadreamer():
             llm = MistralAI("mistral-tiny", api_key="fakeapikey")
