@@ -9,7 +9,7 @@ from .import_utils import ignore_hf_token_warnings, ignore_pydantic_warnings
 
 with ignore_pydantic_warnings():
     from huggingface_hub import HfApi, hf_hub_download, login
-    from huggingface_hub.utils._errors import (
+    from huggingface_hub.errors import (
         EntryNotFoundError,
         RepositoryNotFoundError,
         RevisionNotFoundError,
