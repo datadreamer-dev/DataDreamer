@@ -9,7 +9,7 @@ from .import_utils import ignore_hf_token_warnings, ignore_pydantic_warnings
 
 with ignore_pydantic_warnings():
     from huggingface_hub import HfApi, hf_hub_download, login
-    from huggingface_hub.utils._errors import (
+    from huggingface_hub.errors import (
         EntryNotFoundError,
         RepositoryNotFoundError,
         RevisionNotFoundError,
@@ -180,8 +180,9 @@ def get_citation_info(
 
 def hf_hub_login(token: None | str = None) -> HfApi:  # pragma: no cover
     # Login
-    with ignore_hf_token_warnings(), mock.patch(
-        "huggingface_hub._login.is_notebook", new=lambda: False
+    with (
+        ignore_hf_token_warnings(),
+        mock.patch("huggingface_hub._login.is_notebook", new=lambda: False),
     ):
         api = HfApi()
         if token is not None:

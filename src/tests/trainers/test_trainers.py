@@ -226,7 +226,7 @@ class TestTrainHFBase:
                 "LLaMa-2 (Custom) Trainer",
                 model_name="meta-llama/Llama-2-7b-chat-hf",
                 chat_prompt_template=(
-                    "Custom\n\n{{system_prompt}}\nUser: {{prompt}}" "\nAssistant: "
+                    "Custom\n\n{{system_prompt}}\nUser: {{prompt}}\nAssistant: "
                 ),
             )
             assert (
@@ -3059,6 +3059,10 @@ class TestTrainHFPPO:
 
 
 class TestTrainSetFitClassifier:
+    # TODO: SetFit is currently broken (skipping tests):
+    # https://github.com/huggingface/setfit/issues/564
+    __test__ = False
+
     def test_metadata(self, create_datadreamer):
         with create_datadreamer():
             trainer = TrainSetFitClassifier(

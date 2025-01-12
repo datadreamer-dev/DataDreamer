@@ -4,14 +4,15 @@ from copy import deepcopy
 from functools import cached_property
 from logging import Logger
 from time import time
-from typing import TYPE_CHECKING, Any, Callable, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 import torch
-from datasets import IterableDataset
 from torch.optim import AdamW, Optimizer
 from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.data import DataLoader
 from transformers import logging as transformers_logging
+
+from datasets import IterableDataset
 
 from ..datasets import OutputDatasetColumn, OutputIterableDatasetColumn
 from ..llms.llm import _check_temperature_and_top_p
@@ -128,7 +129,10 @@ def get_ppo_trainer(  # noqa: C901
             return dataloader
 
         def training_step(
-            self, model: torch.nn.Module, inputs: dict[str, torch.Tensor | Any]
+            self,
+            model: torch.nn.Module,
+            inputs: dict[str, torch.Tensor | Any],
+            num_items_in_batch=None,
         ) -> torch.Tensor:
             # Generate from model
             query_tensors = list(inputs["input_ids"])
@@ -185,7 +189,9 @@ def get_ppo_trainer(  # noqa: C901
                 model.device
             )  # Return dummy loss (not used)
 
-        def log(self, logs: dict[str, float]) -> None:
+        def log(
+            self, logs: dict[str, float], start_time: Optional[float] = None
+        ) -> None:
             is_training_log = (
                 not any([k.startswith("eval") for k in logs.keys()])
                 and "train_runtime" not in logs
@@ -507,9 +513,9 @@ class TrainHFPPO(TrainHFFineTune):
             )
 
         # Prepare datasets
-        assert (
-            self._is_encoder_decoder or truncate
-        ), "`truncate=False` is not supported for this model."
+        assert self._is_encoder_decoder or truncate, (
+            "`truncate=False` is not supported for this model."
+        )
         train_dataset, validation_dataset, _, _ = prepare_inputs_and_outputs(
             self,
             train_columns={("input_ids", "Train Input"): train_prompts},

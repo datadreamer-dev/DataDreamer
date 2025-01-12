@@ -8,9 +8,10 @@ from typing import TYPE_CHECKING, Any, Callable, Type, cast
 import dill
 import numpy as np
 import torch
-from datasets import Dataset, IterableDataset, Value, concatenate_datasets
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LambdaLR
+
+from datasets import Dataset, IterableDataset, Value, concatenate_datasets
 
 from .. import DataDreamer
 from ..datasets import (
@@ -113,12 +114,17 @@ def wrap_trainer_cls(
                     num_training_steps=num_training_steps, optimizer=optimizer
                 )
 
-        def compute_loss(self, model, inputs, return_outputs=False):
+        def compute_loss(
+            self, model, inputs, return_outputs=False, num_items_in_batch=None
+        ):
             if compute_loss is not None:  # pragma: no cover
                 return compute_loss(model, inputs, return_outputs=return_outputs)
             else:
+                kwargs = {"num_items_in_batch": num_items_in_batch}
+                if num_items_in_batch is None:
+                    del kwargs["num_items_in_batch"]
                 return super().compute_loss(
-                    model, inputs, return_outputs=return_outputs
+                    model, inputs, return_outputs=return_outputs, **kwargs
                 )
 
         def visualize_samples(self, *args, **kwargs):

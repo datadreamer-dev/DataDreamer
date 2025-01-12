@@ -114,9 +114,9 @@ class TrainHFDPO(TrainHFFineTune):
             from ._vendored.dpo_trainer import DPOTrainer  # type: ignore[attr-defined]
 
         # Prepare datasets
-        assert (
-            self._is_encoder_decoder or truncate
-        ), "`truncate=False` is not supported for this model."
+        assert self._is_encoder_decoder or truncate, (
+            "`truncate=False` is not supported for this model."
+        )
         train_dataset, validation_dataset, _, _ = prepare_inputs_and_outputs(
             self,
             train_columns={
@@ -358,12 +358,10 @@ class TrainHFDPO(TrainHFFineTune):
                     prepared_model, trainer.optimizer
                 )
             else:
-                (
-                    prepared_model,
-                    trainer.optimizer,
-                    trainer.lr_scheduler,
-                ) = trainer.accelerator.prepare(
-                    prepared_model, trainer.optimizer, trainer.lr_scheduler
+                (prepared_model, trainer.optimizer, trainer.lr_scheduler) = (
+                    trainer.accelerator.prepare(
+                        prepared_model, trainer.optimizer, trainer.lr_scheduler
+                    )
                 )
             trainer.model_wrapped = prepared_model
             if trainer.is_fsdp_enabled:
