@@ -1,10 +1,10 @@
-import flaky
 import json
 import os
+import time
 from contextlib import nullcontext
 from typing import cast
 
-import time
+import flaky
 import pytest
 import torch
 
@@ -32,12 +32,14 @@ with ignore_transformers_warnings():
         pipeline,
     )
 
+
 # Sometimes NLPGPU times out (slow server/disk) and you need to retry
 def should_retry(excinfo, *args, **kwargs):
     return_should_retry = "socketStartConnect" in str(excinfo[1])
     if return_should_retry:
         time.sleep(15)
     return return_should_retry
+
 
 class TestInferenceInMultiGPUEnvironment:
     __test__ = (
