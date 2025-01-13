@@ -312,9 +312,9 @@ class Trainer(ABC):
     @property
     def model(self):
         """An instance of the trained model after training."""
-        assert self._done, (
-            "This trainer has not been run yet. Use `.train()` to start training."
-        )
+        assert (
+            self._done
+        ), "This trainer has not been run yet. Use `.train()` to start training."
         if self._model is None:  # pragma: no cover
             self._model = self._load()
         return self._model
@@ -342,9 +342,9 @@ class Trainer(ABC):
 
     @property
     def _model_card(self):
-        assert self._done, (
-            "This trainer has not been run yet. Use `.train()` to start training."
-        )
+        assert (
+            self._done
+        ), "This trainer has not been run yet. Use `.train()` to start training."
         assert self._step_metadata is not None
         orig_step_metadata = self._step_metadata.copy()
         model_card: dict[str, list[Any]] = {

@@ -1,8 +1,10 @@
+import flaky
 import json
 import os
 from contextlib import nullcontext
 from typing import cast
 
+import time
 import pytest
 import torch
 
@@ -30,12 +32,19 @@ with ignore_transformers_warnings():
         pipeline,
     )
 
+# Sometimes NLPGPU times out (slow server/disk) and you need to retry
+def should_retry(excinfo, *args, **kwargs):
+    return_should_retry = "socketStartConnect" in str(excinfo[1])
+    if return_should_retry:
+        time.sleep(15)
+    return return_should_retry
 
 class TestInferenceInMultiGPUEnvironment:
     __test__ = (
         torch.cuda.is_available() and torch.cuda.device_count() > 1
     )  # Runs on multi-GPU only
 
+    @flaky.flaky(rerun_filter=should_retry, max_runs=20)
     def test_llm_single_gpu(self, create_datadreamer):
         with create_datadreamer():
             llm = HFTransformers("google/flan-t5-small")
@@ -75,6 +84,7 @@ class TestInferenceInMultiGPUEnvironment:
             assert generated_texts == [["blue"] * 2, ["green"] * 2]
             assert llm.model.device == torch.device(0)
 
+    @flaky.flaky(rerun_filter=should_retry, max_runs=20)
     def test_llm_multi_gpu(self, create_datadreamer):
         with create_datadreamer():
             llm = HFTransformers("google/flan-t5-small", device=0)
@@ -114,6 +124,7 @@ class TestInferenceInMultiGPUEnvironment:
             assert generated_texts == [["blue"] * 2, ["green"] * 2]
             assert llm.model.device == torch.device(1)
 
+    @flaky.flaky(rerun_filter=should_retry, max_runs=20)
     def test_device_map_auto(self, create_datadreamer, mocker):
         with create_datadreamer():
             llm = HFTransformers("google/flan-t5-small", device_map="auto")
@@ -134,6 +145,7 @@ class TestInferenceInMultiGPUEnvironment:
             assert generated_texts == [["blue"] * 2, ["green"] * 2]
             assert set(getattr(llm.model, "hf_device_map", {}).values()) == {0, 1}
 
+    @flaky.flaky(rerun_filter=should_retry, max_runs=20)
     def test_device_list(self, create_datadreamer, mocker):
         with create_datadreamer():
             llm = HFTransformers("google/flan-t5-small", device=[0, 1])
@@ -154,6 +166,7 @@ class TestInferenceInMultiGPUEnvironment:
             assert generated_texts == [["blue"] * 2, ["green"] * 2]
             assert set(getattr(llm.model, "hf_device_map", {}).values()) == {0, 1}
 
+    @flaky.flaky(rerun_filter=should_retry, max_runs=20)
     def test_parallel_llm(self, create_datadreamer, mocker):
         prompt_1 = "This is a long prompt."
         prompt_2 = "Short prompt."
@@ -185,6 +198,7 @@ class TestTrainInMultiGPUEnvironment:
         torch.cuda.is_available() and torch.cuda.device_count() > 1
     )  # Runs on multi-GPU only
 
+    @flaky.flaky(rerun_filter=should_retry, max_runs=20)
     def test_single_gpu_train(self, create_datadreamer, mocker):
         with create_datadreamer():
             dataset = DataSource(
@@ -234,6 +248,7 @@ class TestTrainDistributed:
         torch.cuda.is_available() and torch.cuda.device_count() > 1
     )  # Runs on multi-GPU only
 
+    @flaky.flaky(rerun_filter=should_retry, max_runs=20)
     def test_ddp(self, create_datadreamer, mocker):
         with create_datadreamer():
             dataset = DataSource(
@@ -297,6 +312,7 @@ class TestTrainDistributed:
             #     private=True,
             # )
 
+    @flaky.flaky(rerun_filter=should_retry, max_runs=20)
     def test_fsdp(self, create_datadreamer, mocker):
         with create_datadreamer():
             dataset = DataSource(
@@ -358,6 +374,7 @@ class TestTrainDistributed:
             #     private=True,
             # )
 
+    @flaky.flaky(rerun_filter=should_retry, max_runs=20)
     @pytest.mark.parametrize("qlora", [False, True])
     def test_fsdp_peft(self, qlora, create_datadreamer, mocker):
         if qlora:
@@ -516,6 +533,7 @@ class TestTrainDistributed:
             assert set(getattr(llm.model, "hf_device_map", {}).values()) == {0, 1}
             llm.unload_model()
 
+    @flaky.flaky(rerun_filter=should_retry, max_runs=20)
     def test_fsdp_seq2seq(self, create_datadreamer, mocker):
         with create_datadreamer():
             dataset = DataSource(
@@ -578,6 +596,7 @@ class TestTrainDistributed:
             assert os.path.isfile(os.path.join(export_path, "model.safetensors"))
             assert os.path.isfile(os.path.join(export_path, "spiece.model"))
 
+    @flaky.flaky(rerun_filter=should_retry, max_runs=20)
     @pytest.mark.parametrize(
         "fsdp,precompute_ref_log_probs",
         [(AUTO, False), (AUTO, True), (False, False), (False, True)],
@@ -656,6 +675,7 @@ class TestTrainDistributed:
             #     private=True,
             # )
 
+    @flaky.flaky(rerun_filter=should_retry, max_runs=20)
     @pytest.mark.parametrize("fsdp", [False])
     def test_distributed_ppo(self, fsdp, create_datadreamer, mocker):
         with create_datadreamer():
@@ -735,6 +755,7 @@ class TestTrainDistributedSlow:
         torch.cuda.is_available() and torch.cuda.device_count() > 1
     )  # Runs on multi-GPU only
 
+    @flaky.flaky(rerun_filter=should_retry, max_runs=20)
     @pytest.mark.parametrize(
         "fsdp,peft", [(AUTO, False), (AUTO, True), (False, False), (False, True)]
     )
@@ -865,6 +886,7 @@ class TestTrainDistributedSlow:
             #     private=True,
             # )
 
+    @flaky.flaky(rerun_filter=should_retry, max_runs=20)
     @pytest.mark.parametrize(
         "fsdp,peft", [(AUTO, False), (AUTO, True), (False, False), (False, True)]
     )

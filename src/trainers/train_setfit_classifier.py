@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any, Type
 
 import torch
-
 from datasets import IterableDataset
 
 from .. import DataDreamer
@@ -111,9 +110,9 @@ class TrainSetFitClassifier(TrainHFClassifier):
         **kwargs,
     ):
         cls_name = self.__class__.__name__
-        assert not isinstance(device, list), (
-            f"Training on multiple devices is not supported for {cls_name}."
-        )
+        assert not isinstance(
+            device, list
+        ), f"Training on multiple devices is not supported for {cls_name}."
         _TrainHFBase.__init__(
             self,
             name=name,
@@ -250,24 +249,27 @@ class TrainSetFitClassifier(TrainHFClassifier):
             from transformers.trainer_callback import ProgressCallback
 
         # Prepare datasets
-        (train_dataset, validation_dataset, label2id, is_multi_target) = (
-            prepare_inputs_and_outputs(
-                self,
-                train_columns={
-                    ("text", "Train Input"): train_input,
-                    ("label", "Train Output"): train_output,
-                },
-                validation_columns={
-                    ("text", "Validation Input"): validation_input,
-                    ("label", "Validation Output"): validation_output,
-                },
-                truncate=truncate,
-            )
+        (
+            train_dataset,
+            validation_dataset,
+            label2id,
+            is_multi_target,
+        ) = prepare_inputs_and_outputs(
+            self,
+            train_columns={
+                ("text", "Train Input"): train_input,
+                ("label", "Train Output"): train_output,
+            },
+            validation_columns={
+                ("text", "Validation Input"): validation_input,
+                ("label", "Validation Output"): validation_output,
+            },
+            truncate=truncate,
         )
         id2label = {v: k for k, v in label2id.items()}
-        assert len(id2label) > 1, (
-            "There must be at least 2 output labels in your dataset."
-        )
+        assert (
+            len(id2label) > 1
+        ), "There must be at least 2 output labels in your dataset."
 
         # Prepare metrics
         metric = kwargs.pop("metric", "f1")
