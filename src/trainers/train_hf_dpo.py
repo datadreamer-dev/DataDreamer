@@ -1,8 +1,6 @@
 import os
-from contextlib import nullcontext
 from functools import cached_property
 from typing import Any
-from unittest.mock import patch
 
 import torch
 
@@ -116,9 +114,9 @@ class TrainHFDPO(TrainHFFineTune):
             from ._vendored.dpo_trainer import DPOTrainer  # type: ignore[attr-defined]
 
         # Prepare datasets
-        assert (
-            self._is_encoder_decoder or truncate
-        ), "`truncate=False` is not supported for this model."
+        assert self._is_encoder_decoder or truncate, (
+            "`truncate=False` is not supported for this model."
+        )
         train_dataset, validation_dataset, _, _ = prepare_inputs_and_outputs(
             self,
             train_columns={
@@ -351,7 +349,6 @@ class TrainHFDPO(TrainHFFineTune):
         # See: https://github.com/huggingface/trl/issues/1147
         # TODO (fix later if TRL updates):
         # See: https://github.com/huggingface/trl/pull/1160
-        patches = nullcontext()
         if is_distributed():  # pragma: no cover
             prepared_model = trainer._wrap_model(
                 trainer.model, training=True, dataloader=None
@@ -361,22 +358,16 @@ class TrainHFDPO(TrainHFFineTune):
                     prepared_model, trainer.optimizer
                 )
             else:
-                (
-                    prepared_model,
-                    trainer.optimizer,
-                    trainer.lr_scheduler,
-                ) = trainer.accelerator.prepare(
-                    prepared_model, trainer.optimizer, trainer.lr_scheduler
+                (prepared_model, trainer.optimizer, trainer.lr_scheduler) = (
+                    trainer.accelerator.prepare(
+                        prepared_model, trainer.optimizer, trainer.lr_scheduler
+                    )
                 )
             trainer.model_wrapped = prepared_model
             if trainer.is_fsdp_enabled:
                 trainer.model = prepared_model
             if trainer.ref_model is not None:
                 trainer.ref_model = trainer.accelerator.prepare_model(trainer.ref_model)
-            patches = patch(
-                "transformers.trainer.unwrap_model",
-                lambda model, *args, **kwargs: model,
-            )
             trainer.accelerator.prepare_model = lambda model, *args, **kwargs: model
 
         # Pre-compute ref_log_probs
@@ -439,8 +430,7 @@ class TrainHFDPO(TrainHFFineTune):
             assert os.path.isfile(pre_compute_validation_step_done)
 
         # Start the trainer
-        with patches:
-            start_hf_trainer(self, trainer)
+        start_hf_trainer(self, trainer)
 
         # Save the model to disk
         self._save_model(

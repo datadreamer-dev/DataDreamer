@@ -1,16 +1,19 @@
 import logging
 import os
 import sys
+from contextlib import nullcontext
 from functools import cache, partial
 from itertools import chain
 from typing import TYPE_CHECKING, Any, Callable, Type, cast
+from unittest.mock import patch
 
 import dill
 import numpy as np
 import torch
-from datasets import Dataset, IterableDataset, Value, concatenate_datasets
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LambdaLR
+
+from datasets import Dataset, IterableDataset, Value, concatenate_datasets
 
 from .. import DataDreamer
 from ..datasets import (
@@ -812,76 +815,85 @@ def prepare_inputs_and_outputs(  # noqa: C901
 
 
 def start_hf_trainer(self: "_TrainHFBase", trainer: Any):  # noqa: C901
-    # Do monkey patches
-    _monkey_patch_EvalLoopContainer_add()
+    patches = nullcontext()
+    if is_distributed():  # pragma: nocover
+        patches = patch(
+            "transformers.trainer.unwrap_model", lambda model, *args, **kwargs: model
+        )
 
-    # Setup loggers the way we need them to be
-    if not DataDreamer.ctx.hf_log:
-        if self.logger.level <= logging.NOTSET:  # pragma: no cover
-            hf_transformers_trainer_logger = logging.getLogger("transformers.trainer")
-            if (
-                not hf_transformers_trainer_logger.level
-                or hf_transformers_trainer_logger.level > logging.INFO
-            ):
-                hf_transformers_trainer_logger.level = logging.INFO
-                hf_transformers_trainer_logger.propagate = True
-            DataDreamer._enable_hf_transformers_logging(progress_bars=False)
-            DataDreamer._enable_setfit_logging(progress_bars=False)
-            hf_transformers_logging.set_verbosity_info()
-            setfit_logging.set_verbosity_info()
+    with patches:
+        # Do monkey patches
+        _monkey_patch_EvalLoopContainer_add()
 
-    # Add GPU monitoring if distributed
-    device_memory_monitoring_callback = get_device_memory_monitoring_callback(
-        trainer=self
-    )
-    trainer.add_callback(device_memory_monitoring_callback)
+        # Setup loggers the way we need them to be
+        if not DataDreamer.ctx.hf_log:
+            if self.logger.level <= logging.NOTSET:  # pragma: no cover
+                hf_transformers_trainer_logger = logging.getLogger(
+                    "transformers.trainer"
+                )
+                if (
+                    not hf_transformers_trainer_logger.level
+                    or hf_transformers_trainer_logger.level > logging.INFO
+                ):
+                    hf_transformers_trainer_logger.level = logging.INFO
+                    hf_transformers_trainer_logger.propagate = True
+                DataDreamer._enable_hf_transformers_logging(progress_bars=False)
+                DataDreamer._enable_setfit_logging(progress_bars=False)
+                hf_transformers_logging.set_verbosity_info()
+                setfit_logging.set_verbosity_info()
 
-    # Run training
-    try:
-        # Try to resume
-        if self.resumable:
-            trainer.train(resume_from_checkpoint=True)
-        else:
-            raise ValueError()
-    except ValueError:
+        # Add GPU monitoring if distributed
+        device_memory_monitoring_callback = get_device_memory_monitoring_callback(
+            trainer=self
+        )
+        trainer.add_callback(device_memory_monitoring_callback)
+
+        # Run training
         try:
-            # Nothing to resume from, so start a new training run
-
-            # Evaluate before starting training so we can see how the model
-            # performs before any weight updates
-            if device_memory_monitoring_callback:
-                device_memory_monitoring_callback()._log_device_memory_usage()
-            if is_distributed() and trainer.is_fsdp_enabled:  # pragma: no cover
-                from transformers.trainer import logger as trainer_logger
-
-                # This is a hack to run .evaluate() before training happens on FSDP
-                # but after the FSDP is set up
-                old_info = trainer_logger.info
-
-                def _info(old_info, *args, **kwargs):
-                    if len(args) > 0 and args[0].startswith(
-                        "***** Running training *****"
-                    ):
-                        trainer.evaluate()
-                        trainer.model.train()  # Switch the model back to train mode
-                        trainer_logger.info = old_info  # Undo the monkey-patch
-                    return old_info(*args, **kwargs)
-
-                trainer_logger.info = partial(_info, old_info)
+            # Try to resume
+            if self.resumable:
+                trainer.train(resume_from_checkpoint=True)
             else:
-                trainer.evaluate()
+                raise ValueError()
+        except ValueError:
+            try:
+                # Nothing to resume from, so start a new training run
 
-            # Start training
-            trainer.train()
-        except Exception as e:
-            raise e from None
-    if not DataDreamer.ctx.hf_log:
-        if self.logger.level <= logging.NOTSET:  # pragma: no cover
-            logging.getLogger(
-                "transformers.trainer"
-            ).level = DataDreamer.ctx._transformers_trainer_verbosity
-            DataDreamer._disable_hf_transformers_logging()
-            DataDreamer._disable_setfit_logging()
+                # Evaluate before starting training so we can see how the model
+                # performs before any weight updates
+                if device_memory_monitoring_callback:
+                    device_memory_monitoring_callback()._log_device_memory_usage()
+                if is_distributed() and trainer.is_fsdp_enabled:  # pragma: no cover
+                    from transformers.trainer import logger as trainer_logger
+
+                    # This is a hack to run .evaluate() before training happens on FSDP
+                    # but after the FSDP is set up
+                    old_info = trainer_logger.info
+
+                    def _info(old_info, *args, **kwargs):
+                        if len(args) > 0 and args[0].startswith(
+                            "***** Running training *****"
+                        ):
+                            trainer.evaluate()
+                            trainer.model.train()  # Switch the model back to train mode
+                            trainer_logger.info = old_info  # Undo the monkey-patch
+                        return old_info(*args, **kwargs)
+
+                    trainer_logger.info = partial(_info, old_info)
+                else:
+                    trainer.evaluate()
+
+                # Start training
+                trainer.train()
+            except Exception as e:
+                raise e from None
+        if not DataDreamer.ctx.hf_log:
+            if self.logger.level <= logging.NOTSET:  # pragma: no cover
+                logging.getLogger(
+                    "transformers.trainer"
+                ).level = DataDreamer.ctx._transformers_trainer_verbosity
+                DataDreamer._disable_hf_transformers_logging()
+                DataDreamer._disable_setfit_logging()
 
 
 class CustomDataCollatorWithPadding:
