@@ -3106,7 +3106,9 @@ class TestTrainSetFitClassifier:
             assert not trainer.is_multi_target
             assert type(get_orig_model(trainer.model)).__name__ == "SetFitModelWrapper"
             assert trainer.model_path == os.path.join(trainer_path, "_model")
-            assert os.path.isdir(os.path.join(trainer_path, "_checkpoints", "step_1"))
+            assert os.path.isdir(
+                os.path.join(trainer_path, "_checkpoints", "checkpoint-1")
+            )
             assert os.path.isfile(
                 os.path.join(trainer.model_path, "training_args.json")
             )
@@ -3167,7 +3169,9 @@ class TestTrainSetFitClassifier:
             assert trainer.is_multi_target
             assert type(get_orig_model(trainer.model)).__name__ == "SetFitModelWrapper"
             assert trainer.model_path == os.path.join(trainer_path, "_model")
-            assert os.path.isdir(os.path.join(trainer_path, "_checkpoints", "step_1"))
+            assert os.path.isdir(
+                os.path.join(trainer_path, "_checkpoints", "checkpoint-1")
+            )
             assert os.path.isfile(
                 os.path.join(trainer.model_path, "training_args.json")
             )
@@ -3250,15 +3254,20 @@ class TestTrainSetFitClassifier:
             assert not trainer.is_multi_target
             assert type(get_orig_model(trainer.model)).__name__ == "SetFitModelWrapper"
             assert trainer.model_path == os.path.join(trainer_path, "_model")
-            assert os.path.isdir(os.path.join(trainer_path, "_checkpoints", "step_1"))
+            assert os.path.isdir(
+                os.path.join(trainer_path, "_checkpoints", "checkpoint-1")
+            )
             assert os.path.isfile(
                 os.path.join(
-                    trainer_path, "_checkpoints", "step_1", "adapter_model.safetensors"
+                    trainer_path,
+                    "_checkpoints",
+                    "checkpoint-1",
+                    "adapter_model.safetensors",
                 )
             )
             assert os.path.isfile(
                 os.path.join(
-                    trainer_path, "_checkpoints", "step_1", "model.safetensors"
+                    trainer_path, "_checkpoints", "checkpoint-1", "model.safetensors"
                 )
             )
             assert os.path.isfile(

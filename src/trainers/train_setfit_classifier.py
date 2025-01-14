@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 import dill
 import torch
+
 from datasets import IterableDataset
 
 from .. import DataDreamer
@@ -79,10 +80,6 @@ class SetFitModelWrapper(SetFitModel):
             TrainSentenceTransformer._save_resource(
                 self, resource=self.model_body, path=save_directory
             )
-            os.rename(
-                os.path.join(save_directory, "adapter_config.json"),
-                os.path.join(save_directory, "adapter_config.json.hidden"),
-            )  # Temporarily hide it, until we can reload it
             TrainSentenceTransformer._save_resource(
                 self,
                 resource=get_base_model_from_peft_model(self.model_body),
@@ -125,9 +122,9 @@ class TrainSetFitClassifier(TrainHFClassifier):
         **kwargs,
     ):
         cls_name = self.__class__.__name__
-        assert not isinstance(
-            device, list
-        ), f"Training on multiple devices is not supported for {cls_name}."
+        assert not isinstance(device, list), (
+            f"Training on multiple devices is not supported for {cls_name}."
+        )
         _TrainHFBase.__init__(
             self,
             name=name,
@@ -264,27 +261,24 @@ class TrainSetFitClassifier(TrainHFClassifier):
             from transformers.trainer_callback import ProgressCallback
 
         # Prepare datasets
-        (
-            train_dataset,
-            validation_dataset,
-            label2id,
-            is_multi_target,
-        ) = prepare_inputs_and_outputs(
-            self,
-            train_columns={
-                ("text", "Train Input"): train_input,
-                ("label", "Train Output"): train_output,
-            },
-            validation_columns={
-                ("text", "Validation Input"): validation_input,
-                ("label", "Validation Output"): validation_output,
-            },
-            truncate=truncate,
+        (train_dataset, validation_dataset, label2id, is_multi_target) = (
+            prepare_inputs_and_outputs(
+                self,
+                train_columns={
+                    ("text", "Train Input"): train_input,
+                    ("label", "Train Output"): train_output,
+                },
+                validation_columns={
+                    ("text", "Validation Input"): validation_input,
+                    ("label", "Validation Output"): validation_output,
+                },
+                truncate=truncate,
+            )
         )
         id2label = {v: k for k, v in label2id.items()}
-        assert (
-            len(id2label) > 1
-        ), "There must be at least 2 output labels in your dataset."
+        assert len(id2label) > 1, (
+            "There must be at least 2 output labels in your dataset."
+        )
 
         # Prepare metrics
         metric = kwargs.pop("metric", "f1")
@@ -361,7 +355,7 @@ class TrainSetFitClassifier(TrainHFClassifier):
 
         # Setup trainer
         class CustomTrainer(Trainer):
-            def __init__(self, *args, **kwargs):
+            def __init__(trainer, *args, **kwargs):
                 model_body = kwargs["model"].model_body
                 orig_body_device = model_body.device
                 os.environ["_DATADREAMER_SETFIT_DEVICE"] = base64.b64encode(
@@ -373,9 +367,36 @@ class TrainSetFitClassifier(TrainHFClassifier):
                 ):
                     super().__init__(*args, **kwargs)
                 _ = (
-                    self.st_trainer.args._selected_device
+                    trainer.st_trainer.args._selected_device
                 )  # Read the property to store it in cache
                 del os.environ["_DATADREAMER_SETFIT_DEVICE"]
+
+                # Support load_best_model for peft models
+                orig_load_best_model = trainer.st_trainer._load_best_model
+
+                def new_load_best_model(*args, **kwargs):
+                    if self.peft_config:
+                        # Two warnings we can't silence are thrown by peft at import-time so
+                        # we import this library only when needed
+                        with ignore_transformers_warnings():
+                            from peft import PeftModel
+
+                        best_model_checkpoint = (
+                            trainer.st_trainer.state.best_model_checkpoint
+                        )
+                        trainer.model.model_body = PeftModel.from_pretrained(
+                            get_base_model_from_peft_model(trainer.model.model_body),
+                            model_id=best_model_checkpoint,
+                            torch_dtype=self.dtype,
+                            **self.kwargs,
+                        )
+                        trainer.model.model_body.forward = partial(  # type:ignore[method-assign]
+                            get_peft_model_cls().forward, trainer.model.model_body
+                        )
+                    else:
+                        orig_load_best_model(*args, **kwargs)
+
+                trainer.st_trainer._load_best_model = new_load_best_model
 
             def _wrap_model(self, model, *args, **kwargs):
                 return model
@@ -385,34 +406,6 @@ class TrainSetFitClassifier(TrainHFClassifier):
 
             def train_classifier(trainer, *args, **kwargs):
                 self.logger.info("Finished training SetFit model body (embeddings).")
-
-                # Reload back PEFT adapter if it got removed when loading the best
-                # checkpoint at the end of SetFit model body training
-                if self.peft_config and isinstance(
-                    model.model_body, SentenceTransformer
-                ):
-                    # Two warnings we can't silence are thrown by peft at import-time so
-                    # we import this library only when needed
-                    with ignore_transformers_warnings():
-                        from peft import PeftModel
-
-                    best_model_checkpoint = trainer.state.best_model_checkpoint
-                    os.rename(
-                        os.path.join(
-                            best_model_checkpoint, "adapter_config.json.hidden"
-                        ),
-                        os.path.join(best_model_checkpoint, "adapter_config.json"),
-                    )  # Un-hide
-                    model.model_body = PeftModel.from_pretrained(
-                        model.model_body,
-                        model_id=best_model_checkpoint,
-                        torch_dtype=self.dtype,
-                        **self.kwargs,
-                    )
-                    model.model_body.forward = partial(  # type:ignore[method-assign]
-                        get_peft_model_cls().forward, model.model_body
-                    )
-
                 self.logger.info("Training SetFit model head (classifier)...")
                 if not DataDreamer.ctx.hf_log:
                     setfit_logging_prog_bar = setfit_logging.is_progress_bar_enabled()
