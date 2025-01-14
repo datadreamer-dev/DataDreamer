@@ -120,6 +120,9 @@ def ignore_trl_warnings():
                 message="The `optimize_cuda_cache`.*",
                 module="trl.trainer.ppo_config",
             )
+            warnings.filterwarnings(
+                "ignore", category=FutureWarning, message="`tokenizer` is deprecated .*"
+            )
             yield None
 
 

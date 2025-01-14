@@ -512,9 +512,9 @@ class TrainHFPPO(TrainHFFineTune):
             )
 
         # Prepare datasets
-        assert (
-            self._is_encoder_decoder or truncate
-        ), "`truncate=False` is not supported for this model."
+        assert self._is_encoder_decoder or truncate, (
+            "`truncate=False` is not supported for this model."
+        )
         train_dataset, validation_dataset, _, _ = prepare_inputs_and_outputs(
             self,
             train_columns={("input_ids", "Train Input"): train_prompts},
@@ -774,7 +774,7 @@ class TrainHFPPO(TrainHFFineTune):
             train_dataset=train_dataset,
             eval_dataset=validation_dataset,
             model=model,
-            tokenizer=self.tokenizer,
+            processing_class=self.tokenizer,
             data_collator=data_collator,
             compute_metrics=wrap_compute_metrics(
                 compute_metrics=compute_metrics, training_args=training_args

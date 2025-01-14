@@ -10,9 +10,10 @@ from unittest.mock import patch
 import dill
 import numpy as np
 import torch
-from datasets import Dataset, IterableDataset, Value, concatenate_datasets
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LambdaLR
+
+from datasets import Dataset, IterableDataset, Value, concatenate_datasets
 
 from .. import DataDreamer
 from ..datasets import (
@@ -94,7 +95,8 @@ def wrap_trainer_cls(
 ) -> Type["Trainer"]:
     class WrappedTrainer(trainer_cls):
         def __init__(self, *args, **kwargs):
-            if "tokenizer" in kwargs:
+            cls_names = [b.__name__ for b in WrappedTrainer.__bases__]
+            if "tokenizer" in kwargs and "RewardTrainer" not in cls_names:
                 kwargs["processing_class"] = kwargs["tokenizer"]
                 del kwargs["tokenizer"]
             super().__init__(*args, **kwargs)

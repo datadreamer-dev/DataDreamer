@@ -143,9 +143,9 @@ class TrainHFRewardModel(TrainHFClassifier):
         )
 
         # Prepare datasets
-        assert (
-            self._is_encoder_decoder or truncate
-        ), "`truncate=False` is not supported for this model."
+        assert self._is_encoder_decoder or truncate, (
+            "`truncate=False` is not supported for this model."
+        )
         train_columns = {
             ("train_prompts", "Train Prompts"): train_prompts,
             ("train_chosen", "Train Chosen Generations"): train_chosen,
@@ -328,23 +328,24 @@ class TrainHFRewardModel(TrainHFClassifier):
         )
 
         # Setup trainer
-        trainer = wrap_trainer_cls(
-            trainer_cls=trainer_cls or RewardTrainer,
-            **trainer_override_kwargs,
-            trainer=self,
-        )(
-            train_dataset=train_dataset,
-            eval_dataset=validation_dataset,
-            model=model,
-            tokenizer=self.tokenizer,
-            data_collator=data_collator,
-            compute_metrics=wrap_compute_metrics(
-                compute_metrics=compute_metrics, training_args=training_args
-            ),
-            callbacks=callbacks,
-            preprocess_logits_for_metrics=preprocess_logits_for_metrics,
-            args=training_args,
-        )
+        with ignore_trl_warnings():
+            trainer = wrap_trainer_cls(
+                trainer_cls=trainer_cls or RewardTrainer,
+                **trainer_override_kwargs,
+                trainer=self,
+            )(
+                train_dataset=train_dataset,
+                eval_dataset=validation_dataset,
+                model=model,
+                tokenizer=self.tokenizer,
+                data_collator=data_collator,
+                compute_metrics=wrap_compute_metrics(
+                    compute_metrics=compute_metrics, training_args=training_args
+                ),
+                callbacks=callbacks,
+                preprocess_logits_for_metrics=preprocess_logits_for_metrics,
+                args=training_args,
+            )
         assert trainer.use_reward_data_collator is False
         trainer.use_reward_data_collator = True
         trainer.remove_callback(PrinterCallback)
@@ -406,9 +407,9 @@ class TrainHFRewardModel(TrainHFClassifier):
             from transformers import Trainer
 
         # Prepare datasets
-        assert (
-            self._is_encoder_decoder or truncate
-        ), "`truncate=False` is not supported for this model."
+        assert self._is_encoder_decoder or truncate, (
+            "`truncate=False` is not supported for this model."
+        )
         train_dataset, validation_dataset, _, _ = prepare_inputs_and_outputs(
             self,
             train_columns={
