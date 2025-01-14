@@ -41,16 +41,10 @@ with ignore_transformers_warnings():
     from setfit import logging as setfit_logging
     from transformers import (
         PreTrainedTokenizer,
+        Seq2SeqTrainingArguments as _Seq2SeqTrainingArguments,
         TrainerCallback,
         TrainerState,
-    )
-    from transformers import (
-        Seq2SeqTrainingArguments as _Seq2SeqTrainingArguments,
-    )
-    from transformers import (
         TrainingArguments as _TrainingArguments,
-    )
-    from transformers import (
         logging as hf_transformers_logging,
     )
     from transformers.trainer_pt_utils import EvalLoopContainer

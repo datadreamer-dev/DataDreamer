@@ -2200,7 +2200,7 @@ class TestVLLM:
     @classmethod
     def setup_class(cls):
         cls.pydantic_version = importlib.metadata.version("pydantic")
-        os.system("pip3 install vllm==0.5.3.post1")
+        os.system("pip3 install vllm==0.6.6.post1")
         _reload_pydantic()
 
     @classmethod
