@@ -50,15 +50,7 @@ class VLLM(HFTransformers):  # pragma: no cover
         cache_folder_path: None | str = None,
         **kwargs,
     ):
-        assert device is not None, (
-            "vLLM requires the `device` parameter to be a GPU device or a list of GPU"
-            " devices."
-        )
         device = [device] if not isinstance(device, list) else device  # type
-        assert not any([is_cpu_device(d) for d in device]), (
-            "vLLM requires the `device` parameter to be a GPU device or a list of GPU"
-            " devices."
-        )
         super().__init__(
             model_name=model_name,
             chat_prompt_template=chat_prompt_template,
@@ -82,7 +74,11 @@ class VLLM(HFTransformers):  # pragma: no cover
     def model(self) -> Any:
         env = os.environ.copy()
         assert isinstance(self.device, list)
-        env.update(get_device_env_variables(self.device))
+        if len(self.device) == 1 and is_cpu_device(self.device[0]):
+            env["VLLM_TARGET_DEVICE"] = "cpu"
+            env.update(get_device_env_variables([]))
+        else:
+            env.update(get_device_env_variables(self.device))
         kwargs = self.kwargs.copy()
         tensor_parallel_size = kwargs.pop("tensor_parallel_size", len(self.device))
 
@@ -116,7 +112,11 @@ class VLLM(HFTransformers):  # pragma: no cover
                     timeout=10.0,
                 )
                 LLM = import_module("vllm").LLM
-                with ignore_tqdm() if datadreamer_logger.level > logging.DEBUG else nullcontext():
+                with (
+                    ignore_tqdm()
+                    if datadreamer_logger.level > logging.DEBUG
+                    else nullcontext()
+                ):
                     self_resource.model = LLM(
                         model=self.model_name,
                         trust_remote_code=self.trust_remote_code,
