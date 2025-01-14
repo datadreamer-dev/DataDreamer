@@ -88,9 +88,9 @@ def get_true_device_ids(
 
 def get_device_env_variables(devices: list[int | str | torch.device]) -> dict[str, Any]:
     _, true_device_ids = get_true_device_ids(devices)
-    assert len(true_device_ids) == len(devices), (
-        f"The device list you specified ({devices}) is invalid (or devices could not be found)."
-    )
+    assert (
+        len(true_device_ids) == len(devices)
+    ), f"The device list you specified ({devices}) is invalid (or devices could not be found)."
     device_env = {"CUDA_VISIBLE_DEVICES": ",".join(map(str, true_device_ids))}
     device_env["NCCL_P2P_DISABLE"] = "1"
     return device_env
@@ -280,9 +280,9 @@ def model_to_device(
                     to_device_map = "auto"
                     to_device_map_max_memory = max_memory
                 else:
-                    assert all(is_cpu_device(d) for d in list_of_devices), (
-                        f"The device you specified ({list_of_devices}) is invalid (or devices could not be found)."
-                    )
+                    assert all(
+                        is_cpu_device(d) for d in list_of_devices
+                    ), f"The device you specified ({list_of_devices}) is invalid (or devices could not be found)."
                     to_device_map = {"": "cpu"}
                     to_device_map_max_memory = None
         else:

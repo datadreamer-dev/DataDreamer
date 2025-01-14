@@ -242,7 +242,7 @@ class TrainSetFitClassifier(TrainHFClassifier):
     ):  # pragma: no cover
         resource.push_to_hub(repo_id=repo_id, branch=branch, private=private, **kwargs)
 
-    def _train(  # type:ignore[override]
+    def _train(  # type:ignore[override]  # noqa:C901
         self,
         train_input: OutputDatasetColumn | OutputIterableDatasetColumn,
         train_output: OutputDatasetColumn | OutputIterableDatasetColumn,
@@ -423,19 +423,22 @@ class TrainSetFitClassifier(TrainHFClassifier):
                         setfit_logging.disable_progress_bar()
                 return results
 
-            # def evaluate(self, *args, **kwargs):
-            #     metrics = {
-            #         "epoch": "Final"
-            #         if "final" in kwargs
-            #         else round(self.state.epoch or 0.0, 2)
-            #     }
-            #     kwargs.pop("final", None)
-            #     for k, v in super().evaluate(*args, **kwargs).items():
-            #         metrics[f"eval_{k}"] = v
-            #     self.callback_handler.on_log(
-            #         training_args, self.state, self.control, metrics
-            #     )
-            #     return metrics
+            def evaluate(self, *args, **kwargs):
+                metrics = {
+                    "epoch": "Final"
+                    if "final" in kwargs
+                    else round(self.st_trainer.state.epoch or 0.0, 2)
+                }
+                kwargs.pop("final", None)
+                for k, v in super().evaluate(*args, **kwargs).items():
+                    metrics[f"eval_{k}"] = v
+                self.st_trainer.callback_handler.on_log(
+                    training_args,
+                    self.st_trainer.state,
+                    self.st_trainer.control,
+                    metrics,
+                )
+                return metrics
 
         trainer = CustomTrainer(
             train_dataset=train_dataset,
