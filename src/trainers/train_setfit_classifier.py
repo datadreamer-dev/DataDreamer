@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 import sys
@@ -5,8 +6,11 @@ from copy import deepcopy
 from functools import cached_property, partial
 from pathlib import Path
 from typing import Any, Type
+from unittest.mock import patch
 
+import dill
 import torch
+
 from datasets import IterableDataset
 
 from .. import DataDreamer
@@ -14,6 +18,7 @@ from .._cachable._cachable import _is_primitive
 from ..datasets import OutputDatasetColumn, OutputIterableDatasetColumn
 from ..utils.arg_utils import AUTO, DEFAULT, Default, default_to
 from ..utils.background_utils import RunIfTimeout
+from ..utils.device_utils import _SentenceTransformerTrainingArgumentDeviceOverrideMixin
 from ..utils.hf_model_utils import (
     filter_model_warnings,
     get_base_model_from_peft_model,
@@ -32,7 +37,10 @@ from .train_sentence_transformer import TrainSentenceTransformer
 
 with ignore_transformers_warnings():
     from huggingface_hub.repocard import ModelCard, ModelCardData
-    from sentence_transformers import SentenceTransformer
+    from sentence_transformers import (
+        SentenceTransformer,
+        SentenceTransformerTrainingArguments,
+    )
     from setfit import SetFitModel, logging as setfit_logging
     from transformers import PreTrainedModel
     from transformers.trainer_callback import EarlyStoppingCallback, PrinterCallback
@@ -95,6 +103,14 @@ class SetFitModelWrapper(SetFitModel):
             self.model_head.to(self.device)
 
 
+class _SentenceTransformerTrainingArguments(
+    _SentenceTransformerTrainingArgumentDeviceOverrideMixin,
+    SentenceTransformerTrainingArguments,
+):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
 class TrainSetFitClassifier(TrainHFClassifier):
     def __init__(
         self,
@@ -110,9 +126,9 @@ class TrainSetFitClassifier(TrainHFClassifier):
         **kwargs,
     ):
         cls_name = self.__class__.__name__
-        assert not isinstance(
-            device, list
-        ), f"Training on multiple devices is not supported for {cls_name}."
+        assert not isinstance(device, list), (
+            f"Training on multiple devices is not supported for {cls_name}."
+        )
         _TrainHFBase.__init__(
             self,
             name=name,
@@ -184,7 +200,7 @@ class TrainSetFitClassifier(TrainHFClassifier):
             head_params={"out_features": len(label2id)},
             labels=list(label2id.keys()),
             **self.kwargs,
-        )
+        ).to(default_to(device, self.device))
 
         # Set model dtype
         model.model_body = model.model_body.to(self.dtype)
@@ -249,27 +265,24 @@ class TrainSetFitClassifier(TrainHFClassifier):
             from transformers.trainer_callback import ProgressCallback
 
         # Prepare datasets
-        (
-            train_dataset,
-            validation_dataset,
-            label2id,
-            is_multi_target,
-        ) = prepare_inputs_and_outputs(
-            self,
-            train_columns={
-                ("text", "Train Input"): train_input,
-                ("label", "Train Output"): train_output,
-            },
-            validation_columns={
-                ("text", "Validation Input"): validation_input,
-                ("label", "Validation Output"): validation_output,
-            },
-            truncate=truncate,
+        (train_dataset, validation_dataset, label2id, is_multi_target) = (
+            prepare_inputs_and_outputs(
+                self,
+                train_columns={
+                    ("text", "Train Input"): train_input,
+                    ("label", "Train Output"): train_output,
+                },
+                validation_columns={
+                    ("text", "Validation Input"): validation_input,
+                    ("label", "Validation Output"): validation_output,
+                },
+                truncate=truncate,
+            )
         )
         id2label = {v: k for k, v in label2id.items()}
-        assert (
-            len(id2label) > 1
-        ), "There must be at least 2 output labels in your dataset."
+        assert len(id2label) > 1, (
+            "There must be at least 2 output labels in your dataset."
+        )
 
         # Prepare metrics
         metric = kwargs.pop("metric", "f1")
@@ -319,6 +332,7 @@ class TrainSetFitClassifier(TrainHFClassifier):
             seed=seed,
             **kwargs,
         )
+        training_args.place_model_on_device = False
         training_args.eval_strategy = training_args.evaluation_strategy
         if kwargs.get("max_steps", None) is not None:  # pragma: no cover
             total_train_steps = kwargs["max_steps"]
@@ -345,6 +359,28 @@ class TrainSetFitClassifier(TrainHFClassifier):
 
         # Setup trainer
         class CustomTrainer(Trainer):
+            def __init__(self, *args, **kwargs):
+                model_body = kwargs["model"].model_body
+                orig_body_device = model_body.device
+                os.environ["_DATADREAMER_SETFIT_DEVICE"] = base64.b64encode(
+                    dill.dumps(orig_body_device)
+                ).decode("utf-8")
+                with patch(
+                    "sentence_transformers.trainer.SentenceTransformerTrainingArguments",
+                    _SentenceTransformerTrainingArguments,
+                ):
+                    super().__init__(*args, **kwargs)
+                _ = (
+                    self.st_trainer.args._selected_device
+                )  # Read the property to store it in cache
+                del os.environ["_DATADREAMER_SETFIT_DEVICE"]
+
+            def _wrap_model(self, model, *args, **kwargs):
+                return model
+
+            def _move_model_to_device(self, model, *args, **kwargs):
+                return None
+
             def train_classifier(trainer, *args, **kwargs):
                 self.logger.info("Finished training SetFit model body (embeddings).")
 
@@ -387,19 +423,19 @@ class TrainSetFitClassifier(TrainHFClassifier):
                         setfit_logging.disable_progress_bar()
                 return results
 
-            def evaluate(self, *args, **kwargs):
-                metrics = {
-                    "epoch": "Final"
-                    if "final" in kwargs
-                    else round(self.state.epoch or 0.0, 2)
-                }
-                kwargs.pop("final", None)
-                for k, v in super().evaluate(*args, **kwargs).items():
-                    metrics[f"eval_{k}"] = v
-                self.callback_handler.on_log(
-                    training_args, self.state, self.control, metrics
-                )
-                return metrics
+            # def evaluate(self, *args, **kwargs):
+            #     metrics = {
+            #         "epoch": "Final"
+            #         if "final" in kwargs
+            #         else round(self.state.epoch or 0.0, 2)
+            #     }
+            #     kwargs.pop("final", None)
+            #     for k, v in super().evaluate(*args, **kwargs).items():
+            #         metrics[f"eval_{k}"] = v
+            #     self.callback_handler.on_log(
+            #         training_args, self.state, self.control, metrics
+            #     )
+            #     return metrics
 
         trainer = CustomTrainer(
             train_dataset=train_dataset,
@@ -539,7 +575,7 @@ class TrainSetFitClassifier(TrainHFClassifier):
                     use_differentiable_head=True,
                     labels=list(label2id.keys()),
                     **self.kwargs,
-                )
+                ).to(self.device)
             if os.path.exists(
                 os.path.join(
                     os.path.join(self._output_folder_path, "_model"),
@@ -575,7 +611,7 @@ class TrainSetFitClassifier(TrainHFClassifier):
                     use_differentiable_head=True,
                     labels=list(label2id.keys()),
                     **self.kwargs,
-                )
+                ).to(self.device)
 
         # Set model dtype
         model.model_body = model.model_body.to(self.dtype)

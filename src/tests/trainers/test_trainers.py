@@ -3059,10 +3059,6 @@ class TestTrainHFPPO:
 
 
 class TestTrainSetFitClassifier:
-    # TODO: SetFit is currently broken (skipping tests):
-    # https://github.com/huggingface/setfit/issues/564
-    __test__ = False
-
     def test_metadata(self, create_datadreamer):
         with create_datadreamer():
             trainer = TrainSetFitClassifier(
