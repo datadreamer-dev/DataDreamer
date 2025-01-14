@@ -224,9 +224,9 @@ class DPOTrainer(Trainer):  # pragma: no cover
                 }
 
                 if _support_gc_kwargs:
-                    preprare_model_kwargs["gradient_checkpointing_kwargs"] = (
-                        args.gradient_checkpointing_kwargs
-                    )
+                    preprare_model_kwargs[
+                        "gradient_checkpointing_kwargs"
+                    ] = args.gradient_checkpointing_kwargs
 
                 model = prepare_model_for_kbit_training(model, **preprare_model_kwargs)
             elif getattr(args, "gradient_checkpointing", False):
@@ -479,13 +479,15 @@ class DPOTrainer(Trainer):  # pragma: no cover
             for padded_batch in tqdm(
                 iterable=data_loader, desc="Train dataset reference log probs"
             ):
-                (reference_chosen_logp, reference_rejected_logp) = (
-                    self.compute_reference_log_probs(padded_batch)
-                )
-                (reference_chosen_logp, reference_rejected_logp) = (
-                    self.accelerator.gather_for_metrics(
-                        (reference_chosen_logp, reference_rejected_logp)
-                    )
+                (
+                    reference_chosen_logp,
+                    reference_rejected_logp,
+                ) = self.compute_reference_log_probs(padded_batch)
+                (
+                    reference_chosen_logp,
+                    reference_rejected_logp,
+                ) = self.accelerator.gather_for_metrics(
+                    (reference_chosen_logp, reference_rejected_logp)
                 )
                 reference_chosen_logps.append(reference_chosen_logp.cpu())
                 reference_rejected_logps.append(reference_rejected_logp.cpu())
@@ -542,13 +544,15 @@ class DPOTrainer(Trainer):  # pragma: no cover
             for padded_batch in tqdm(
                 iterable=data_loader, desc="Eval dataset reference log probs"
             ):
-                (reference_chosen_logp, reference_rejected_logp) = (
-                    self.compute_reference_log_probs(padded_batch)
-                )
-                (reference_chosen_logp, reference_rejected_logp) = (
-                    self.accelerator.gather_for_metrics(
-                        (reference_chosen_logp, reference_rejected_logp)
-                    )
+                (
+                    reference_chosen_logp,
+                    reference_rejected_logp,
+                ) = self.compute_reference_log_probs(padded_batch)
+                (
+                    reference_chosen_logp,
+                    reference_rejected_logp,
+                ) = self.accelerator.gather_for_metrics(
+                    (reference_chosen_logp, reference_rejected_logp)
                 )
                 reference_chosen_logps.append(reference_chosen_logp.cpu())
                 reference_rejected_logps.append(reference_rejected_logp.cpu())
@@ -796,15 +800,15 @@ class DPOTrainer(Trainer):  # pragma: no cover
             if model is not None and hasattr(
                 model, "prepare_decoder_input_ids_from_labels"
             ):
-                batch["rejected_decoder_input_ids"] = (
-                    model.prepare_decoder_input_ids_from_labels(
-                        labels=batch["rejected_labels"]
-                    )
+                batch[
+                    "rejected_decoder_input_ids"
+                ] = model.prepare_decoder_input_ids_from_labels(
+                    labels=batch["rejected_labels"]
                 )
-                batch["chosen_decoder_input_ids"] = (
-                    model.prepare_decoder_input_ids_from_labels(
-                        labels=batch["chosen_labels"]
-                    )
+                batch[
+                    "chosen_decoder_input_ids"
+                ] = model.prepare_decoder_input_ids_from_labels(
+                    labels=batch["chosen_labels"]
                 )
 
         return batch
@@ -819,13 +823,19 @@ class DPOTrainer(Trainer):  # pragma: no cover
                     if self.is_peft_model
                     else nullcontext()
                 ):
-                    (reference_chosen_logps, reference_rejected_logps, _, _) = (
-                        self.concatenated_forward(self.model, padded_batch)
-                    )
+                    (
+                        reference_chosen_logps,
+                        reference_rejected_logps,
+                        _,
+                        _,
+                    ) = self.concatenated_forward(self.model, padded_batch)
             else:
-                (reference_chosen_logps, reference_rejected_logps, _, _) = (
-                    self.concatenated_forward(self.ref_model, padded_batch)
-                )
+                (
+                    reference_chosen_logps,
+                    reference_rejected_logps,
+                    _,
+                    _,
+                ) = self.concatenated_forward(self.ref_model, padded_batch)
 
         return reference_chosen_logps, reference_rejected_logps
 
@@ -1089,13 +1099,19 @@ class DPOTrainer(Trainer):  # pragma: no cover
             with torch.no_grad():
                 if self.ref_model is None:
                     with self.accelerator.unwrap_model(self.model).disable_adapter():
-                        (reference_chosen_logps, reference_rejected_logps, _, _) = (
-                            self.concatenated_forward(self.model, batch)
-                        )
+                        (
+                            reference_chosen_logps,
+                            reference_rejected_logps,
+                            _,
+                            _,
+                        ) = self.concatenated_forward(self.model, batch)
                 else:
-                    (reference_chosen_logps, reference_rejected_logps, _, _) = (
-                        self.concatenated_forward(self.ref_model, batch)
-                    )
+                    (
+                        reference_chosen_logps,
+                        reference_rejected_logps,
+                        _,
+                        _,
+                    ) = self.concatenated_forward(self.ref_model, batch)
 
         losses, chosen_rewards, rejected_rewards = self.dpo_loss(
             policy_chosen_logps,
@@ -1268,9 +1284,10 @@ class DPOTrainer(Trainer):  # pragma: no cover
             random_batch = self.data_collator(random_batch_dataset)
             random_batch = self._prepare_inputs(random_batch)
 
-            (policy_output_decoded, ref_output_decoded) = (
-                self.generate_from_model_and_ref(self.model, random_batch)
-            )
+            (
+                policy_output_decoded,
+                ref_output_decoded,
+            ) = self.generate_from_model_and_ref(self.model, random_batch)
 
             self.log(
                 {

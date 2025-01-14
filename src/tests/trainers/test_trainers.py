@@ -121,7 +121,7 @@ class TestTrainHFBase:
                 chat_prompt_template="{{system_prompt}}\nUser: {{prompt}}\nAssistant: ",
             )
             assert (
-                trainer.processing_class.apply_chat_template(
+                trainer.tokenizer.apply_chat_template(
                     [
                         {"role": "system", "content": "A"},
                         {"role": "user", "content": "B"},
@@ -132,7 +132,7 @@ class TestTrainHFBase:
                 == "A\nUser: B\nAssistant: C<|endoftext|>"
             )
             assert (
-                trainer.processing_class.apply_chat_template(
+                trainer.tokenizer.apply_chat_template(
                     [
                         {"role": "user", "content": "B"},
                         {"role": "assistant", "content": "C"},
@@ -142,7 +142,7 @@ class TestTrainHFBase:
                 == "You are a helpful assistant.\nUser: B\nAssistant: C<|endoftext|>"
             )
             assert (
-                trainer.processing_class.apply_chat_template(
+                trainer.tokenizer.apply_chat_template(
                     [
                         {"role": "system", "content": "A"},
                         {"role": "user", "content": "B"},
@@ -159,7 +159,7 @@ class TestTrainHFBase:
                 chat_prompt_template="{{system_prompt}}\n\nUser: {{prompt}}\nAssistant: ",
             )
             assert (
-                trainer.processing_class.apply_chat_template(
+                trainer.tokenizer.apply_chat_template(
                     [
                         {"role": "system", "content": "A"},
                         {"role": "user", "content": "B"},
@@ -176,7 +176,7 @@ class TestTrainHFBase:
                 chat_prompt_template="<|system|>\n</s>\n<|user|>\n{{prompt}}</s>\n<|assistant|>\n",
             )
             assert (
-                trainer.processing_class.apply_chat_template(
+                trainer.tokenizer.apply_chat_template(
                     [
                         {"role": "user", "content": "A"},
                         {"role": "assistant", "content": "B"},
@@ -193,7 +193,7 @@ class TestTrainHFBase:
                 system_prompt="You are a helpful assistant.",
             )
             assert (
-                trainer.processing_class.apply_chat_template(
+                trainer.tokenizer.apply_chat_template(
                     [
                         {"role": "system", "content": "A"},
                         {"role": "user", "content": "B"},
@@ -211,7 +211,7 @@ class TestTrainHFBase:
                 system_prompt=SYSTEM_PROMPTS["llama_system"],
             )
             assert (
-                trainer.processing_class.apply_chat_template(
+                trainer.tokenizer.apply_chat_template(
                     [
                         {"role": "system", "content": "A"},
                         {"role": "user", "content": "B"},
@@ -230,7 +230,7 @@ class TestTrainHFBase:
                 ),
             )
             assert (
-                trainer.processing_class.apply_chat_template(
+                trainer.tokenizer.apply_chat_template(
                     [
                         {"role": "system", "content": "A"},
                         {"role": "user", "content": "B"},
@@ -246,7 +246,7 @@ class TestTrainHFBase:
                 model_name="togethercomputer/RedPajama-INCITE-7B-Chat",
             )
         assert (
-            trainer.processing_class.apply_chat_template(
+            trainer.tokenizer.apply_chat_template(
                 [
                     {"role": "user", "content": "A"},
                     {"role": "assistant", "content": "B"},
@@ -256,7 +256,7 @@ class TestTrainHFBase:
             == "<human>: A\n<bot>: B<|endoftext|>"
         )
         assert (
-            trainer.processing_class.apply_chat_template(
+            trainer.tokenizer.apply_chat_template(
                 [{"role": "user", "content": "A"}],
                 tokenize=False,
                 add_generation_prompt=True,
@@ -264,7 +264,7 @@ class TestTrainHFBase:
             == "<human>: A\n<bot>: "
         )
         assert (
-            trainer.processing_class.apply_chat_template(
+            trainer.tokenizer.apply_chat_template(
                 [
                     {"role": "system", "content": "A"},
                     {"role": "user", "content": "B"},
@@ -279,7 +279,7 @@ class TestTrainHFBase:
                 "LLaMa-2 Trainer", model_name="meta-llama/Llama-2-7b-chat-hf"
             )
             assert (
-                trainer.processing_class.apply_chat_template(
+                trainer.tokenizer.apply_chat_template(
                     [
                         {"role": "system", "content": "A"},
                         {"role": "user", "content": "B"},
@@ -289,7 +289,7 @@ class TestTrainHFBase:
                 )
                 == "<s>[INST] <<SYS>>\nA\n<</SYS>>\n\nB [/INST] C</s>"
             )
-            assert trainer.processing_class.apply_chat_template(
+            assert trainer.tokenizer.apply_chat_template(
                 [
                     {"role": "user", "content": "B"},
                     {"role": "assistant", "content": "C"},
@@ -300,7 +300,7 @@ class TestTrainHFBase:
                 "\n\nB [/INST] C</s>"
             )
             assert (
-                trainer.processing_class.apply_chat_template(
+                trainer.tokenizer.apply_chat_template(
                     [
                         {"role": "system", "content": "A"},
                         {"role": "user", "content": "B"},
@@ -315,7 +315,7 @@ class TestTrainHFBase:
                 "MistralAI Trainer", model_name="mistralai/Mistral-7B-Instruct-v0.1"
             )
             assert (
-                trainer.processing_class.apply_chat_template(
+                trainer.tokenizer.apply_chat_template(
                     [
                         {"role": "user", "content": "A"},
                         {"role": "assistant", "content": "B"},
@@ -325,7 +325,7 @@ class TestTrainHFBase:
                 == "<s>[INST] A [/INST] B</s>"
             )
             assert (
-                trainer.processing_class.apply_chat_template(
+                trainer.tokenizer.apply_chat_template(
                     [{"role": "user", "content": "A"}],
                     tokenize=False,
                     add_generation_prompt=True,
@@ -334,7 +334,7 @@ class TestTrainHFBase:
             )
             with pytest.raises(Exception, match=r"Conversation roles must alternate.*"):
                 assert (
-                    trainer.processing_class.apply_chat_template(
+                    trainer.tokenizer.apply_chat_template(
                         [
                             {"role": "system", "content": "A"},
                             {"role": "user", "content": "B"},

@@ -996,10 +996,10 @@ class TestTrainDistributedSlow:
 
             # Test the model performance
             # (ensures weights were saved properly)
-            inputs = trainer.processing_class(
+            inputs = trainer.tokenizer(
                 ["A founder of Microsft is"], padding=True, return_tensors="pt"
             ).to(export_result.device)
-            outputs = trainer.processing_class.batch_decode(
+            outputs = trainer.tokenizer.batch_decode(
                 export_result.generate(**inputs, max_new_tokens=4, do_sample=False)
             )
             assert ("Bill Gates" in outputs[0] and "<|endoftext|>" in outputs[0]) or (
