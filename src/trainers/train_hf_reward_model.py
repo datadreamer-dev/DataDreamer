@@ -143,9 +143,9 @@ class TrainHFRewardModel(TrainHFClassifier):
         )
 
         # Prepare datasets
-        assert (
-            self._is_encoder_decoder or truncate
-        ), "`truncate=False` is not supported for this model."
+        assert self._is_encoder_decoder or truncate, (
+            "`truncate=False` is not supported for this model."
+        )
         train_columns = {
             ("train_prompts", "Train Prompts"): train_prompts,
             ("train_chosen", "Train Chosen Generations"): train_chosen,
@@ -356,7 +356,7 @@ class TrainHFRewardModel(TrainHFClassifier):
         self._save_model(
             training_args=training_args,
             model=trainer.model,
-            tokenizer=trainer.tokenizer,
+            tokenizer=trainer.processing_class,
             accelerator=trainer.accelerator,
             fsdp=trainer.is_fsdp_enabled,
         )
@@ -406,9 +406,9 @@ class TrainHFRewardModel(TrainHFClassifier):
             from transformers import Trainer
 
         # Prepare datasets
-        assert (
-            self._is_encoder_decoder or truncate
-        ), "`truncate=False` is not supported for this model."
+        assert self._is_encoder_decoder or truncate, (
+            "`truncate=False` is not supported for this model."
+        )
         train_dataset, validation_dataset, _, _ = prepare_inputs_and_outputs(
             self,
             train_columns={
@@ -552,7 +552,7 @@ class TrainHFRewardModel(TrainHFClassifier):
         self._save_model(
             training_args=training_args,
             model=trainer.model,
-            tokenizer=trainer.tokenizer,
+            tokenizer=trainer.processing_class,
             accelerator=trainer.accelerator,
             fsdp=trainer.is_fsdp_enabled,
         )

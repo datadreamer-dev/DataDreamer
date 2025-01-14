@@ -7,11 +7,12 @@ from time import time
 from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 import torch
-from datasets import IterableDataset
 from torch.optim import AdamW, Optimizer
 from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.data import DataLoader
 from transformers import logging as transformers_logging
+
+from datasets import IterableDataset
 
 from ..datasets import OutputDatasetColumn, OutputIterableDatasetColumn
 from ..llms.llm import _check_temperature_and_top_p
@@ -512,9 +513,9 @@ class TrainHFPPO(TrainHFFineTune):
             )
 
         # Prepare datasets
-        assert (
-            self._is_encoder_decoder or truncate
-        ), "`truncate=False` is not supported for this model."
+        assert self._is_encoder_decoder or truncate, (
+            "`truncate=False` is not supported for this model."
+        )
         train_dataset, validation_dataset, _, _ = prepare_inputs_and_outputs(
             self,
             train_columns={("input_ids", "Train Input"): train_prompts},
@@ -792,7 +793,7 @@ class TrainHFPPO(TrainHFFineTune):
         self._save_model(
             training_args=ppo_config,
             model=trainer.model,
-            tokenizer=trainer.tokenizer,
+            tokenizer=trainer.processing_class,
             accelerator=trainer.accelerator,
             fsdp=trainer.is_fsdp_enabled,
         )
