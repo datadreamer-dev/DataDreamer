@@ -2561,7 +2561,7 @@ class TestAnthropic:
 class TestBedrock:
     @classmethod
     def setup_class(cls):
-        os.system("pip3 install boto3==1.34.149")
+        os.system("pip3 install boto3==1.35.98")
 
     @pytest.mark.order("last")
     def test_init(self, create_datadreamer):
@@ -2647,7 +2647,7 @@ class TestBedrock:
 class TestPaLM:
     @classmethod
     def setup_class(cls):
-        os.system("pip3 install google-generativeai==0.2.2")
+        os.system("pip3 install google-generativeai==0.8.3")
 
     @pytest.mark.order("last")
     def test_init(self, create_datadreamer):
@@ -2699,7 +2699,7 @@ class TestPaLM:
 class TestVertexAI:
     @classmethod
     def setup_class(cls):
-        os.system("pip3 install google-cloud-aiplatform==1.38.1")
+        os.system("pip3 install google-cloud-aiplatform==1.76.0")
 
     @pytest.mark.order("last")
     def test_init(self, create_datadreamer):
@@ -2757,7 +2757,7 @@ class TestTogether:
     @classmethod
     def setup_class(cls):
         cls.pydantic_version = importlib.metadata.version("pydantic")
-        os.system("pip3 install together==1.2.5")
+        os.system("pip3 install together==1.3.11")
         _reload_pydantic()
 
     @classmethod
@@ -2941,7 +2941,7 @@ class TestMistralAI:
     @classmethod
     def setup_class(cls):
         cls.pydantic_version = importlib.metadata.version("pydantic")
-        os.system("pip3 install mistralai==0.4.2")
+        os.system("pip3 install mistralai==1.3.0")
         _reload_pydantic()
 
     @classmethod
