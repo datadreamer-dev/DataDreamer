@@ -91,6 +91,7 @@ def ignore_training_warnings():
 @contextlib.contextmanager
 def ignore_pydantic_warnings():
     with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message="Valid config keys have changed .*")
         warnings.filterwarnings("ignore", message="Pydantic V1 style .*")
         warnings.filterwarnings("ignore", message="`pydantic.*")
         warnings.filterwarnings("ignore", message="Support for class-based .*")
