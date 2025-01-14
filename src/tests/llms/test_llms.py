@@ -69,10 +69,12 @@ OPENAI_SKY_CHAT_ANSWER = "The color of the sky can vary depending on the"
 OPENAI_TREE_CHAT_ANSWER = "Trees can be various shades of green, depending on"
 
 
-def _reload_pydantic():
-    for m in list(sys.modules.keys()):
-        if m.startswith("pydantic"):
-            del sys.modules[m]
+def _reload_pydantic(old_version):
+    if importlib.metadata.version("pydantic") != old_version:
+        os.system(f"pip3 install pydantic=={cls.pydantic_version}")
+        for m in list(sys.modules.keys()):
+            if m.startswith("pydantic"):
+                del sys.modules[m]
 
 
 class TestLLM:
@@ -2201,12 +2203,11 @@ class TestVLLM:
     def setup_class(cls):
         cls.pydantic_version = importlib.metadata.version("pydantic")
         os.system("pip3 install vllm==0.6.6.post1")
-        _reload_pydantic()
+        _reload_pydantic(cls.pydantic_version)
 
     @classmethod
     def teardown_class(cls):
-        os.system(f"pip3 install pydantic=={cls.pydantic_version}")
-        _reload_pydantic()
+        _reload_pydantic(cls.pydantic_version)
 
     def test_init(self, create_datadreamer):
         with create_datadreamer():
@@ -2758,12 +2759,11 @@ class TestTogether:
     def setup_class(cls):
         cls.pydantic_version = importlib.metadata.version("pydantic")
         os.system("pip3 install together==1.3.11")
-        _reload_pydantic()
+        _reload_pydantic(cls.pydantic_version)
 
     @classmethod
     def teardown_class(cls):
-        os.system(f"pip3 install pydantic=={cls.pydantic_version}")
-        _reload_pydantic()
+        _reload_pydantic(cls.pydantic_version)
 
     @pytest.mark.order("last")
     def test_warnings(self, create_datadreamer):
@@ -2942,12 +2942,11 @@ class TestMistralAI:
     def setup_class(cls):
         cls.pydantic_version = importlib.metadata.version("pydantic")
         os.system("pip3 install mistralai==1.3.0")
-        _reload_pydantic()
+        _reload_pydantic(cls.pydantic_version)
 
     @classmethod
     def teardown_class(cls):
-        os.system(f"pip3 install pydantic=={cls.pydantic_version}")
-        _reload_pydantic()
+        _reload_pydantic(cls.pydantic_version)
 
     @pytest.mark.order("last")
     def test_init(self, create_datadreamer):
@@ -3073,13 +3072,12 @@ class TestPetals:
         cls.bitsandbytes_version = importlib.metadata.version("bitsandbytes")
         os.system("pip3 install petals==2.2.0")
         os.system("pip3 install 'pydantic>=1.10,<2.0'")
-        _reload_pydantic()
+        _reload_pydantic(cls.pydantic_version)
 
     @classmethod
     def teardown_class(cls):
-        os.system(f"pip3 install pydantic=={cls.pydantic_version}")
         os.system(f"pip3 install bitsandbytes=={cls.bitsandbytes_version}")
-        _reload_pydantic()
+        _reload_pydantic(cls.pydantic_version)
 
     @pytest.mark.xfail  # Petals network is unreliable currently
     @pytest.mark.timeout(90)
