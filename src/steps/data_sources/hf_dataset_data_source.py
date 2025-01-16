@@ -27,7 +27,7 @@ class HFDatasetDataSource(DataSource):
         self,
         name: str,
         dataset_path: str,
-        progress_interval: None | int = None,
+        progress_interval: None | int = 60,
         force: bool = False,
         verbose: None | bool = None,
         log_level: None | int = None,

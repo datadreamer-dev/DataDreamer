@@ -21,7 +21,7 @@ class HFHubDataSource(DataSource):
         revision: None | str | Version = None,
         trust_remote_code: bool = False,
         streaming: bool = False,
-        progress_interval: None | int = None,
+        progress_interval: None | int = 60,
         force: bool = False,
         verbose: None | bool = None,
         log_level: None | int = None,

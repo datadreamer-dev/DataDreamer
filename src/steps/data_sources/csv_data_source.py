@@ -33,7 +33,7 @@ class CSVDataSource(DataSource):
         data_folder: None | str = None,
         data_files: None | str | Sequence[str] = None,
         sep: str = ",",
-        progress_interval: None | int = None,
+        progress_interval: None | int = 60,
         force: bool = False,
         verbose: None | bool = None,
         log_level: None | int = None,

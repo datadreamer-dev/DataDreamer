@@ -20,7 +20,7 @@ class DataSource(Step):
         | IterableDataset,
         total_num_rows: None | int = None,
         auto_progress: bool = True,
-        progress_interval: None | int = None,
+        progress_interval: None | int = 60,
         force: bool = False,
         verbose: None | bool = None,
         log_level: None | int = None,
