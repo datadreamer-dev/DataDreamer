@@ -71,7 +71,7 @@ OPENAI_TREE_CHAT_ANSWER = "Trees can be various shades of green, depending on"
 
 def _reload_pydantic(old_version):
     if importlib.metadata.version("pydantic") != old_version:
-        os.system(f"pip3 install pydantic=={cls.pydantic_version}")
+        os.system(f"pip3 install pydantic=={old_version}")
         for m in list(sys.modules.keys()):
             if m.startswith("pydantic"):
                 del sys.modules[m]
