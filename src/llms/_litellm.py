@@ -137,9 +137,9 @@ class LiteLLM(LLMAPI):
             from litellm import get_max_tokens
 
         max_tokens = get_max_tokens(model=self._model_name_prefix + self.model_name)
-        assert max_tokens is not None, (
-            f"Failed to get the maximum context length for model: {self.model_name}."
-        )
+        assert (
+            max_tokens is not None
+        ), f"Failed to get the maximum context length for model: {self.model_name}."
         return max_tokens - max_new_tokens
 
     @ring.lru(maxsize=5000)
@@ -179,9 +179,9 @@ class LiteLLM(LLMAPI):
     ) -> list[str] | list[list[str]]:
         prompts = inputs
         assert seed is None, f"`seed` is not supported for {type(self).__name__}"
-        assert logit_bias is None, (
-            f"`logit_bias` is not supported for {type(self).__name__}"
-        )
+        assert (
+            logit_bias is None
+        ), f"`logit_bias` is not supported for {type(self).__name__}"
 
         # Check max_new_tokens
         max_new_tokens = _check_max_new_tokens_possible(

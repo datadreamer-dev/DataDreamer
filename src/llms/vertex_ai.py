@@ -41,9 +41,9 @@ class VertexAI(LiteLLM):
         **kwargs,
     ) -> list[str] | list[list[str]]:
         assert stop is None, f"`stop` is not supported for {type(self).__name__}"
-        assert repetition_penalty is None, (
-            f"`repetition_penalty` is not supported for {type(self).__name__}"
-        )
+        assert (
+            repetition_penalty is None
+        ), f"`repetition_penalty` is not supported for {type(self).__name__}"
         assert n == 1, f"Only `n` = 1 is supported for {type(self).__name__}"
         return super()._run_batch(
             max_length_func=max_length_func,

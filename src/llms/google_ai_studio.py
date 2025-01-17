@@ -38,9 +38,9 @@ class GoogleAIStudio(LiteLLM):
         seed: None | int = None,
         **kwargs,
     ) -> list[str] | list[list[str]]:  # pragma: no cover
-        assert repetition_penalty is None, (
-            f"`repetition_penalty` is not supported for {type(self).__name__}"
-        )
+        assert (
+            repetition_penalty is None
+        ), f"`repetition_penalty` is not supported for {type(self).__name__}"
         return super()._run_batch(
             max_length_func=max_length_func,
             inputs=inputs,

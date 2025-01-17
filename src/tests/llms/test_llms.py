@@ -3021,14 +3021,14 @@ class TestMistralAI:
     @typing.no_type_check
     def test_run(self, create_datadreamer, mocker):
         def chat_mocked(**kwargs):
-            from mistralai.models.chat_completion import ChatCompletionResponse
+            from mistralai.models import ChatCompletionResponse
 
             p = kwargs["messages"][0].content
             response = {
                 "id": "cmpl-e5cc70bb28c444948073e77776eb30ef",
-                "object": "chat.completion",
+                "object": "models.chatcompletionresponse",
                 "created": 1702256327,
-                "model": "mistral-tiny",
+                "model": "mistral-small-latest",
                 "choices": [
                     {
                         "index": 0,
@@ -3048,10 +3048,10 @@ class TestMistralAI:
             return ChatCompletionResponse(**response)
 
         with create_datadreamer():
-            llm = MistralAI("mistral-tiny", api_key="fakeapikey")
+            llm = MistralAI("mistral-small-latest", api_key="fake-key")
 
             # Mock Complete.create()
-            mocker.patch.object(llm.client, "chat", side_effect=chat_mocked)
+            mocker.patch.object(llm.client.chat, "complete", side_effect=chat_mocked)
 
             # Simple run
             generated_texts = llm.run(
