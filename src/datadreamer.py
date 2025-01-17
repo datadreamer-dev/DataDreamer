@@ -9,10 +9,11 @@ from threading import Lock
 from typing import TYPE_CHECKING, Any, Callable, cast
 
 import tqdm
-from datasets.fingerprint import disable_caching, enable_caching, is_caching_enabled
-from datasets.utils import logging as datasets_logging
 from filelock import FileLock
 from sqlitedict import SqliteDict
+
+from datasets.fingerprint import disable_caching, enable_caching, is_caching_enabled
+from datasets.utils import logging as datasets_logging
 
 from . import logging as datadreamer_logging
 from ._patches.datasets_reset_state_hack import (
@@ -20,7 +21,11 @@ from ._patches.datasets_reset_state_hack import (
     stop_datasets_reset_state_hack,
 )
 from .logging import DATEFMT, logger
-from .utils.background_utils import get_thread_id
+from .utils.background_utils import (
+    get_thread_id,
+    setup_fault_handler,
+    unsetup_fault_handler,
+)
 from .utils.fs_utils import safe_fn
 from .utils.import_utils import ignore_pydantic_warnings, ignore_transformers_warnings
 
@@ -190,12 +195,12 @@ class DataDreamer:
         old_name: str, transform: None | str = None, record: bool = True
     ):
         # Check the name
-        assert (
-            "/" not in old_name
-        ), f"The step name '{old_name}' cannot contain '/' characters."
-        assert (
-            old_name not in ["_backups", ".datadreamer_save_cache"]
-        ), f"The step name '{old_name}' is invalid, please choose a different step name."
+        assert "/" not in old_name, (
+            f"The step name '{old_name}' cannot contain '/' characters."
+        )
+        assert old_name not in ["_backups", ".datadreamer_save_cache"], (
+            f"The step name '{old_name}' is invalid, please choose a different step name."
+        )
 
         # Get final name
         if DataDreamer.initialized():
@@ -383,6 +388,9 @@ class DataDreamer:
 
     def __enter__(self):  # noqa: C901
         from .utils.distributed_utils import is_distributed
+
+        # Setup fault handler
+        setup_fault_handler(os.getpid())
 
         if hasattr(DataDreamer.ctx, "steps"):
             raise RuntimeError("Only one DataDreamer context may be active at a time.")
@@ -573,6 +581,9 @@ class DataDreamer:
         for process in processes_to_terminate:
             if process.is_alive():
                 process.terminate()  # pragma: no cover
+
+        # Un-setup fault handler
+        unsetup_fault_handler()
 
     def start(self):  # pragma: no cover
         """

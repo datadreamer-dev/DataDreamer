@@ -126,12 +126,12 @@ class MistralAI(LLMAPI):
         **kwargs,
     ) -> list[str] | list[list[str]]:
         prompts = inputs
-        assert stop is None or stop == [], (
-            f"`stop` is not supported for {type(self).__name__}"
-        )
-        assert logit_bias is None, (
-            f"`logit_bias` is not supported for {type(self).__name__}"
-        )
+        assert (
+            stop is None or stop == []
+        ), f"`stop` is not supported for {type(self).__name__}"
+        assert (
+            logit_bias is None
+        ), f"`logit_bias` is not supported for {type(self).__name__}"
         assert n == 1, f"Only `n` = 1 is supported for {type(self).__name__}"
 
         UserMessage = import_module("mistralai.models").UserMessage
