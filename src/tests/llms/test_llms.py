@@ -1142,6 +1142,12 @@ class TestOpenAI:
             assert llm.get_max_context_length(max_new_tokens=0) == 16367
             llm = OpenAI("gpt-3.5-turbo-instruct")
             assert llm.get_max_context_length(max_new_tokens=0) == 4096
+            llm = OpenAI("o1-preview")
+            assert llm.get_max_context_length(max_new_tokens=0) == 128000
+            llm = OpenAI("o1-mini")
+            assert llm.get_max_context_length(max_new_tokens=0) == 128000
+            llm = OpenAI("o1")
+            assert llm.get_max_context_length(max_new_tokens=0) == 200000
 
     def test_get_max_output_length(self, create_datadreamer):
         with create_datadreamer():
@@ -1160,6 +1166,12 @@ class TestOpenAI:
             assert llm._get_max_output_length() == 4096
             llm = OpenAI("gpt-3.5-turbo-instruct")
             assert llm._get_max_output_length() is None
+            llm = OpenAI("o1-preview")
+            assert llm._get_max_output_length() == 32768
+            llm = OpenAI("o1-mini")
+            assert llm._get_max_output_length() == 65536
+            llm = OpenAI("o1")
+            assert llm._get_max_output_length() == 100000
 
     @pytest.mark.skipif(
         "OPENAI_API_KEY" not in os.environ, reason="requires OpenAI API key"
