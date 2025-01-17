@@ -29,12 +29,12 @@ from ...llms import (
     Bedrock,
     Cohere,
     CTransformers,
+    GoogleAIStudio,
     HFAPIEndpoint,
     HFTransformers,
     MistralAI,
     OpenAI,
     OpenAIAssistant,
-    PaLM,
     ParallelLLM,
     Petals,
     Together,
@@ -2363,6 +2363,8 @@ class TestLiteLLM:
             assert llm.get_max_context_length(max_new_tokens=0) == 4096
             llm = LiteLLM("gpt-3.5-turbo")
             assert llm.get_max_context_length(max_new_tokens=0) == 4096
+            llm = LiteLLM("gpt-3.5-turbo")
+            assert llm.get_max_context_length(max_new_tokens=100) == (4096 - 100)
 
     @pytest.mark.skipif(
         "OPENAI_API_KEY" not in os.environ, reason="requires OpenAI API key"
@@ -2426,7 +2428,11 @@ class TestAI21:
 
     def test_run(self, create_datadreamer):
         with create_datadreamer():
-            llm = AI21("j2-light", api_key="fake-key", retry_on_fail=False)
+            with ignore_litellm_warnings():
+                import litellm
+
+                litellm.drop_params = True
+            llm = AI21("jamba-1.5-mini", api_key="fake-key", retry_on_fail=False)
             model_calls = []
 
             def litellm_logger_fn(model_call_dict):
@@ -2434,9 +2440,9 @@ class TestAI21:
                 model_calls.append(model_call_dict)
 
             with ignore_litellm_warnings():
-                from litellm.exceptions import BadRequestError
+                from litellm.exceptions import AuthenticationError
 
-            with pytest.raises(BadRequestError):
+            with pytest.raises(AuthenticationError):
                 llm.run(
                     ["Who was the first president?"],
                     max_new_tokens=250,
@@ -2444,20 +2450,28 @@ class TestAI21:
                     top_p=0.0,
                     n=2,
                     stop=["\n"],
-                    repetition_penalty=1.1,
                     batch_size=1,
                     logger_fn=litellm_logger_fn,
                 )
+                litellm.drop_params = False
 
             assert len(model_calls) == 2
-            assert model_calls[0]["additional_args"]["complete_input_dict"] == {
-                "prompt": "Who was the first president?",
-                "numResults": 2,
-                "maxTokens": 250,
-                "temperature": 1.0,
-                "topP": 0.001,
-                "stopSequences": ["\n"],
-                "presencePenalty": {"scale": 1.1},
+            assert {
+                "messages": model_calls[0]["standard_logging_object"]["messages"],
+                "model_parameters": model_calls[0]["standard_logging_object"][
+                    "model_parameters"
+                ],
+            } == {
+                "messages": [
+                    {"role": "user", "content": "Who was the first president?"}
+                ],
+                "model_parameters": {
+                    "temperature": 1.0,
+                    "stop": ["\n"],
+                    "max_tokens": 250,
+                    "n": 2,
+                    "extra_body": {},
+                },
             }
 
 
@@ -2494,7 +2508,7 @@ class TestCohere:
                     logger_fn=litellm_logger_fn,
                 )
 
-            assert len(model_calls) == 2
+            assert len(model_calls) == 1
             assert model_calls[0]["additional_args"]["complete_input_dict"] == {
                 "model": "command-nightly",
                 "prompt": "Who was the first president?",
@@ -2541,7 +2555,7 @@ class TestAnthropic:
                     logger_fn=litellm_logger_fn,
                 )
 
-            assert len(model_calls) == 2
+            assert len(model_calls) == 1
             assert model_calls[0]["additional_args"]["complete_input_dict"] == {
                 "model": "claude-3-opus-20240229",
                 "messages": [
@@ -2615,7 +2629,7 @@ class TestBedrock:
                     logger_fn=litellm_logger_fn,
                 )
 
-            assert len(model_calls) == 2
+            assert len(model_calls) == 1
             assert {
                 k: v
                 for k, v in json.loads(
@@ -2640,12 +2654,13 @@ class TestBedrock:
                     "maxTokens": 250,
                     "temperature": 1.0,
                     "topP": 0.001,
+                    "stopSequences": ["\n"],
                 },
-                "additionalModelRequestFields": {"stop_sequences": ["\n"]},
+                "additionalModelRequestFields": {},
             }
 
 
-class TestPaLM:
+class TestGoogleAIStudio:
     @classmethod
     def setup_class(cls):
         os.system("pip3 install google-generativeai==0.8.3")
@@ -2653,8 +2668,8 @@ class TestPaLM:
     @pytest.mark.order("last")
     def test_init(self, create_datadreamer):
         with create_datadreamer():
-            llm = PaLM("chat-bison-001")
-            assert llm._model_name_prefix == "palm/"
+            llm = GoogleAIStudio("gemini-1.5-pro")
+            assert llm._model_name_prefix == "gemini/"
             assert llm.model_card is not None
             assert llm.license is not None
             assert isinstance(llm.citation, list)
@@ -2663,7 +2678,9 @@ class TestPaLM:
     @pytest.mark.order("last")
     def test_run(self, create_datadreamer):
         with create_datadreamer():
-            llm = PaLM("chat-bison-001", api_key="fake-key", retry_on_fail=False)
+            llm = GoogleAIStudio(
+                "gemini-1.5-pro", api_key="fake-key", retry_on_fail=False
+            )
             model_calls = []
 
             def litellm_logger_fn(model_call_dict):
@@ -2671,9 +2688,9 @@ class TestPaLM:
                 model_calls.append(model_call_dict)
 
             with ignore_litellm_warnings():
-                from litellm.exceptions import APIConnectionError
+                from litellm.exceptions import AuthenticationError
 
-            with pytest.raises(APIConnectionError):
+            with pytest.raises(AuthenticationError):
                 llm.run(
                     ["Who was the first president?"],
                     max_new_tokens=250,
@@ -2685,15 +2702,21 @@ class TestPaLM:
                     logger_fn=litellm_logger_fn,
                 )
 
-            assert len(model_calls) == 2
+            assert len(model_calls) == 1
             assert model_calls[0]["additional_args"]["complete_input_dict"] == {
-                "inference_params": {
-                    "candidate_count": 2,
-                    "max_output_tokens": 250,
-                    "stop_sequences": ["\n"],
+                "contents": [
+                    {
+                        "role": "user",
+                        "parts": [{"text": "Who was the first president?"}],
+                    }
+                ],
+                "generationConfig": {
                     "temperature": 1.0,
                     "top_p": 0.001,
-                }
+                    "stop_sequences": ["\n"],
+                    "max_output_tokens": 250,
+                    "candidate_count": 2,
+                },
             }
 
 
@@ -2718,7 +2741,7 @@ class TestVertexAI:
             llm = VertexAI(
                 "chat-bison",
                 vertex_project="project",
-                vertex_location="location",
+                vertex_location="us-west2",
                 retry_on_fail=False,
             )
             model_calls = []
@@ -2729,6 +2752,7 @@ class TestVertexAI:
 
             with ignore_litellm_warnings():
                 from litellm.exceptions import (
+                    APIConnectionError,
                     APIError,
                     BadRequestError,
                     InternalServerError,
@@ -2736,7 +2760,13 @@ class TestVertexAI:
                 )
 
             with pytest.raises(
-                (BadRequestError, APIError, RateLimitError, InternalServerError)
+                (
+                    APIConnectionError,
+                    BadRequestError,
+                    APIError,
+                    RateLimitError,
+                    InternalServerError,
+                )
             ):
                 llm.run(
                     ["Who was the first president?"],
@@ -2749,7 +2779,7 @@ class TestVertexAI:
                     logger_fn=litellm_logger_fn,
                 )
 
-            assert len(model_calls) == 1
+            assert len(model_calls) == 0
 
 
 class TestTogether:
