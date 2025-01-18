@@ -71,7 +71,6 @@ class CachedTokenizer:
             kwargs["padding"] = False
         fingerprint = Hasher.hash([orig_method.__name__, args, kwargs])
         if fingerprint not in cache:
-            print("FINGERPRINT", fingerprint, args, kwargs)
             cache[fingerprint] = orig_method(*args, **kwargs)
         return cache[fingerprint]
 
