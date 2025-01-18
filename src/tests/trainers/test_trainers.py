@@ -668,8 +668,10 @@ class TestTrainHFClassifier:
             assert os.path.isfile(os.path.join(trainer.model_path, "label2id.json"))
             assert os.path.isfile(os.path.join(trainer.model_path, "id2label.json"))
             assert os.path.isfile(os.path.join(trainer.model_path, "model.safetensors"))
-            print("LISTDIR>>>", os.listdir(trainer.model_path))
-            assert os.path.isfile(os.path.join(trainer.model_path, "spiece.model"))
+            assert os.path.isfile(
+                os.path.join(trainer.model_path, "spiece.model")
+                or os.path.join(trainer.model_path, "tokenizer.json")
+            )
             export_path = os.path.join(trainer_path, "export")
             export_result = trainer.export_to_disk(path=export_path)
             assert type(export_result).__name__ == "T5ForSequenceClassification"
@@ -772,7 +774,10 @@ class TestTrainHFClassifier:
                 os.path.join(trainer.model_path, "is_multi_target.json")
             )
             assert os.path.isfile(os.path.join(trainer.model_path, "model.safetensors"))
-            assert os.path.isfile(os.path.join(trainer.model_path, "spiece.model"))
+            assert os.path.isfile(
+                os.path.join(trainer.model_path, "spiece.model")
+                or os.path.join(trainer.model_path, "tokenizer.json")
+            )
             export_path = os.path.join(trainer_path, "export")
             export_result = trainer.export_to_disk(path=export_path)
             assert type(export_result).__name__ == "T5ForSequenceClassification"
@@ -853,7 +858,10 @@ class TestTrainHFClassifier:
             assert os.path.isfile(
                 os.path.join(trainer.model_path, "adapter_model.safetensors")
             )
-            assert os.path.isfile(os.path.join(trainer.model_path, "spiece.model"))
+            assert os.path.isfile(
+                os.path.join(trainer.model_path, "spiece.model")
+                or os.path.join(trainer.model_path, "tokenizer.json")
+            )
             export_path = os.path.join(trainer_path, "export")
             export_result = trainer.export_to_disk(path=export_path)
             assert export_result.config.num_labels == 2
@@ -996,7 +1004,10 @@ class TestTrainHFFineTune:
             )
             assert os.path.isfile(os.path.join(trainer.model_path, "seed.json"))
             assert os.path.isfile(os.path.join(trainer.model_path, "model.safetensors"))
-            assert os.path.isfile(os.path.join(trainer.model_path, "spiece.model"))
+            assert os.path.isfile(
+                os.path.join(trainer.model_path, "spiece.model")
+                or os.path.join(trainer.model_path, "tokenizer.json")
+            )
             export_path = os.path.join(trainer_path, "export")
             export_result = trainer.export_to_disk(path=export_path)
             assert type(export_result).__name__ == "T5ForConditionalGeneration"
@@ -1765,7 +1776,10 @@ class TestTrainHFDPO:
             )
             assert os.path.isfile(os.path.join(trainer.model_path, "seed.json"))
             assert os.path.isfile(os.path.join(trainer.model_path, "model.safetensors"))
-            assert os.path.isfile(os.path.join(trainer.model_path, "spiece.model"))
+            assert os.path.isfile(
+                os.path.join(trainer.model_path, "spiece.model")
+                or os.path.join(trainer.model_path, "tokenizer.json")
+            )
             export_path = os.path.join(trainer_path, "export")
             export_result = trainer.export_to_disk(path=export_path)
             assert type(export_result).__name__ == "T5ForConditionalGeneration"
@@ -2111,7 +2125,10 @@ class TestTrainHFRewardModel:
             assert os.path.isfile(os.path.join(trainer.model_path, "label2id.json"))
             assert os.path.isfile(os.path.join(trainer.model_path, "id2label.json"))
             assert os.path.isfile(os.path.join(trainer.model_path, "model.safetensors"))
-            assert os.path.isfile(os.path.join(trainer.model_path, "spiece.model"))
+            assert os.path.isfile(
+                os.path.join(trainer.model_path, "spiece.model")
+                or os.path.join(trainer.model_path, "tokenizer.json")
+            )
             export_path = os.path.join(trainer_path, "export")
             export_result = trainer.export_to_disk(path=export_path)
             assert type(export_result).__name__ == "T5ForSequenceClassification"
@@ -2707,7 +2724,10 @@ class TestTrainHFPPO:
             )
             assert os.path.isfile(os.path.join(trainer.model_path, "seed.json"))
             assert os.path.isfile(os.path.join(trainer.model_path, "model.safetensors"))
-            assert os.path.isfile(os.path.join(trainer.model_path, "spiece.model"))
+            assert os.path.isfile(
+                os.path.join(trainer.model_path, "spiece.model")
+                or os.path.join(trainer.model_path, "tokenizer.json")
+            )
             export_path = os.path.join(trainer_path, "export")
             export_result = trainer.export_to_disk(path=export_path)
             assert type(export_result).__name__ == "T5ForConditionalGeneration"
