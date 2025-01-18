@@ -6,9 +6,8 @@ from typing import Any, Callable, Generator, Iterable, cast
 
 import torch
 import torch._dynamo
-from transformers import logging as transformers_logging
-
 from datasets.fingerprint import Hasher
+from transformers import logging as transformers_logging
 
 from .._cachable._cachable import _StrWithSeed
 from ..logging import logger as datadreamer_logger

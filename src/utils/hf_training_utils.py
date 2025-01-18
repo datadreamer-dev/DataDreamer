@@ -10,9 +10,10 @@ from unittest.mock import patch
 import dill
 import numpy as np
 import torch
-from datasets import Dataset, IterableDataset, Value, concatenate_datasets
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LambdaLR
+
+from datasets import Dataset, IterableDataset, Value, concatenate_datasets
 
 from .. import DataDreamer
 from ..datasets import (
@@ -820,7 +821,7 @@ def prepare_inputs_and_outputs(  # noqa: C901
 def start_hf_trainer(self: "_TrainHFBase", trainer: Any):  # noqa: C901
     patches = nullcontext()
     if is_distributed():  # pragma: nocover
-        patches = patch(
+        patches = patch(  # type:ignore[assignment]
             "transformers.trainer.unwrap_model", lambda model, *args, **kwargs: model
         )
 

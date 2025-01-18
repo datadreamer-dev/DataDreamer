@@ -28,7 +28,7 @@ EOD = namedtuple("EOD", [])  # End-of-Data indicator
 
 
 def check_if_fault_handler_is_setup():
-    registered = faulthandler.unregister(signal.SIGUSR1.value)
+    registered = faulthandler.unregister(signal.SIGUSR1.value)  # type:ignore[func-returns-value]
     if registered:
         faulthandler.register(signal.SIGUSR1.value)
     return registered

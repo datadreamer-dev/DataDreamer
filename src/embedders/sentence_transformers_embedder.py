@@ -5,6 +5,7 @@ from typing import Any, Callable, Generator, Iterable, cast
 import numpy as np
 import torch
 import torch._dynamo
+
 from datasets.fingerprint import Hasher
 
 from ..logging import logger as datadreamer_logger
@@ -161,9 +162,9 @@ class SentenceTransformersEmbedder(Embedder):
     @cached_property
     def dims(self) -> int:
         dims = self.model.get_sentence_embedding_dimension()
-        assert (
-            dims is not None
-        ), f"Failed to get the embedding dimension for {self.model_name}."
+        assert dims is not None, (
+            f"Failed to get the embedding dimension for {self.model_name}."
+        )
         return dims
 
     @torch.no_grad()
@@ -185,7 +186,7 @@ class SentenceTransformersEmbedder(Embedder):
             model_input = [[cast(str, instruction), t] for t in texts]
 
         return list(
-            self.model.encode(  # type:ignore[arg-type]
+            self.model.encode(
                 sentences=model_input,  # type:ignore[arg-type]
                 batch_size=len(texts),
                 show_progress_bar=False,
@@ -257,9 +258,9 @@ class SentenceTransformersEmbedder(Embedder):
         return_generator: bool = False,
         **kwargs,
     ) -> Generator[np.ndarray, None, None] | list[np.ndarray]:
-        assert (
-            not _is_instructor_model(self.model_name) or instruction is not None
-        ), "Instructor models require the `instruction` parameter."
+        assert not _is_instructor_model(self.model_name) or instruction is not None, (
+            "Instructor models require the `instruction` parameter."
+        )
 
         def get_max_length_function() -> dict[str, Any]:
             def max_length_func(texts: list[str]) -> int:

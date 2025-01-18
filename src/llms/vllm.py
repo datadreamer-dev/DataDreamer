@@ -6,6 +6,7 @@ from functools import cached_property, partial
 from typing import Any, Callable, Generator, Iterable
 
 import torch
+
 from datasets.fingerprint import Hasher
 
 from .. import DataDreamer
@@ -50,7 +51,9 @@ class VLLM(HFTransformers):  # pragma: no cover
         cache_folder_path: None | str = None,
         **kwargs,
     ):
-        device = [device] if not isinstance(device, list) else device  # type
+        device = (
+            [device] if not isinstance(device, list) else device  # type:ignore[list-item]
+        )
         super().__init__(
             model_name=model_name,
             chat_prompt_template=chat_prompt_template,
@@ -181,9 +184,9 @@ class VLLM(HFTransformers):  # pragma: no cover
         **kwargs,
     ) -> list[str] | list[list[str]]:
         prompts = inputs
-        assert (
-            logit_bias is None
-        ), f"`logit_bias` is not supported for {type(self).__name__}"
+        assert logit_bias is None, (
+            f"`logit_bias` is not supported for {type(self).__name__}"
+        )
         assert seed is None, f"`seed` is not supported for {type(self).__name__}"
 
         SamplingParams = import_module("vllm").SamplingParams
