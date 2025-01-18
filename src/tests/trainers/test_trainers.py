@@ -3203,7 +3203,7 @@ class TestTrainSetFitClassifier:
             #     private=True,
             # )
 
-    def test_peft_selected(self, create_datadreamer, mocker):
+    def test_peft(self, create_datadreamer, mocker):
         with create_datadreamer():
             dataset = DataSource(
                 "Training Data",
