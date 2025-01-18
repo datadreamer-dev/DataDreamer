@@ -3,6 +3,7 @@ import tempfile
 
 import jsonlines
 import pytest
+
 from datasets import Dataset, DatasetDict
 
 from ... import DataDreamer
@@ -23,6 +24,7 @@ class TestDataSource:
         with create_datadreamer():
             data_source = DataSource("my-dataset", {"out1": range(1, 11)})
             assert isinstance(data_source, Step)
+            assert data_source.progress_interval == 60
             assert isinstance(data_source.output, OutputDataset)
             assert set(data_source.output.column_names) == set(["out1"])
             assert len(data_source.output) == 10
@@ -99,6 +101,7 @@ class TestJSONDataSource:
                 f.flush()
                 data_source = JSONDataSource("my-dataset", data_files=f.name)
             assert isinstance(data_source, Step)
+            assert data_source.progress_interval == 60
             assert isinstance(data_source.output, OutputDataset)
             assert set(data_source.output.column_names) == set(["out1"])
             assert len(data_source.output) == 10
@@ -125,6 +128,7 @@ class TestCSVDataSource:
                 f.flush()
                 data_source = CSVDataSource("my-dataset", data_files=f.name)
             assert isinstance(data_source, Step)
+            assert data_source.progress_interval == 60
             assert isinstance(data_source.output, OutputDataset)
             assert set(data_source.output.column_names) == set(["out1"])
             assert len(data_source.output) == 10
@@ -149,6 +153,7 @@ class TestTextDataSource:
                 f.flush()
                 data_source = TextDataSource("my-dataset", data_files=f.name)
             assert isinstance(data_source, Step)
+            assert data_source.progress_interval == 60
             assert isinstance(data_source.output, OutputDataset)
             assert set(data_source.output.column_names) == set(["text"])
             assert len(data_source.output) == 10
@@ -172,6 +177,7 @@ class TestHFDatasetDataSource:
             Dataset.from_dict({"out1": range(1, 11)}).save_to_disk(export_path)
             data_source = HFDatasetDataSource("my-dataset", export_path)
             assert isinstance(data_source, Step)
+            assert data_source.progress_interval == 60
             assert isinstance(data_source.output, OutputDataset)
             assert set(data_source.output.column_names) == set(["out1"])
             assert len(data_source.output) == 10
@@ -193,6 +199,7 @@ class TestHFHubDataSource:
                 "my-dataset", "truthful_qa", "multiple_choice", "validation"
             )
             assert isinstance(data_source, Step)
+            assert data_source.progress_interval == 60
             assert isinstance(data_source.output, OutputDataset)
             assert set(data_source.output.column_names) == set(
                 ["question", "mc1_targets", "mc2_targets"]

@@ -2431,6 +2431,20 @@ class TestLiteLLM:
 
 
 class TestAI21:
+    @classmethod
+    def setup_class(cls):
+        with ignore_litellm_warnings():
+            import litellm
+
+            litellm.drop_params = True
+
+    @classmethod
+    def teardown_class(cls):
+        with ignore_litellm_warnings():
+            import litellm
+
+            litellm.drop_params = False
+
     def test_init(self, create_datadreamer):
         with create_datadreamer():
             llm = AI21("j2-light")
@@ -2440,10 +2454,6 @@ class TestAI21:
 
     def test_run(self, create_datadreamer):
         with create_datadreamer():
-            with ignore_litellm_warnings():
-                import litellm
-
-                litellm.drop_params = True
             llm = AI21("jamba-1.5-mini", api_key="fake-key", retry_on_fail=False)
             model_calls = []
 
@@ -2465,7 +2475,6 @@ class TestAI21:
                     batch_size=1,
                     logger_fn=litellm_logger_fn,
                 )
-                litellm.drop_params = False
 
             assert len(model_calls) == 2
             assert {
