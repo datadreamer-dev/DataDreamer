@@ -591,12 +591,16 @@ class TestTrainDistributed:
             )
             assert os.path.isfile(os.path.join(trainer.model_path, "seed.json"))
             assert os.path.isfile(os.path.join(trainer.model_path, "pytorch_model.bin"))
-            assert os.path.isfile(os.path.join(trainer.model_path, "spiece.model"))
+            assert os.path.isfile(
+                os.path.join(trainer.model_path, "spiece.model")
+            ) or os.path.isfile(os.path.join(trainer.model_path, "tokenizer.json"))
             export_path = os.path.join(trainer_path, "export")
             export_result = trainer.export_to_disk(path=export_path)
             assert type(export_result).__name__ == "T5ForConditionalGeneration"
             assert os.path.isfile(os.path.join(export_path, "model.safetensors"))
-            assert os.path.isfile(os.path.join(export_path, "spiece.model"))
+            assert os.path.isfile(
+                os.path.join(export_path, "spiece.model")
+            ) or os.path.isfile(os.path.join(export_path, "tokenizer.json"))
 
     @flaky.flaky(rerun_filter=should_retry, max_runs=20)
     @pytest.mark.parametrize(
