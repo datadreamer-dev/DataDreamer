@@ -1,5 +1,6 @@
 import faulthandler
 import importlib
+import io
 import os
 import signal
 import socket
@@ -27,21 +28,28 @@ _PROCESS_SPAWN_LOCK = Lock()
 EOD = namedtuple("EOD", [])  # End-of-Data indicator
 
 
-def check_if_fault_handler_is_setup():
-    registered = faulthandler.unregister(signal.SIGUSR1.value)  # type:ignore[func-returns-value]
-    if registered:
-        faulthandler.register(signal.SIGUSR1.value)
-    return registered
-
-
 @cache
 def setup_fault_handler(pid):
     faulthandler.unregister(signal.SIGUSR1.value)
-    faulthandler.register(signal.SIGUSR1.value)
+    try:
+        faulthandler.register(signal.SIGUSR1.value)
+    except io.UnsupportedOperation:
+        pass
 
 
 def unsetup_fault_handler():
-    faulthandler.unregister(signal.SIGUSR1.value)
+    setup_fault_handler.cache_clear()
+    return faulthandler.unregister(signal.SIGUSR1.value)
+
+
+def check_if_fault_handler_is_setup():
+    registered = faulthandler.unregister(signal.SIGUSR1.value)  # type:ignore[func-returns-value]
+    if registered:
+        try:
+            faulthandler.register(signal.SIGUSR1.value)
+        except io.UnsupportedOperation:
+            pass
+    return registered
 
 
 def get_thread_id() -> tuple[int, int]:

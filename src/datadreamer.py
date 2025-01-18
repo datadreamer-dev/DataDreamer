@@ -9,11 +9,10 @@ from threading import Lock
 from typing import TYPE_CHECKING, Any, Callable, cast
 
 import tqdm
-from filelock import FileLock
-from sqlitedict import SqliteDict
-
 from datasets.fingerprint import disable_caching, enable_caching, is_caching_enabled
 from datasets.utils import logging as datasets_logging
+from filelock import FileLock
+from sqlitedict import SqliteDict
 
 from . import logging as datadreamer_logging
 from ._patches.datasets_reset_state_hack import (
@@ -195,12 +194,12 @@ class DataDreamer:
         old_name: str, transform: None | str = None, record: bool = True
     ):
         # Check the name
-        assert "/" not in old_name, (
-            f"The step name '{old_name}' cannot contain '/' characters."
-        )
-        assert old_name not in ["_backups", ".datadreamer_save_cache"], (
-            f"The step name '{old_name}' is invalid, please choose a different step name."
-        )
+        assert (
+            "/" not in old_name
+        ), f"The step name '{old_name}' cannot contain '/' characters."
+        assert (
+            old_name not in ["_backups", ".datadreamer_save_cache"]
+        ), f"The step name '{old_name}' is invalid, please choose a different step name."
 
         # Get final name
         if DataDreamer.initialized():
