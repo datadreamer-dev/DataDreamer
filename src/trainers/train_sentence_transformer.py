@@ -646,7 +646,7 @@ class TrainSentenceTransformer(_TrainHFBase):
         self._save_model(
             training_args=training_args,
             model=trainer.model,
-            tokenizer=trainer.tokenizer,
+            tokenizer=trainer.processing_class,
             accelerator=trainer.accelerator,
             fsdp=trainer.is_fsdp_enabled,
         )

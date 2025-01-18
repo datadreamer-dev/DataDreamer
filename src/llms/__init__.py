@@ -20,7 +20,7 @@ optimize throughput.
 
 .. dropdown:: Adaptive Batch Sizing
 
-    For locally running LLMs, the maximum batch size that the LLM can handle before 
+    For locally running LLMs, the maximum batch size that the LLM can handle before
     running out of memory is determined by the amount of memory available on your
     system, but also dependent on the maximum sequence length the batch of inputs passed
     to the LLM, as longer inputs require more memory. Over many iterations, DataDreamer
@@ -49,8 +49,8 @@ optimize throughput.
 
     To disable batch scheduling, you can set ``batch_scheduler_buffer_size`` equal to
     ``batch_size``.
-    
-.. dropdown:: Robustness & Retries 
+
+.. dropdown:: Robustness & Retries
 
     For API-based LLMs, DataDreamer will attempt to retry failed requests. This is can
     be disabled via ``retry_on_fail=False``.
@@ -81,13 +81,13 @@ from .anthropic import Anthropic
 from .bedrock import Bedrock
 from .cohere import Cohere
 from .ctransformers import CTransformers
+from .google_ai_studio import GoogleAIStudio
 from .hf_api_endpoint import HFAPIEndpoint
 from .hf_transformers import HFTransformers
 from .llm import LLM
 from .mistral_ai import MistralAI
 from .openai import OpenAI
 from .openai_assistant import OpenAIAssistant
-from .palm import PaLM
 from .parallel_llm import ParallelLLM
 from .petals import Petals
 from .together import Together
@@ -109,7 +109,7 @@ __all__ = [
     "Cohere",
     "AI21",
     "Bedrock",
-    "PaLM",
+    "GoogleAIStudio",
     "VertexAI",
     "ParallelLLM",
 ]

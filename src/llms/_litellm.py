@@ -140,7 +140,7 @@ class LiteLLM(LLMAPI):
         assert (
             max_tokens is not None
         ), f"Failed to get the maximum context length for model: {self.model_name}."
-        return max_tokens
+        return max_tokens - max_new_tokens
 
     @ring.lru(maxsize=5000)
     def count_tokens(self, value: str) -> int:

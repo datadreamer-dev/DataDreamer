@@ -53,17 +53,18 @@ class MistralAI(LLMAPI):
 
     @cached_property
     def retry_wrapper(self):
-        MistralException, MistralAPIException, MistralConnectionException = (
-            import_module("mistralai.exceptions").MistralException,
-            import_module("mistralai.exceptions").MistralAPIException,
-            import_module("mistralai.exceptions").MistralConnectionException,
+        BatchError, HTTPValidationError, SDKError, ValidationError = (
+            import_module("mistralai.models").BatchError,
+            import_module("mistralai.models").HTTPValidationError,
+            import_module("mistralai.models").SDKError,
+            import_module("mistralai.models").ValidationError,
         )
 
         # Create a retry wrapper function
         tenacity_logger = self.get_logger(key="retry", verbose=True, log_level=None)
 
         @retry(
-            retry=retry_if_exception_type(MistralException),
+            retry=retry_if_exception_type(BatchError),
             wait=wait_exponential(multiplier=1, min=3, max=300),
             before_sleep=before_sleep_log(tenacity_logger, logging.INFO),
             after=after_log(tenacity_logger, logging.INFO),
@@ -71,7 +72,7 @@ class MistralAI(LLMAPI):
             reraise=True,
         )
         @retry(
-            retry=retry_if_exception_type(MistralAPIException),
+            retry=retry_if_exception_type(HTTPValidationError),
             wait=wait_exponential(multiplier=1, min=3, max=300),
             before_sleep=before_sleep_log(tenacity_logger, logging.INFO),
             after=after_log(tenacity_logger, logging.INFO),
@@ -79,7 +80,15 @@ class MistralAI(LLMAPI):
             reraise=True,
         )
         @retry(
-            retry=retry_if_exception_type(MistralConnectionException),
+            retry=retry_if_exception_type(SDKError),
+            wait=wait_exponential(multiplier=1, min=3, max=300),
+            before_sleep=before_sleep_log(tenacity_logger, logging.INFO),
+            after=after_log(tenacity_logger, logging.INFO),
+            stop=stop_any(lambda _: not self.retry_on_fail),  # type: ignore[arg-type]
+            reraise=True,
+        )
+        @retry(
+            retry=retry_if_exception_type(ValidationError),
             wait=wait_exponential(multiplier=1, min=3, max=300),
             before_sleep=before_sleep_log(tenacity_logger, logging.INFO),
             after=after_log(tenacity_logger, logging.INFO),
@@ -95,8 +104,8 @@ class MistralAI(LLMAPI):
 
     @cached_property
     def client(self) -> Any:  # pragma: no cover
-        MistralClient = import_module("mistralai.client").MistralClient
-        mistral = MistralClient(
+        Mistral = import_module("mistralai").Mistral
+        mistral = Mistral(
             api_key=self.api_key or os.environ.get("MISTRAL_API_KEY", None)
         )
         return mistral
@@ -121,14 +130,11 @@ class MistralAI(LLMAPI):
             stop is None or stop == []
         ), f"`stop` is not supported for {type(self).__name__}"
         assert (
-            repetition_penalty is None
-        ), f"`repetition_penalty` is not supported for {type(self).__name__}"
-        assert (
             logit_bias is None
         ), f"`logit_bias` is not supported for {type(self).__name__}"
         assert n == 1, f"Only `n` = 1 is supported for {type(self).__name__}"
 
-        ChatMessage = import_module("mistralai.models.chat_completion").ChatMessage
+        UserMessage = import_module("mistralai.models").UserMessage
 
         # Check max_new_tokens
         max_new_tokens = _check_max_new_tokens_possible(
@@ -147,10 +153,19 @@ class MistralAI(LLMAPI):
         )
 
         # Run the model
+        optional_kwargs = dict(
+            stop=stop, presence_penalty=repetition_penalty, seed=seed
+        )
+        optional_kwargs = {
+            kw: optional_kwargs[kw]
+            for kw in optional_kwargs
+            if optional_kwargs[kw] is not None
+        }
+
         def get_generated_texts(self, kwargs, prompt) -> list[str]:
-            messages = [ChatMessage(role="user", content=prompt)]
+            messages = [UserMessage(content=prompt)]
             response = self.retry_wrapper(
-                func=self.client.chat,
+                func=self.client.chat.complete,
                 model=self.model_name,
                 messages=messages,
                 max_tokens=max_new_tokens,
@@ -161,7 +176,8 @@ class MistralAI(LLMAPI):
                     if seed is not None
                     else None
                 ),
-                safe_mode=kwargs.pop("safe_mode", False),
+                safe_prompt=kwargs.pop("safe_prompt", False),
+                **optional_kwargs,
                 **kwargs,
             )
             return [choice.message.content.strip() for choice in response.choices]

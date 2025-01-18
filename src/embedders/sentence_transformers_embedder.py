@@ -185,7 +185,7 @@ class SentenceTransformersEmbedder(Embedder):
             model_input = [[cast(str, instruction), t] for t in texts]
 
         return list(
-            self.model.encode(  # type:ignore[arg-type]
+            self.model.encode(
                 sentences=model_input,  # type:ignore[arg-type]
                 batch_size=len(texts),
                 show_progress_bar=False,

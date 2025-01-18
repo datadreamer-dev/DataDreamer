@@ -16,6 +16,7 @@ from ..datasets import OutputDataset, OutputIterableDataset
 from ..errors import StepOutputTypeError
 from ..pickling import unpickle_transform
 from ..utils.arg_utils import Default, default_to
+from ..utils.background_utils import setup_fault_handler
 from ..utils.fingerprint_utils import stable_fingerprint
 from .step_background import wait
 
@@ -186,6 +187,10 @@ def _user_transform(
     *args,
     **kwargs,
 ):
+    # Setup fault handler
+    setup_fault_handler(os.getpid())
+
+    # Run the wrapped function
     finished_idx = min(idx) if isinstance(idx, Iterable) else idx
     if step.output.num_rows is not None:
         self.progress = (finished_idx) / step.output.num_rows

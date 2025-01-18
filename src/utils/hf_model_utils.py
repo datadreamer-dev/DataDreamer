@@ -132,7 +132,11 @@ def get_tokenizer(
     )
 
     # Setup tokenizer
-    if not tokenizer._pad_token or tokenizer.pad_token_id < 0:
+    if (
+        (hasattr(tokenizer, "_pad_token") and not tokenizer._pad_token)
+        or not tokenizer.pad_token
+        or tokenizer.pad_token_id < 0
+    ):
         tokenizer.pad_token = tokenizer.eos_token
 
     # Silence warnings

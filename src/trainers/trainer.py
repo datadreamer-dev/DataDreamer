@@ -35,9 +35,13 @@ class JointMetric:
     secondary_inversed: bool
 
     def __eq__(self, other):
+        if isinstance(other, float):
+            return self.secondary == other
         return (self.primary, self.secondary) == (other.primary, other.secondary)
 
     def __lt__(self, other):
+        if isinstance(other, float):
+            return self.secondary < other
         return (self.primary, self.secondary) < (other.primary, other.secondary)
 
     def __sub__(self, other):

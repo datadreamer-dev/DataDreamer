@@ -5,25 +5,23 @@ from ._litellm import LiteLLM
 from .llm import DEFAULT_BATCH_SIZE
 
 
-class VertexAI(LiteLLM):
+class GoogleAIStudio(LiteLLM):
     def __init__(
         self,
         model_name: str,
-        vertex_project: None | str = None,
-        vertex_location: None | str = None,
+        api_key: None | str = None,
         retry_on_fail: bool = True,
         cache_folder_path: None | str = None,
         **kwargs,
     ):
         super().__init__(
             model_name=model_name,
-            vertex_project=vertex_project,
-            vertex_location=vertex_location,
+            api_key=api_key,
             retry_on_fail=retry_on_fail,
             cache_folder_path=cache_folder_path,
             **kwargs,
         )
-        self._model_name_prefix = ""
+        self._model_name_prefix = "gemini/"
 
     def _run_batch(
         self,
@@ -39,12 +37,10 @@ class VertexAI(LiteLLM):
         batch_size: int = DEFAULT_BATCH_SIZE,
         seed: None | int = None,
         **kwargs,
-    ) -> list[str] | list[list[str]]:
-        assert stop is None, f"`stop` is not supported for {type(self).__name__}"
+    ) -> list[str] | list[list[str]]:  # pragma: no cover
         assert (
             repetition_penalty is None
         ), f"`repetition_penalty` is not supported for {type(self).__name__}"
-        assert n == 1, f"Only `n` = 1 is supported for {type(self).__name__}"
         return super()._run_batch(
             max_length_func=max_length_func,
             inputs=inputs,
@@ -83,4 +79,4 @@ class VertexAI(LiteLLM):
         return citations
 
 
-__all__ = ["VertexAI"]
+__all__ = ["GoogleAIStudio"]

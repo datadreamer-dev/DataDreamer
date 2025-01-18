@@ -149,7 +149,7 @@ class DPOTrainer(Trainer):  # pragma: no cover
         truncation_mode: str = "keep_end",
         train_dataset: Optional[Dataset] = None,
         eval_dataset: Optional[Union[Dataset, Dict[str, Dataset]]] = None,
-        tokenizer: Optional[PreTrainedTokenizerBase] = None,
+        processing_class: Optional[PreTrainedTokenizerBase] = None,
         model_init: Optional[Callable[[], PreTrainedModel]] = None,
         callbacks: Optional[List[TrainerCallback]] = None,
         optimizers: Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = (
@@ -287,9 +287,9 @@ class DPOTrainer(Trainer):  # pragma: no cover
             self.ref_model = create_reference_model(model)
 
         if data_collator is None:
-            if tokenizer is None:
+            if processing_class is None:
                 raise ValueError(
-                    "max_length or a tokenizer must be specified when using the default DPODataCollatorWithPadding"
+                    "max_length or a processing_class must be specified when using the default DPODataCollatorWithPadding"
                 )
             if max_length is None:
                 warnings.warn(
@@ -315,7 +315,7 @@ class DPOTrainer(Trainer):  # pragma: no cover
                 max_target_length = 128
 
             data_collator = DPODataCollatorWithPadding(
-                pad_token_id=tokenizer.pad_token_id,
+                pad_token_id=processing_class.pad_token_id,
                 label_pad_token_id=label_pad_token_id,
                 is_encoder_decoder=self.is_encoder_decoder,
             )
@@ -342,12 +342,14 @@ class DPOTrainer(Trainer):  # pragma: no cover
         self.generate_during_eval = generate_during_eval
         self.label_pad_token_id = label_pad_token_id
         self.padding_value = (
-            padding_value if padding_value is not None else tokenizer.pad_token_id
+            padding_value
+            if padding_value is not None
+            else processing_class.pad_token_id
         )
         self.max_prompt_length = max_prompt_length
         self.truncation_mode = truncation_mode
         self.max_target_length = max_target_length
-        self.tokenizer = tokenizer
+        self.tokenizer = processing_class
         self.precompute_ref_log_probs = precompute_ref_log_probs
 
         # Since ref_logs are precomputed on the first call to get_train/eval_dataloader
@@ -377,7 +379,7 @@ class DPOTrainer(Trainer):  # pragma: no cover
             data_collator=data_collator,
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
-            tokenizer=tokenizer,
+            processing_class=processing_class,
             model_init=model_init,
             compute_metrics=compute_metrics,
             callbacks=callbacks,
@@ -816,9 +818,11 @@ class DPOTrainer(Trainer):  # pragma: no cover
         # compute reference logps
         with torch.no_grad():
             if self.ref_model is None:
-                with self.accelerator.unwrap_model(
-                    self.model
-                ).disable_adapter() if self.is_peft_model else nullcontext():
+                with (
+                    self.accelerator.unwrap_model(self.model).disable_adapter()
+                    if self.is_peft_model
+                    else nullcontext()
+                ):
                     (
                         reference_chosen_logps,
                         reference_rejected_logps,
@@ -1153,7 +1157,7 @@ class DPOTrainer(Trainer):  # pragma: no cover
             return (loss, metrics)
         return loss
 
-    def get_batch_samples(
+    def generate_from_model_and_ref(
         self, model, batch: Dict[str, torch.LongTensor]
     ) -> Tuple[str, str]:
         """Generate samples from the model and reference model for the given batch of inputs."""
@@ -1280,9 +1284,10 @@ class DPOTrainer(Trainer):  # pragma: no cover
             random_batch = self.data_collator(random_batch_dataset)
             random_batch = self._prepare_inputs(random_batch)
 
-            policy_output_decoded, ref_output_decoded = self.get_batch_samples(
-                self.model, random_batch
-            )
+            (
+                policy_output_decoded,
+                ref_output_decoded,
+            ) = self.generate_from_model_and_ref(self.model, random_batch)
 
             self.log(
                 {
@@ -1312,7 +1317,7 @@ class DPOTrainer(Trainer):  # pragma: no cover
 
         return initial_output
 
-    def log(self, logs: Dict[str, float]) -> None:
+    def log(self, logs: Dict[str, float], start_time: Optional[float] = None) -> None:
         """
         Log `logs` on the various objects watching training, including stored metrics.
 

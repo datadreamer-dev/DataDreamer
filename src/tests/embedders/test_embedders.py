@@ -191,12 +191,11 @@ class TestTogetherEmbedder:
     def setup_class(cls):
         cls.pydantic_version = importlib.metadata.version("pydantic")
         os.system("pip3 install together==1.2.5")
-        _reload_pydantic()
+        _reload_pydantic(cls.pydantic_version)
 
     @classmethod
     def teardown_class(cls):
-        os.system(f"pip3 install pydantic=={cls.pydantic_version}")
-        _reload_pydantic()
+        _reload_pydantic(cls.pydantic_version)
 
     @pytest.mark.order("last")
     def test_init(self, create_datadreamer):

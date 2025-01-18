@@ -53,7 +53,10 @@ class TestDeviceUtils:
         assert device_id_to_true_device_id(-1) is None
         assert device_id_to_true_device_id(0) == 0
         assert device_id_to_true_device_id(1) == 1
-        assert device_id_to_true_device_id(2) == 2
+        assert (
+            device_id_to_true_device_id(2) == 2
+            or device_id_to_true_device_id(2) is None
+        )  # Might not be available on a system with only 2-GPUs
         assert device_id_to_true_device_id(999999) is None
         os.environ["CUDA_VISIBLE_DEVICES"] = "6,4,3"
         assert device_id_to_true_device_id(-1) is None
@@ -64,6 +67,7 @@ class TestDeviceUtils:
         assert device_id_to_true_device_id(999999) is None
 
     def test_get_true_device_ids(self):
+        os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2"
         assert get_true_device_ids([0, 1, 2]) == (False, [0, 1, 2])
         assert get_true_device_ids([0, 2, 999999, 0, 1, -1, -1]) == (True, [0, 2, 1])
         assert get_true_device_ids([2, 1, 999999, 2, 2, -1, -1]) == (True, [2, 1])
@@ -73,15 +77,16 @@ class TestDeviceUtils:
         assert get_true_device_ids([0, 2, 999999, 0, 1, -1, -1]) == (True, [6, 3, 4])
         assert get_true_device_ids([2, 1, 999999, 2, 2, -1, -1]) == (True, [3, 4])
         assert get_true_device_ids([2, 1, 999999, 2, 2]) == (False, [3, 4])
-        assert get_true_device_ids(
-            [
-                torch.device(0),
-                torch.device(2),
-                torch.device(999999),
-                torch.device(0),
-                torch.device(1),
-            ]
-        ) == (False, [6, 3, 4])
+        if torch.cuda.is_available():  # pragma: no cover
+            assert get_true_device_ids(
+                [
+                    torch.device(0),
+                    torch.device(2),
+                    torch.device(999999),
+                    torch.device(0),
+                    torch.device(1),
+                ]
+            ) == (False, [6, 3, 4])
 
     def test_get_device_env_variables(self):
         os.environ["CUDA_VISIBLE_DEVICES"] = "6,4,3"

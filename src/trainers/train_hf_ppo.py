@@ -4,7 +4,7 @@ from copy import deepcopy
 from functools import cached_property
 from logging import Logger
 from time import time
-from typing import TYPE_CHECKING, Any, Callable, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 import torch
 from datasets import IterableDataset
@@ -128,7 +128,10 @@ def get_ppo_trainer(  # noqa: C901
             return dataloader
 
         def training_step(
-            self, model: torch.nn.Module, inputs: dict[str, torch.Tensor | Any]
+            self,
+            model: torch.nn.Module,
+            inputs: dict[str, torch.Tensor | Any],
+            num_items_in_batch=None,
         ) -> torch.Tensor:
             # Generate from model
             query_tensors = list(inputs["input_ids"])
@@ -185,7 +188,9 @@ def get_ppo_trainer(  # noqa: C901
                 model.device
             )  # Return dummy loss (not used)
 
-        def log(self, logs: dict[str, float]) -> None:
+        def log(
+            self, logs: dict[str, float], start_time: Optional[float] = None
+        ) -> None:
             is_training_log = (
                 not any([k.startswith("eval") for k in logs.keys()])
                 and "train_runtime" not in logs
@@ -769,7 +774,7 @@ class TrainHFPPO(TrainHFFineTune):
             train_dataset=train_dataset,
             eval_dataset=validation_dataset,
             model=model,
-            tokenizer=self.tokenizer,
+            processing_class=self.tokenizer,
             data_collator=data_collator,
             compute_metrics=wrap_compute_metrics(
                 compute_metrics=compute_metrics, training_args=training_args
@@ -787,7 +792,7 @@ class TrainHFPPO(TrainHFFineTune):
         self._save_model(
             training_args=ppo_config,
             model=trainer.model,
-            tokenizer=trainer.tokenizer,
+            tokenizer=trainer.processing_class,
             accelerator=trainer.accelerator,
             fsdp=trainer.is_fsdp_enabled,
         )

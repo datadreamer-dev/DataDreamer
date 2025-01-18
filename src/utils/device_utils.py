@@ -1,7 +1,10 @@
+import base64
 import os
 import re
+from functools import cached_property
 from typing import TYPE_CHECKING, Any, Sequence, Type, cast
 
+import dill
 import torch
 
 from .. import DataDreamer
@@ -101,11 +104,8 @@ def memory_usage_format(num, suffix="B"):  # pragma: no cover
     return f"{num:.1f}Yi{suffix}"
 
 
-class _TrainingArgumentDeviceOverrideMixin:
+class __TrainingArgumentDeviceOverrideMixin:
     def __init__(self, *args, **kwargs):
-        from .distributed_utils import apply_distributed_config
-
-        kwargs = apply_distributed_config(self, kwargs)
         super().__init__(*args, **kwargs)
 
     @property
@@ -149,6 +149,27 @@ class _TrainingArgumentDeviceOverrideMixin:
                 if is_cpu_device(self._selected_device)  # type:ignore[attr-defined]
                 else torch.device(self._selected_device)  # type:ignore[attr-defined]
             )
+
+
+class _SentenceTransformerTrainingArgumentDeviceOverrideMixin(
+    __TrainingArgumentDeviceOverrideMixin
+):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    @cached_property
+    def _selected_device(self):
+        dill.loads(
+            base64.b64decode(os.environ["_DATADREAMER_SETFIT_DEVICE"].encode("utf8"))
+        )
+
+
+class _TrainingArgumentDeviceOverrideMixin(__TrainingArgumentDeviceOverrideMixin):
+    def __init__(self, *args, **kwargs):
+        from .distributed_utils import apply_distributed_config
+
+        kwargs = apply_distributed_config(self, kwargs)
+        super().__init__(*args, **kwargs)
 
 
 def get_device_memory_monitoring_callback(trainer: "_TrainHFBase") -> Type:

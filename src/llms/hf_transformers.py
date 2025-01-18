@@ -66,6 +66,8 @@ class CachedTokenizer:
             kwargs["max_length"] = None
         if "truncation" not in kwargs:
             kwargs["truncation"] = None
+        if "padding" not in kwargs:
+            kwargs["padding"] = False
         fingerprint = Hasher.hash([orig_method.__name__, args, kwargs])
         if fingerprint not in cache:
             cache[fingerprint] = orig_method(*args, **kwargs)

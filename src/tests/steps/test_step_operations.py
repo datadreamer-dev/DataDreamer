@@ -1,4 +1,5 @@
 import os
+from time import sleep
 from typing import Callable
 
 import pytest
@@ -7,7 +8,7 @@ from datasets import Dataset
 from ... import DataDreamer
 from ...datasets import OutputDataset, OutputIterableDataset
 from ...errors import StepOutputTypeError
-from ...steps import LazyRows, Step, concat, zipped
+from ...steps import DataSource, LazyRows, Step, concat, zipped
 from ...steps.step import (
     AddItemStep,
     ConcatStep,
@@ -363,6 +364,23 @@ class TestMap:
             assert isinstance(map_step.output, OutputDataset)
             assert map_step.output.num_rows == 0
             assert list(map_step.output["out1"]) == []
+
+    def test_map_progress_on_unsaved_lazy_input(self, create_datadreamer, caplog):
+        with create_datadreamer():
+            data_source = DataSource("my-dataset", [{"out1": i} for i in range(1, 3)])
+
+            combined = zipped(data_source, lazy=True)
+
+            def slow_mapper(row):
+                if row["out1"] == 1:
+                    sleep(61)
+                return {"out3": row["out1"] * 2}
+
+            assert data_source.progress_interval is not None
+            assert combined.progress_interval is not None
+            combined.map(slow_mapper, lazy=False, name="slow_map")
+            logs = [rec.message for rec in caplog.records]
+            assert any(["Step 'slow_map' progress:" in log for log in logs])
 
 
 class TestFilter:

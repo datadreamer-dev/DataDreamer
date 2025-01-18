@@ -20,7 +20,11 @@ from ._patches.datasets_reset_state_hack import (
     stop_datasets_reset_state_hack,
 )
 from .logging import DATEFMT, logger
-from .utils.background_utils import get_thread_id
+from .utils.background_utils import (
+    get_thread_id,
+    setup_fault_handler,
+    unsetup_fault_handler,
+)
 from .utils.fs_utils import safe_fn
 from .utils.import_utils import ignore_pydantic_warnings, ignore_transformers_warnings
 
@@ -270,13 +274,17 @@ class DataDreamer:
     def _patch_tqdm(self):
         def tqdm__init__patch(_self, *args, **kwargs):
             _old_tqdm__init__(_self, *args, **kwargs)
-            outer_module = inspect.getmodule(inspect.stack()[2][0])
-            if hasattr(outer_module, "__name__"):
-                module_name = outer_module.__name__.split(  # type:ignore[union-attr]
-                    "."
-                )[0]
-            else:  # pragma: no cover
-                module_name = None
+            module_name = "tqdm"
+            frame_idx = 2
+            while len(inspect.stack()) > frame_idx and module_name == "tqdm":
+                outer_module = inspect.getmodule(inspect.stack()[frame_idx][0])
+                frame_idx += 1
+                if hasattr(outer_module, "__name__"):
+                    module_name = outer_module.__name__.split(  # type:ignore[union-attr]
+                        "."
+                    )[0]
+                else:  # pragma: no cover
+                    module_name = None  # type:ignore[assignment]
             if module_name in self.patched_loggers:
                 module_logger = logging.getLogger(module_name)
                 if (
@@ -379,6 +387,9 @@ class DataDreamer:
 
     def __enter__(self):  # noqa: C901
         from .utils.distributed_utils import is_distributed
+
+        # Setup fault handler
+        setup_fault_handler(os.getpid())
 
         if hasattr(DataDreamer.ctx, "steps"):
             raise RuntimeError("Only one DataDreamer context may be active at a time.")
@@ -569,6 +580,9 @@ class DataDreamer:
         for process in processes_to_terminate:
             if process.is_alive():
                 process.terminate()  # pragma: no cover
+
+        # Un-setup fault handler
+        unsetup_fault_handler()
 
     def start(self):  # pragma: no cover
         """

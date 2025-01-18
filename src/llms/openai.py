@@ -38,6 +38,12 @@ def _normalize_model_name(model_name: str) -> str:
 
 
 @lru_cache(maxsize=None)
+def _is_preview(model_name: str):
+    model_name = _normalize_model_name(model_name)
+    return "-preview" in model_name
+
+
+@lru_cache(maxsize=None)
 def _is_gpt_3(model_name: str):
     model_name = _normalize_model_name(model_name)
     return any(
@@ -61,32 +67,51 @@ def _is_gpt_3_5_legacy(model_name: str):
 
 
 @lru_cache(maxsize=None)
+def _is_o1(model_name: str):
+    model_name = _normalize_model_name(model_name)
+    return any(o_name in model_name for o_name in ["o1"])
+
+
+@lru_cache(maxsize=None)
+def _is_o3(model_name: str):
+    model_name = _normalize_model_name(model_name)
+    return any(o_name in model_name for o_name in ["o3"])
+
+
+@lru_cache(maxsize=None)
+def _is_reasoning_tuned(model_name: str):
+    return _is_o1(model_name) or _is_o3(model_name)
+
+
+@lru_cache(maxsize=None)
 def _is_gpt_4(model_name: str):
     model_name = _normalize_model_name(model_name)
     return (
         model_name == "gpt-4"
         or any(gpt4_name in model_name for gpt4_name in ["gpt-4-"])
         or _is_gpt_4o(model_name)
-    )
+    ) and not _is_reasoning_tuned(model_name)
 
 
 @lru_cache(maxsize=None)
 def _is_gpt_4o(model_name: str):
     model_name = _normalize_model_name(model_name)
-    return any(gpt4_name in model_name for gpt4_name in ["gpt-4o"])
+    return any(
+        gpt4_name in model_name for gpt4_name in ["gpt-4o"]
+    ) and not _is_reasoning_tuned(model_name)
 
 
 @lru_cache(maxsize=None)
-def _is_gpt_mini(model_name: str):
+def _is_mini(model_name: str):
     model_name = _normalize_model_name(model_name)
-    return any(gpt_mini_name in model_name for gpt_mini_name in ["-mini"])
+    return any(mini_name in model_name for mini_name in ["-mini"])
 
 
 @lru_cache(maxsize=None)
 def _is_128k_model(model_name: str):
     model_name = _normalize_model_name(model_name)
     return _is_gpt_4(model_name) and (
-        _is_gpt_4o(model_name) or "-preview" in model_name or "2024-04-09" in model_name
+        _is_gpt_4o(model_name) or _is_preview(model_name) or "2024-04-09" in model_name
     )
 
 
@@ -238,7 +263,12 @@ class OpenAI(LLM):
             # (system prompt, user prompt, assistant response)
             # and then we have to account for the system prompt
             format_tokens = 4 * 3 + self.count_tokens(cast(str, self.system_prompt))
-        if "32k" in model_name:
+        if _is_reasoning_tuned(self.model_name):
+            if _is_preview(self.model_name) or _is_mini(self.model_name):
+                max_context_length = 128000
+            else:
+                max_context_length = 200000
+        elif "32k" in model_name:
             max_context_length = 32768
         elif "16k" in model_name:
             max_context_length = 16384
@@ -263,7 +293,14 @@ class OpenAI(LLM):
         return max_context_length - max_new_tokens - format_tokens
 
     def _get_max_output_length(self) -> None | int:  # pragma: no cover
-        if _is_128k_model(self.model_name) and _is_gpt_mini(self.model_name):
+        if _is_reasoning_tuned(self.model_name):
+            if _is_preview(self.model_name):
+                return 32768
+            elif _is_mini(self.model_name):
+                return 65536
+            else:
+                return 100000
+        if _is_128k_model(self.model_name) and _is_mini(self.model_name):
             return 16384
         elif _is_128k_model(self.model_name) or (
             _is_gpt_3_5(self.model_name) and not (_is_gpt_3_5_legacy(self.model_name))

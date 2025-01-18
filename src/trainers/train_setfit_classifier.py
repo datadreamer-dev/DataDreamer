@@ -1,4 +1,4 @@
-import dataclasses
+import base64
 import json
 import os
 import sys
@@ -6,7 +6,9 @@ from copy import deepcopy
 from functools import cached_property, partial
 from pathlib import Path
 from typing import Any, Type
+from unittest.mock import patch
 
+import dill
 import torch
 from datasets import IterableDataset
 
@@ -15,6 +17,7 @@ from .._cachable._cachable import _is_primitive
 from ..datasets import OutputDatasetColumn, OutputIterableDatasetColumn
 from ..utils.arg_utils import AUTO, DEFAULT, Default, default_to
 from ..utils.background_utils import RunIfTimeout
+from ..utils.device_utils import _SentenceTransformerTrainingArgumentDeviceOverrideMixin
 from ..utils.hf_model_utils import (
     filter_model_warnings,
     get_base_model_from_peft_model,
@@ -33,7 +36,10 @@ from .train_sentence_transformer import TrainSentenceTransformer
 
 with ignore_transformers_warnings():
     from huggingface_hub.repocard import ModelCard, ModelCardData
-    from sentence_transformers import SentenceTransformer
+    from sentence_transformers import (
+        SentenceTransformer,
+        SentenceTransformerTrainingArguments,
+    )
     from setfit import SetFitModel, logging as setfit_logging
     from transformers import PreTrainedModel
     from transformers.trainer_callback import EarlyStoppingCallback, PrinterCallback
@@ -46,10 +52,7 @@ class SetFitModelWrapper(SetFitModel):
     @classmethod
     def from_pretrained(cls, *args, **kwargs) -> "SetFitModelWrapper":
         model = SetFitModel.from_pretrained(*args, **kwargs)
-        parent_fields = set([f.name for f in dataclasses.fields(SetFitModel) if f.init])
-        return SetFitModelWrapper(
-            **{k: v for k, v in model.__dict__.items() if k in parent_fields}
-        )
+        return SetFitModelWrapper(**{k: v for k, v in model.__dict__.items()})
 
     def _save_pretrained(self, save_directory: Path | str) -> None:
         import joblib
@@ -76,10 +79,6 @@ class SetFitModelWrapper(SetFitModel):
             TrainSentenceTransformer._save_resource(
                 self, resource=self.model_body, path=save_directory
             )
-            os.rename(
-                os.path.join(save_directory, "adapter_config.json"),
-                os.path.join(save_directory, "adapter_config.json.hidden"),
-            )  # Temporarily hide it, until we can reload it
             TrainSentenceTransformer._save_resource(
                 self,
                 resource=get_base_model_from_peft_model(self.model_body),
@@ -97,6 +96,14 @@ class SetFitModelWrapper(SetFitModel):
         joblib.dump(self.model_head, str(Path(save_directory) / MODEL_HEAD_NAME))
         if self.has_differentiable_head:
             self.model_head.to(self.device)
+
+
+class _SentenceTransformerTrainingArguments(
+    _SentenceTransformerTrainingArgumentDeviceOverrideMixin,
+    SentenceTransformerTrainingArguments,
+):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 
 class TrainSetFitClassifier(TrainHFClassifier):
@@ -188,7 +195,7 @@ class TrainSetFitClassifier(TrainHFClassifier):
             head_params={"out_features": len(label2id)},
             labels=list(label2id.keys()),
             **self.kwargs,
-        )
+        ).to(default_to(device, self.device))
 
         # Set model dtype
         model.model_body = model.model_body.to(self.dtype)
@@ -230,7 +237,7 @@ class TrainSetFitClassifier(TrainHFClassifier):
     ):  # pragma: no cover
         resource.push_to_hub(repo_id=repo_id, branch=branch, private=private, **kwargs)
 
-    def _train(  # type:ignore[override]
+    def _train(  # type:ignore[override]  # noqa:C901
         self,
         train_input: OutputDatasetColumn | OutputIterableDatasetColumn,
         train_output: OutputDatasetColumn | OutputIterableDatasetColumn,
@@ -323,6 +330,7 @@ class TrainSetFitClassifier(TrainHFClassifier):
             seed=seed,
             **kwargs,
         )
+        training_args.place_model_on_device = False
         training_args.eval_strategy = training_args.evaluation_strategy
         if kwargs.get("max_steps", None) is not None:  # pragma: no cover
             total_train_steps = kwargs["max_steps"]
@@ -349,36 +357,51 @@ class TrainSetFitClassifier(TrainHFClassifier):
 
         # Setup trainer
         class CustomTrainer(Trainer):
+            def __init__(trainer, *args, **kwargs):
+                model_body = kwargs["model"].model_body
+                orig_body_device = model_body.device
+                os.environ["_DATADREAMER_SETFIT_DEVICE"] = base64.b64encode(
+                    dill.dumps(orig_body_device)
+                ).decode("utf-8")
+                with patch(
+                    "sentence_transformers.trainer.SentenceTransformerTrainingArguments",
+                    _SentenceTransformerTrainingArguments,
+                ):
+                    super().__init__(*args, **kwargs)
+                _ = (
+                    trainer.st_trainer.args._selected_device
+                )  # Read the property to store it in cache
+                del os.environ["_DATADREAMER_SETFIT_DEVICE"]
+
+                # Support load_best_model for peft models
+                orig_load_best_model = trainer.st_trainer._load_best_model
+
+                def new_load_best_model(*args, **kwargs):
+                    if self.peft_config:
+                        # Two warnings we can't silence are thrown by peft at import-time so
+                        # we import this library only when needed
+                        with ignore_transformers_warnings():
+                            from peft import PeftModel
+
+                        best_model_checkpoint = (
+                            trainer.st_trainer.state.best_model_checkpoint
+                        )
+                        trainer.model.model_body = PeftModel.from_pretrained(
+                            get_base_model_from_peft_model(trainer.model.model_body),
+                            model_id=best_model_checkpoint,
+                            torch_dtype=self.dtype,
+                            **self.kwargs,
+                        )
+                        trainer.model.model_body.forward = partial(  # type:ignore[method-assign]
+                            get_peft_model_cls().forward, trainer.model.model_body
+                        )
+                    else:
+                        orig_load_best_model(*args, **kwargs)
+
+                trainer.st_trainer._load_best_model = new_load_best_model
+
             def train_classifier(trainer, *args, **kwargs):
                 self.logger.info("Finished training SetFit model body (embeddings).")
-
-                # Reload back PEFT adapter if it got removed when loading the best
-                # checkpoint at the end of SetFit model body training
-                if self.peft_config and isinstance(
-                    model.model_body, SentenceTransformer
-                ):
-                    # Two warnings we can't silence are thrown by peft at import-time so
-                    # we import this library only when needed
-                    with ignore_transformers_warnings():
-                        from peft import PeftModel
-
-                    best_model_checkpoint = trainer.state.best_model_checkpoint
-                    os.rename(
-                        os.path.join(
-                            best_model_checkpoint, "adapter_config.json.hidden"
-                        ),
-                        os.path.join(best_model_checkpoint, "adapter_config.json"),
-                    )  # Un-hide
-                    model.model_body = PeftModel.from_pretrained(
-                        model.model_body,
-                        model_id=best_model_checkpoint,
-                        torch_dtype=self.dtype,
-                        **self.kwargs,
-                    )
-                    model.model_body.forward = partial(  # type:ignore[method-assign]
-                        get_peft_model_cls().forward, model.model_body
-                    )
-
                 self.logger.info("Training SetFit model head (classifier)...")
                 if not DataDreamer.ctx.hf_log:
                     setfit_logging_prog_bar = setfit_logging.is_progress_bar_enabled()
@@ -395,13 +418,16 @@ class TrainSetFitClassifier(TrainHFClassifier):
                 metrics = {
                     "epoch": "Final"
                     if "final" in kwargs
-                    else round(self.state.epoch or 0.0, 2)
+                    else round(self.st_trainer.state.epoch or 0.0, 2)
                 }
                 kwargs.pop("final", None)
                 for k, v in super().evaluate(*args, **kwargs).items():
                     metrics[f"eval_{k}"] = v
-                self.callback_handler.on_log(
-                    training_args, self.state, self.control, metrics
+                self.st_trainer.callback_handler.on_log(
+                    training_args,
+                    self.st_trainer.state,
+                    self.st_trainer.control,
+                    metrics,
                 )
                 return metrics
 
@@ -543,7 +569,7 @@ class TrainSetFitClassifier(TrainHFClassifier):
                     use_differentiable_head=True,
                     labels=list(label2id.keys()),
                     **self.kwargs,
-                )
+                ).to(self.device)
             if os.path.exists(
                 os.path.join(
                     os.path.join(self._output_folder_path, "_model"),
@@ -579,7 +605,7 @@ class TrainSetFitClassifier(TrainHFClassifier):
                     use_differentiable_head=True,
                     labels=list(label2id.keys()),
                     **self.kwargs,
-                )
+                ).to(self.device)
 
         # Set model dtype
         model.model_body = model.model_body.to(self.dtype)

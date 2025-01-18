@@ -11,6 +11,7 @@ from .. import DataDreamer, __version__
 from ..datasets import OutputDataset
 from ..errors import StepOutputError
 from ..steps import DataCardType, LazyRows, Step
+from ..utils.background_utils import check_if_fault_handler_is_setup
 from ..utils.fs_utils import dir_size
 
 
@@ -139,6 +140,12 @@ class TestFunctionality:
             assert os.path.exists(DataDreamer.get_output_folder_path())
             assert os.path.isdir(DataDreamer.get_output_folder_path())
             assert DataDreamer.ctx.steps == []
+
+    def test_fault_handler(self, create_datadreamer):
+        assert not check_if_fault_handler_is_setup()
+        with create_datadreamer():
+            assert check_if_fault_handler_is_setup()
+        assert not check_if_fault_handler_is_setup()
 
     def test_ctx_clears(self, create_datadreamer):
         with create_datadreamer():

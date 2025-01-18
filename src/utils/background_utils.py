@@ -1,5 +1,8 @@
+import faulthandler
 import importlib
+import io
 import os
+import signal
 import socket
 import sys
 from collections import UserDict, namedtuple
@@ -23,6 +26,30 @@ from .. import logging as datadreamer_logging
 
 _PROCESS_SPAWN_LOCK = Lock()
 EOD = namedtuple("EOD", [])  # End-of-Data indicator
+
+
+@cache
+def setup_fault_handler(pid):
+    faulthandler.unregister(signal.SIGUSR1.value)
+    try:
+        faulthandler.register(signal.SIGUSR1.value)
+    except io.UnsupportedOperation:  # pragma: no cover
+        pass
+
+
+def unsetup_fault_handler():
+    setup_fault_handler.cache_clear()
+    return faulthandler.unregister(signal.SIGUSR1.value)
+
+
+def check_if_fault_handler_is_setup():
+    registered = faulthandler.unregister(signal.SIGUSR1.value)  # type:ignore[func-returns-value]
+    if registered:
+        try:
+            faulthandler.register(signal.SIGUSR1.value)
+        except io.UnsupportedOperation:  # pragma: no cover
+            pass
+    return registered
 
 
 def get_thread_id() -> tuple[int, int]:
@@ -106,6 +133,9 @@ def get_parent_process_context() -> dict[str, Any]:
 def restore_parent_process_context(
     parent_context: dict[str, Any], env: dict[str, Any]
 ):  # pragma: no cover
+    # Setup fault handler
+    setup_fault_handler(os.getpid())
+
     # Setup environment variables
     os.environ["DATADREAMER_BACKGROUND_PROCESS"] = "1"
     os.environ.update(env)

@@ -226,7 +226,7 @@ class TestTrainHFBase:
                 "LLaMa-2 (Custom) Trainer",
                 model_name="meta-llama/Llama-2-7b-chat-hf",
                 chat_prompt_template=(
-                    "Custom\n\n{{system_prompt}}\nUser: {{prompt}}" "\nAssistant: "
+                    "Custom\n\n{{system_prompt}}\nUser: {{prompt}}\nAssistant: "
                 ),
             )
             assert (
@@ -668,7 +668,9 @@ class TestTrainHFClassifier:
             assert os.path.isfile(os.path.join(trainer.model_path, "label2id.json"))
             assert os.path.isfile(os.path.join(trainer.model_path, "id2label.json"))
             assert os.path.isfile(os.path.join(trainer.model_path, "model.safetensors"))
-            assert os.path.isfile(os.path.join(trainer.model_path, "spiece.model"))
+            assert os.path.isfile(
+                os.path.join(trainer.model_path, "spiece.model")
+            ) or os.path.isfile(os.path.join(trainer.model_path, "tokenizer.json"))
             export_path = os.path.join(trainer_path, "export")
             export_result = trainer.export_to_disk(path=export_path)
             assert type(export_result).__name__ == "T5ForSequenceClassification"
@@ -677,7 +679,9 @@ class TestTrainHFClassifier:
             assert os.path.isfile(os.path.join(export_path, "training_args.json"))
             assert os.path.isfile(os.path.join(export_path, "README.md"))
             assert os.path.isfile(os.path.join(export_path, "model.safetensors"))
-            assert os.path.isfile(os.path.join(export_path, "spiece.model"))
+            assert os.path.isfile(
+                os.path.join(export_path, "spiece.model")
+            ) or os.path.isfile(os.path.join(export_path, "tokenizer.json"))
             # trainer.publish_to_hf_hub(
             #     repo_id="test_hf_classifier",
             #     private=True,
@@ -771,7 +775,9 @@ class TestTrainHFClassifier:
                 os.path.join(trainer.model_path, "is_multi_target.json")
             )
             assert os.path.isfile(os.path.join(trainer.model_path, "model.safetensors"))
-            assert os.path.isfile(os.path.join(trainer.model_path, "spiece.model"))
+            assert os.path.isfile(
+                os.path.join(trainer.model_path, "spiece.model")
+            ) or os.path.isfile(os.path.join(trainer.model_path, "tokenizer.json"))
             export_path = os.path.join(trainer_path, "export")
             export_result = trainer.export_to_disk(path=export_path)
             assert type(export_result).__name__ == "T5ForSequenceClassification"
@@ -780,7 +786,9 @@ class TestTrainHFClassifier:
             assert os.path.isfile(os.path.join(export_path, "training_args.json"))
             assert os.path.isfile(os.path.join(export_path, "README.md"))
             assert os.path.isfile(os.path.join(export_path, "model.safetensors"))
-            assert os.path.isfile(os.path.join(export_path, "spiece.model"))
+            assert os.path.isfile(
+                os.path.join(export_path, "spiece.model")
+            ) or os.path.isfile(os.path.join(export_path, "tokenizer.json"))
             # trainer.publish_to_hf_hub(
             #     repo_id="test_hf_classifier_multi_target",
             #     private=True,
@@ -823,7 +831,7 @@ class TestTrainHFClassifier:
             )
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
-                assert json.load(f) == "20ec363e6f5565b0"
+                assert json.load(f) == "4779255d81926e10"
             assert train_result is trainer
             assert trainer.id2label == {0: "negative", 1: "positive"}
             assert trainer.label2id == {"negative": 0, "positive": 1}
@@ -852,7 +860,9 @@ class TestTrainHFClassifier:
             assert os.path.isfile(
                 os.path.join(trainer.model_path, "adapter_model.safetensors")
             )
-            assert os.path.isfile(os.path.join(trainer.model_path, "spiece.model"))
+            assert os.path.isfile(
+                os.path.join(trainer.model_path, "spiece.model")
+            ) or os.path.isfile(os.path.join(trainer.model_path, "tokenizer.json"))
             export_path = os.path.join(trainer_path, "export")
             export_result = trainer.export_to_disk(path=export_path)
             assert export_result.config.num_labels == 2
@@ -864,7 +874,9 @@ class TestTrainHFClassifier:
             assert os.path.isfile(os.path.join(export_path, "training_args.json"))
             assert os.path.isfile(os.path.join(export_path, "README.md"))
             assert os.path.isfile(os.path.join(export_path, "model.safetensors"))
-            assert os.path.isfile(os.path.join(export_path, "spiece.model"))
+            assert os.path.isfile(
+                os.path.join(export_path, "spiece.model")
+            ) or os.path.isfile(os.path.join(export_path, "tokenizer.json"))
             clear_dir(export_path)
             export_result = trainer.export_to_disk(path=export_path, adapter_only=True)
             assert type(export_result).__name__ == "PeftModelForSequenceClassification"
@@ -873,7 +885,9 @@ class TestTrainHFClassifier:
             assert os.path.isfile(
                 os.path.join(export_path, "adapter_model.safetensors")
             )
-            assert os.path.isfile(os.path.join(export_path, "spiece.model"))
+            assert os.path.isfile(
+                os.path.join(export_path, "spiece.model")
+            ) or os.path.isfile(os.path.join(export_path, "tokenizer.json"))
             # trainer.publish_to_hf_hub(
             #     repo_id="test_hf_classifier_peft_merged",
             #     private=True,
@@ -995,14 +1009,18 @@ class TestTrainHFFineTune:
             )
             assert os.path.isfile(os.path.join(trainer.model_path, "seed.json"))
             assert os.path.isfile(os.path.join(trainer.model_path, "model.safetensors"))
-            assert os.path.isfile(os.path.join(trainer.model_path, "spiece.model"))
+            assert os.path.isfile(
+                os.path.join(trainer.model_path, "spiece.model")
+            ) or os.path.isfile(os.path.join(trainer.model_path, "tokenizer.json"))
             export_path = os.path.join(trainer_path, "export")
             export_result = trainer.export_to_disk(path=export_path)
             assert type(export_result).__name__ == "T5ForConditionalGeneration"
             assert os.path.isfile(os.path.join(export_path, "training_args.json"))
             assert os.path.isfile(os.path.join(export_path, "README.md"))
             assert os.path.isfile(os.path.join(export_path, "model.safetensors"))
-            assert os.path.isfile(os.path.join(export_path, "spiece.model"))
+            assert os.path.isfile(
+                os.path.join(export_path, "spiece.model")
+            ) or os.path.isfile(os.path.join(export_path, "tokenizer.json"))
             # trainer.publish_to_hf_hub(
             #     repo_id="test_hf_finetune_seq2seq",
             #     private=True,
@@ -1368,13 +1386,13 @@ class TestTrainSentenceTransformer:
             )
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
-                assert json.load(f) == "5434b95080eaab52"
+                assert json.load(f) == "46d2996a99f49b2d"
             assert train_result is trainer
             assert (
                 type(get_orig_model(trainer.model)).__name__
                 == "PeftModelForFeatureExtraction"
             )
-            assert trainer.model.encode(["Sentence A.", "Sentence B."]).shape == (  # type:ignore  [union-attr]
+            assert trainer.model.encode(["Sentence A.", "Sentence B."]).shape == (
                 2,
                 768,
             )
@@ -1764,14 +1782,18 @@ class TestTrainHFDPO:
             )
             assert os.path.isfile(os.path.join(trainer.model_path, "seed.json"))
             assert os.path.isfile(os.path.join(trainer.model_path, "model.safetensors"))
-            assert os.path.isfile(os.path.join(trainer.model_path, "spiece.model"))
+            assert os.path.isfile(
+                os.path.join(trainer.model_path, "spiece.model")
+            ) or os.path.isfile(os.path.join(trainer.model_path, "tokenizer.json"))
             export_path = os.path.join(trainer_path, "export")
             export_result = trainer.export_to_disk(path=export_path)
             assert type(export_result).__name__ == "T5ForConditionalGeneration"
             assert os.path.isfile(os.path.join(export_path, "training_args.json"))
             assert os.path.isfile(os.path.join(export_path, "README.md"))
             assert os.path.isfile(os.path.join(export_path, "model.safetensors"))
-            assert os.path.isfile(os.path.join(export_path, "spiece.model"))
+            assert os.path.isfile(
+                os.path.join(export_path, "spiece.model")
+            ) or os.path.isfile(os.path.join(export_path, "tokenizer.json"))
             # trainer.publish_to_hf_hub(
             #     repo_id="test_hf_dpo_seq2seq",
             #     private=True,
@@ -1955,7 +1977,7 @@ class TestTrainHFDPO:
             )
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
-                assert json.load(f) == "8e615905aaa80f2d"
+                assert json.load(f) == "a64d7806e9afcd8f"
             assert train_result is trainer
             assert (
                 type(get_orig_model(trainer.model)).__name__ == "PeftModelForCausalLM"
@@ -2110,7 +2132,9 @@ class TestTrainHFRewardModel:
             assert os.path.isfile(os.path.join(trainer.model_path, "label2id.json"))
             assert os.path.isfile(os.path.join(trainer.model_path, "id2label.json"))
             assert os.path.isfile(os.path.join(trainer.model_path, "model.safetensors"))
-            assert os.path.isfile(os.path.join(trainer.model_path, "spiece.model"))
+            assert os.path.isfile(
+                os.path.join(trainer.model_path, "spiece.model")
+            ) or os.path.isfile(os.path.join(trainer.model_path, "tokenizer.json"))
             export_path = os.path.join(trainer_path, "export")
             export_result = trainer.export_to_disk(path=export_path)
             assert type(export_result).__name__ == "T5ForSequenceClassification"
@@ -2119,7 +2143,9 @@ class TestTrainHFRewardModel:
             assert os.path.isfile(os.path.join(export_path, "training_args.json"))
             assert os.path.isfile(os.path.join(export_path, "README.md"))
             assert os.path.isfile(os.path.join(export_path, "model.safetensors"))
-            assert os.path.isfile(os.path.join(export_path, "spiece.model"))
+            assert os.path.isfile(
+                os.path.join(export_path, "spiece.model")
+            ) or os.path.isfile(os.path.join(export_path, "tokenizer.json"))
             # trainer.publish_to_hf_hub(
             #     repo_id="test_hf_reward_pairs_seq2seq",
             #     private=True,
@@ -2282,7 +2308,7 @@ class TestTrainHFRewardModel:
             )
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
-                assert json.load(f) == "323eba506fdec6f3"
+                assert json.load(f) == "9442142dbb210075"
             assert train_result is trainer
             assert trainer.id2label == {0: "reward"}
             assert trainer.label2id == {"reward": 0}
@@ -2591,7 +2617,7 @@ class TestTrainHFRewardModel:
             )
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
-                assert json.load(f) == "975cd93b8a2f01f8"
+                assert json.load(f) == "85fa312cc4acb98d"
             assert train_result is trainer
             assert trainer.id2label == {0: "reward"}
             assert trainer.label2id == {"reward": 0}
@@ -2706,14 +2732,18 @@ class TestTrainHFPPO:
             )
             assert os.path.isfile(os.path.join(trainer.model_path, "seed.json"))
             assert os.path.isfile(os.path.join(trainer.model_path, "model.safetensors"))
-            assert os.path.isfile(os.path.join(trainer.model_path, "spiece.model"))
+            assert os.path.isfile(
+                os.path.join(trainer.model_path, "spiece.model")
+            ) or os.path.isfile(os.path.join(trainer.model_path, "tokenizer.json"))
             export_path = os.path.join(trainer_path, "export")
             export_result = trainer.export_to_disk(path=export_path)
             assert type(export_result).__name__ == "T5ForConditionalGeneration"
             assert os.path.isfile(os.path.join(export_path, "training_args.json"))
             assert os.path.isfile(os.path.join(export_path, "README.md"))
             assert os.path.isfile(os.path.join(export_path, "model.safetensors"))
-            assert os.path.isfile(os.path.join(export_path, "spiece.model"))
+            assert os.path.isfile(
+                os.path.join(export_path, "spiece.model")
+            ) or os.path.isfile(os.path.join(export_path, "tokenizer.json"))
             # trainer.publish_to_hf_hub(
             #     repo_id="test_hf_ppo_seq2seq",
             #     private=True,
@@ -2896,7 +2926,7 @@ class TestTrainHFPPO:
             )
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
-                assert json.load(f) == "269c417e685d0b39"
+                assert json.load(f) == "b760203f32032e95"
             assert train_result is trainer
             assert (
                 type(get_orig_model(trainer.model)).__name__ == "PeftModelForCausalLM"
@@ -3021,7 +3051,7 @@ class TestTrainHFPPO:
             )
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
-                assert json.load(f) == "8c3d4ea5c3d5fbbb"
+                assert json.load(f) == "b1f7039c488192ea"
             reward_trainer.unload_model()
             trainer.unload_model()
             # trainer.publish_to_hf_hub(
@@ -3048,9 +3078,9 @@ class TestTrainHFPPO:
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
                 assert json.load(f) == (
-                    "163e313c78643f85"
+                    "104297a57b537805"
                     if sys.platform == "darwin"
-                    else "163e313c78643f85"
+                    else "104297a57b537805"
                 )
             # trainer.publish_to_hf_hub(
             #     repo_id="test_hf_ppo_causal_with_pretrained_model",
@@ -3106,7 +3136,9 @@ class TestTrainSetFitClassifier:
             assert not trainer.is_multi_target
             assert type(get_orig_model(trainer.model)).__name__ == "SetFitModelWrapper"
             assert trainer.model_path == os.path.join(trainer_path, "_model")
-            assert os.path.isdir(os.path.join(trainer_path, "_checkpoints", "step_1"))
+            assert os.path.isdir(
+                os.path.join(trainer_path, "_checkpoints", "checkpoint-1")
+            )
             assert os.path.isfile(
                 os.path.join(trainer.model_path, "training_args.json")
             )
@@ -3167,7 +3199,9 @@ class TestTrainSetFitClassifier:
             assert trainer.is_multi_target
             assert type(get_orig_model(trainer.model)).__name__ == "SetFitModelWrapper"
             assert trainer.model_path == os.path.join(trainer_path, "_model")
-            assert os.path.isdir(os.path.join(trainer_path, "_checkpoints", "step_1"))
+            assert os.path.isdir(
+                os.path.join(trainer_path, "_checkpoints", "checkpoint-1")
+            )
             assert os.path.isfile(
                 os.path.join(trainer.model_path, "training_args.json")
             )
@@ -3243,22 +3277,22 @@ class TestTrainSetFitClassifier:
             )
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
-                assert json.load(f) == "7045f2a62c9faf27"
+                assert json.load(f) == "543bfc8a76e78e8c"
             assert train_result is trainer
             assert trainer.id2label == {0: "negative", 1: "positive"}
             assert trainer.label2id == {"negative": 0, "positive": 1}
             assert not trainer.is_multi_target
             assert type(get_orig_model(trainer.model)).__name__ == "SetFitModelWrapper"
             assert trainer.model_path == os.path.join(trainer_path, "_model")
-            assert os.path.isdir(os.path.join(trainer_path, "_checkpoints", "step_1"))
-            assert os.path.isfile(
-                os.path.join(
-                    trainer_path, "_checkpoints", "step_1", "adapter_model.safetensors"
-                )
+            assert os.path.isdir(
+                os.path.join(trainer_path, "_checkpoints", "checkpoint-1")
             )
             assert os.path.isfile(
                 os.path.join(
-                    trainer_path, "_checkpoints", "step_1", "model.safetensors"
+                    trainer_path,
+                    "_checkpoints",
+                    "checkpoint-1",
+                    "adapter_model.safetensors",
                 )
             )
             assert os.path.isfile(
