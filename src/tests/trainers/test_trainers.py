@@ -668,6 +668,7 @@ class TestTrainHFClassifier:
             assert os.path.isfile(os.path.join(trainer.model_path, "label2id.json"))
             assert os.path.isfile(os.path.join(trainer.model_path, "id2label.json"))
             assert os.path.isfile(os.path.join(trainer.model_path, "model.safetensors"))
+            print("LISTDIR>>>", os.listdir(trainer.model_path))
             assert os.path.isfile(os.path.join(trainer.model_path, "spiece.model"))
             export_path = os.path.join(trainer_path, "export")
             export_result = trainer.export_to_disk(path=export_path)
