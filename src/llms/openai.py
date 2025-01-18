@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from functools import cached_property, lru_cache, partial
 from typing import Any, Callable, Generator, Iterable, cast
 
+import openai
 import tiktoken
 from datasets.fingerprint import Hasher
 from tenacity import (
@@ -16,8 +17,6 @@ from tenacity import (
     wait_exponential,
 )
 from tiktoken import Encoding
-
-import openai
 
 from ..utils import ring_utils as ring
 from ..utils.fs_utils import safe_fn

@@ -6,8 +6,9 @@ from typing import Any, Callable, Generator, Iterable, cast
 
 import torch
 import torch._dynamo
-from datasets.fingerprint import Hasher
 from transformers import logging as transformers_logging
+
+from datasets.fingerprint import Hasher
 
 from .._cachable._cachable import _StrWithSeed
 from ..logging import logger as datadreamer_logger
@@ -66,8 +67,11 @@ class CachedTokenizer:
             kwargs["max_length"] = None
         if "truncation" not in kwargs:
             kwargs["truncation"] = None
+        if "padding" not in kwargs:
+            kwargs["padding"] = False
         fingerprint = Hasher.hash([orig_method.__name__, args, kwargs])
         if fingerprint not in cache:
+            print("FINGERPRINT", fingerprint, args, kwargs)
             cache[fingerprint] = orig_method(*args, **kwargs)
         return cache[fingerprint]
 

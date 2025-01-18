@@ -2282,7 +2282,7 @@ class TestTrainHFRewardModel:
             )
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
-                assert json.load(f) == "323eba506fdec6f3"
+                assert json.load(f) == "9442142dbb210075"
             assert train_result is trainer
             assert trainer.id2label == {0: "reward"}
             assert trainer.label2id == {"reward": 0}
@@ -2591,7 +2591,7 @@ class TestTrainHFRewardModel:
             )
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
-                assert json.load(f) == "975cd93b8a2f01f8"
+                assert json.load(f) == "85fa312cc4acb98d"
             assert train_result is trainer
             assert trainer.id2label == {0: "reward"}
             assert trainer.label2id == {"reward": 0}
@@ -3021,7 +3021,7 @@ class TestTrainHFPPO:
             )
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
-                assert json.load(f) == "8c3d4ea5c3d5fbbb"
+                assert json.load(f) == "b1f7039c488192ea"
             reward_trainer.unload_model()
             trainer.unload_model()
             # trainer.publish_to_hf_hub(
@@ -3048,9 +3048,9 @@ class TestTrainHFPPO:
             trainer_path = cast(str, trainer._output_folder_path)
             with open(os.path.join(trainer_path, "fingerprint.json"), "r") as f:
                 assert json.load(f) == (
-                    "163e313c78643f85"
+                    "104297a57b537805"
                     if sys.platform == "darwin"
-                    else "163e313c78643f85"
+                    else "104297a57b537805"
                 )
             # trainer.publish_to_hf_hub(
             #     repo_id="test_hf_ppo_causal_with_pretrained_model",
