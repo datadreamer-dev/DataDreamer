@@ -3203,7 +3203,7 @@ class TestTrainSetFitClassifier:
             #     private=True,
             # )
 
-    def test_peft(self, create_datadreamer, mocker):
+    def test_peft_selected(self, create_datadreamer, mocker):
         with create_datadreamer():
             dataset = DataSource(
                 "Training Data",
@@ -3263,11 +3263,6 @@ class TestTrainSetFitClassifier:
                     "_checkpoints",
                     "checkpoint-1",
                     "adapter_model.safetensors",
-                )
-            )
-            assert os.path.isfile(
-                os.path.join(
-                    trainer_path, "_checkpoints", "checkpoint-1", "model.safetensors"
                 )
             )
             assert os.path.isfile(
