@@ -607,7 +607,7 @@ class TestTrainHFBase:
 
 
 class TestTrainHFClassifier:
-    def test_init(self, create_datadreamer, mocker):
+    def test_init_select(self, create_datadreamer, mocker):
         with create_datadreamer():
             dataset = DataSource(
                 "Training Data",
