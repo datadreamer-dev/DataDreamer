@@ -77,15 +77,16 @@ class TestDeviceUtils:
         assert get_true_device_ids([0, 2, 999999, 0, 1, -1, -1]) == (True, [6, 3, 4])
         assert get_true_device_ids([2, 1, 999999, 2, 2, -1, -1]) == (True, [3, 4])
         assert get_true_device_ids([2, 1, 999999, 2, 2]) == (False, [3, 4])
-        assert get_true_device_ids(
-            [
-                torch.device(0),
-                torch.device(2),
-                torch.device(999999),
-                torch.device(0),
-                torch.device(1),
-            ]
-        ) == (False, [6, 3, 4])
+        if torch.cuda.is_available():  # pragma: no cover
+            assert get_true_device_ids(
+                [
+                    torch.device(0),
+                    torch.device(2),
+                    torch.device(999999),
+                    torch.device(0),
+                    torch.device(1),
+                ]
+            ) == (False, [6, 3, 4])
 
     def test_get_device_env_variables(self):
         os.environ["CUDA_VISIBLE_DEVICES"] = "6,4,3"

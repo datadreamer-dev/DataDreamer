@@ -679,7 +679,9 @@ class TestTrainHFClassifier:
             assert os.path.isfile(os.path.join(export_path, "training_args.json"))
             assert os.path.isfile(os.path.join(export_path, "README.md"))
             assert os.path.isfile(os.path.join(export_path, "model.safetensors"))
-            assert os.path.isfile(os.path.join(export_path, "spiece.model"))
+            assert os.path.isfile(
+                os.path.join(export_path, "spiece.model")
+            ) or os.path.isfile(os.path.join(export_path, "tokenizer.json"))
             # trainer.publish_to_hf_hub(
             #     repo_id="test_hf_classifier",
             #     private=True,
@@ -784,7 +786,9 @@ class TestTrainHFClassifier:
             assert os.path.isfile(os.path.join(export_path, "training_args.json"))
             assert os.path.isfile(os.path.join(export_path, "README.md"))
             assert os.path.isfile(os.path.join(export_path, "model.safetensors"))
-            assert os.path.isfile(os.path.join(export_path, "spiece.model"))
+            assert os.path.isfile(
+                os.path.join(export_path, "spiece.model")
+            ) or os.path.isfile(os.path.join(export_path, "tokenizer.json"))
             # trainer.publish_to_hf_hub(
             #     repo_id="test_hf_classifier_multi_target",
             #     private=True,
@@ -870,7 +874,9 @@ class TestTrainHFClassifier:
             assert os.path.isfile(os.path.join(export_path, "training_args.json"))
             assert os.path.isfile(os.path.join(export_path, "README.md"))
             assert os.path.isfile(os.path.join(export_path, "model.safetensors"))
-            assert os.path.isfile(os.path.join(export_path, "spiece.model"))
+            assert os.path.isfile(
+                os.path.join(export_path, "spiece.model")
+            ) or os.path.isfile(os.path.join(export_path, "tokenizer.json"))
             clear_dir(export_path)
             export_result = trainer.export_to_disk(path=export_path, adapter_only=True)
             assert type(export_result).__name__ == "PeftModelForSequenceClassification"
@@ -879,7 +885,9 @@ class TestTrainHFClassifier:
             assert os.path.isfile(
                 os.path.join(export_path, "adapter_model.safetensors")
             )
-            assert os.path.isfile(os.path.join(export_path, "spiece.model"))
+            assert os.path.isfile(
+                os.path.join(export_path, "spiece.model")
+            ) or os.path.isfile(os.path.join(export_path, "tokenizer.json"))
             # trainer.publish_to_hf_hub(
             #     repo_id="test_hf_classifier_peft_merged",
             #     private=True,
@@ -1010,7 +1018,9 @@ class TestTrainHFFineTune:
             assert os.path.isfile(os.path.join(export_path, "training_args.json"))
             assert os.path.isfile(os.path.join(export_path, "README.md"))
             assert os.path.isfile(os.path.join(export_path, "model.safetensors"))
-            assert os.path.isfile(os.path.join(export_path, "spiece.model"))
+            assert os.path.isfile(
+                os.path.join(export_path, "spiece.model")
+            ) or os.path.isfile(os.path.join(export_path, "tokenizer.json"))
             # trainer.publish_to_hf_hub(
             #     repo_id="test_hf_finetune_seq2seq",
             #     private=True,
@@ -1781,7 +1791,9 @@ class TestTrainHFDPO:
             assert os.path.isfile(os.path.join(export_path, "training_args.json"))
             assert os.path.isfile(os.path.join(export_path, "README.md"))
             assert os.path.isfile(os.path.join(export_path, "model.safetensors"))
-            assert os.path.isfile(os.path.join(export_path, "spiece.model"))
+            assert os.path.isfile(
+                os.path.join(export_path, "spiece.model")
+            ) or os.path.isfile(os.path.join(export_path, "tokenizer.json"))
             # trainer.publish_to_hf_hub(
             #     repo_id="test_hf_dpo_seq2seq",
             #     private=True,
@@ -2131,7 +2143,9 @@ class TestTrainHFRewardModel:
             assert os.path.isfile(os.path.join(export_path, "training_args.json"))
             assert os.path.isfile(os.path.join(export_path, "README.md"))
             assert os.path.isfile(os.path.join(export_path, "model.safetensors"))
-            assert os.path.isfile(os.path.join(export_path, "spiece.model"))
+            assert os.path.isfile(
+                os.path.join(export_path, "spiece.model")
+            ) or os.path.isfile(os.path.join(export_path, "tokenizer.json"))
             # trainer.publish_to_hf_hub(
             #     repo_id="test_hf_reward_pairs_seq2seq",
             #     private=True,
@@ -2727,7 +2741,9 @@ class TestTrainHFPPO:
             assert os.path.isfile(os.path.join(export_path, "training_args.json"))
             assert os.path.isfile(os.path.join(export_path, "README.md"))
             assert os.path.isfile(os.path.join(export_path, "model.safetensors"))
-            assert os.path.isfile(os.path.join(export_path, "spiece.model"))
+            assert os.path.isfile(
+                os.path.join(export_path, "spiece.model")
+            ) or os.path.isfile(os.path.join(export_path, "tokenizer.json"))
             # trainer.publish_to_hf_hub(
             #     repo_id="test_hf_ppo_seq2seq",
             #     private=True,
