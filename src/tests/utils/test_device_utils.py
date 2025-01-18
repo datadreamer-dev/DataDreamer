@@ -49,7 +49,7 @@ class TestDeviceUtils:
         assert device_to_device_id("mps:0") == 0
         assert device_to_device_id("mps:1") == 1
 
-    def test_device_id_to_true_device_id_select(self):
+    def test_device_id_to_true_device_id(self):
         assert device_id_to_true_device_id(-1) is None
         assert device_id_to_true_device_id(0) == 0
         assert device_id_to_true_device_id(1) == 1
@@ -66,7 +66,7 @@ class TestDeviceUtils:
         assert device_id_to_true_device_id(3) is None
         assert device_id_to_true_device_id(999999) is None
 
-    def test_get_true_device_ids_select(self):
+    def test_get_true_device_ids(self):
         os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2"
         assert get_true_device_ids([0, 1, 2]) == (False, [0, 1, 2])
         assert get_true_device_ids([0, 2, 999999, 0, 1, -1, -1]) == (True, [0, 2, 1])
@@ -87,7 +87,7 @@ class TestDeviceUtils:
             ]
         ) == (False, [6, 3, 4])
 
-    def test_get_device_env_variables_select(self):
+    def test_get_device_env_variables(self):
         os.environ["CUDA_VISIBLE_DEVICES"] = "6,4,3"
         with pytest.raises(AssertionError):
             get_device_env_variables([0, 2, 999999, 0, 1, -1, -1])

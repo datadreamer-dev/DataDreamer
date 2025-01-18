@@ -75,7 +75,7 @@ jobs:
     - name: Setup PROJECT_DATA dir
       run: echo -e "\nexport PROJECT_DATA=/tmp/project_data\n" >> ./scripts/project.env
     - name: Run tests
-      run: sudo -H -E env "PATH=$PATH" "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" "HOME=$HOME" ./scripts/run.sh -k "select" -vvvv -s --maxfail=5 --durations=0 --junitxml=./test.xml
+      run: sudo -H -E env "PATH=$PATH" "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" "HOME=$HOME" ./scripts/run.sh --maxfail=25 --durations=0 --junitxml=./test.xml
       env:
         HUGGING_FACE_HUB_TOKEN: ${{ secrets.HUGGING_FACE_HUB_TOKEN }}
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
