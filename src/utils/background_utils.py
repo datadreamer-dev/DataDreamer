@@ -33,7 +33,7 @@ def setup_fault_handler(pid):
     faulthandler.unregister(signal.SIGUSR1.value)
     try:
         faulthandler.register(signal.SIGUSR1.value)
-    except io.UnsupportedOperation:
+    except io.UnsupportedOperation:  # pragma: no cover
         pass
 
 
@@ -47,7 +47,7 @@ def check_if_fault_handler_is_setup():
     if registered:
         try:
             faulthandler.register(signal.SIGUSR1.value)
-        except io.UnsupportedOperation:
+        except io.UnsupportedOperation:  # pragma: no cover
             pass
     return registered
 
