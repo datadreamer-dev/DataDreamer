@@ -5,12 +5,11 @@ from decimal import Decimal
 from functools import partial
 from typing import TYPE_CHECKING, Any, Callable, Sequence, cast
 
-from pyarrow.lib import ArrowInvalid, ArrowTypeError
-
 from datasets import Dataset, DatasetDict, IterableDataset, concatenate_datasets
 from datasets.arrow_writer import SchemaInferenceError
 from datasets.builder import DatasetGenerationError
 from datasets.fingerprint import Hasher
+from pyarrow.lib import ArrowInvalid, ArrowTypeError
 
 from .. import DataDreamer
 from ..datasets import OutputDataset, OutputIterableDataset

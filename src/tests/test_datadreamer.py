@@ -4,13 +4,14 @@ import os
 from typing import Callable
 
 import pytest
+
 from datasets import Dataset
 from datasets.fingerprint import is_caching_enabled
 
 from .. import DataDreamer, __version__
 from ..datasets import OutputDataset
 from ..errors import StepOutputError
-from ..steps import DataCardType, LazyRows, Step
+from ..steps import DataCardType, LazyRows, Step, zipped
 from ..utils.background_utils import check_if_fault_handler_is_setup
 from ..utils.fs_utils import dir_size
 
@@ -461,6 +462,10 @@ class TestFunctionality:
             self.register_data_card(DataCardType.CITATION, "citation2")
             self.register_data_card(DataCardType.URL, "http://example2.com")
 
+        def setup_4(self):
+            self.register_data_card(DataCardType.CITATION, "citation4")
+            self.register_data_card(DataCardType.URL, "http://example4.com")
+
         with create_datadreamer():
             step_1 = create_test_step(
                 name="my-step-1", inputs=None, output_names=["out1"], setup=setup_1
@@ -506,6 +511,21 @@ class TestFunctionality:
             assert captured.out.startswith(
                 """{\n    "my-step-1": {\n        "Date & Time":"""
             )
+            step_4 = create_test_step(
+                name="my-step-4", inputs=None, output_names=["out4"], setup=setup_4
+            )
+            step_4._set_output({"out4": ["a4", "b4", "c4"]})
+            step_34 = zipped(step_4, step_3)
+            capsys.readouterr()
+            step_34.data_card()
+            captured = capsys.readouterr()
+            assert captured.out.startswith(
+                """{\n    "my-step-4": {\n        "Date & Time":"""
+            )
+            assert "my-step-1" in captured.out
+            assert "my-step-2" in captured.out
+            assert "my-step-2 (shuffle)" in captured.out
+            assert "zipped(my-step-4, my-step-2 (shuffle))" in captured.out
 
     def test_num_shards(
         self, create_datadreamer, create_test_step: Callable[..., Step]
