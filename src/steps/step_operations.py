@@ -5,11 +5,12 @@ from decimal import Decimal
 from functools import partial
 from typing import TYPE_CHECKING, Any, Callable, Sequence, cast
 
+from pyarrow.lib import ArrowInvalid, ArrowTypeError
+
 from datasets import Dataset, DatasetDict, IterableDataset, concatenate_datasets
 from datasets.arrow_writer import SchemaInferenceError
 from datasets.builder import DatasetGenerationError
 from datasets.fingerprint import Hasher
-from pyarrow.lib import ArrowInvalid, ArrowTypeError
 
 from .. import DataDreamer
 from ..datasets import OutputDataset, OutputIterableDataset
@@ -217,6 +218,7 @@ def __create_step_operation_step(  # noqa: C901
     run: Callable,
     no_save: bool = False,
     setup: None | Callable = None,
+    steps: "list[Step] | None" = None,
     **kwargs,
 ) -> "Step":
     from .step import LazyRows
@@ -287,12 +289,22 @@ def __create_step_operation_step(  # noqa: C901
     wait(step)
 
     # Create the op step
-    step_op_step = _StepOpStep(
-        name=final_name,
-        inputs={
+    if steps is not None and len(steps) > 0:
+        prev_step_outputs = {}
+        for s_idx, s in enumerate(steps):
+            each_prev_step_outputs = {
+                f"{s_idx}_{column_name}": s.output[column_name]
+                for column_name in s.output.column_names
+            }
+            prev_step_outputs.update(each_prev_step_outputs)
+    else:
+        prev_step_outputs = {
             column_name: step.output[column_name]
             for column_name in step.output.column_names
-        },
+        }
+    step_op_step = _StepOpStep(
+        name=final_name,
+        inputs=prev_step_outputs,
         verbose=step.verbose,
         log_level=step.log_level,
         **kwargs,
@@ -375,6 +387,7 @@ def __concatenate(*steps: "Step", axis: int, **kwargs):  # noqa: C901
             )
 
     kwargs["step"] = steps[0]
+    kwargs["steps"] = steps
     kwargs["no_save"] = lazy
     kwargs["args"] = {"fingerprint": [[step.fingerprint for step in steps], axis]}
     kwargs["run"] = run
