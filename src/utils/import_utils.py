@@ -81,6 +81,9 @@ def ignore_training_warnings():
             message="Merge.*may get different generations due to rounding error.*",
         )
         warnings.filterwarnings(
+            "ignore", category=UserWarning, message="To copy construct from a tensor.*"
+        )
+        warnings.filterwarnings(
             "ignore",
             category=FutureWarning,
             message="You are using `torch.load` with `weights_only=False`.*",

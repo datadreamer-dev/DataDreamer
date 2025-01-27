@@ -1033,3 +1033,49 @@ def _save_memory_in__EvalLoopContainer_add(self, *args, **kwargs):
 @cache
 def _monkey_patch_EvalLoopContainer_add():
     EvalLoopContainer.add = _save_memory_in__EvalLoopContainer_add
+
+
+class ComputeMetricsState:
+    def __init__(self):
+        self.metrics = []
+
+    def add_metrics(self, batch_size, metrics_dict, compute_result: None | bool = None):
+        if compute_result is None:  # pragma: no cover
+            return metrics_dict
+        elif compute_result is False:
+            self.metrics.append({"weight": batch_size, "metrics": metrics_dict})
+            return metrics_dict
+        elif compute_result is True:
+            self.metrics.append({"weight": batch_size, "metrics": metrics_dict})
+
+            # Compute total weight
+            total_weight = sum([m["weight"] for m in self.metrics])
+
+            # Initialize a dictionary to store the weighted sums of metrics
+            weighted_sums = {}
+
+            # Accumulate the weighted sum for each metric
+            for entry in self.metrics:
+                weight = entry["weight"]
+                metrics = entry["metrics"]
+                for key, value in metrics.items():
+                    if not (
+                        isinstance(value, int)
+                        or isinstance(value, float)
+                        or isinstance(value, JointMetric)
+                    ):  # pragma: no cover
+                        value = 0
+                    if key not in weighted_sums:
+                        weighted_sums[key] = value
+                    else:
+                        weighted_sums[key] += value * weight
+
+            # Compute the weighted average for each metric
+            averaged_metrics = {
+                key: weighted_sums[key] / total_weight for key in weighted_sums
+            }
+
+            # Reset the metrics state
+            self.metrics.clear()
+
+            return averaged_metrics

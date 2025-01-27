@@ -6,14 +6,16 @@ from typing import Any, Callable, Type
 import evaluate
 import numpy as np
 import torch
-from datasets import Sequence, Value  # type:ignore[attr-defined]
 from torch.nn import functional as F
+
+from datasets import Sequence, Value  # type:ignore[attr-defined]
 
 from ..datasets import OutputDatasetColumn, OutputIterableDatasetColumn
 from ..trainers.trainer import JointMetric
 from ..utils.arg_utils import AUTO, Default
 from ..utils.distributed_utils import not_distributed_or_main_process
 from ..utils.hf_training_utils import (
+    ComputeMetricsState,
     TrainingArguments,
     _monkey_patch_TrainerState__post_init__,
     get_logging_callback,
@@ -112,27 +114,24 @@ class TrainHFClassifier(_TrainHFBase):
         _monkey_patch_TrainerState__post_init__()
 
         # Prepare datasets
-        (
-            train_dataset,
-            validation_dataset,
-            label2id,
-            is_multi_target,
-        ) = prepare_inputs_and_outputs(
-            self,
-            train_columns={
-                ("input_ids", "Train Input"): train_input,
-                ("label", "Train Output"): train_output,
-            },
-            validation_columns={
-                ("input_ids", "Validation Input"): validation_input,
-                ("label", "Validation Output"): validation_output,
-            },
-            truncate=truncate,
+        (train_dataset, validation_dataset, label2id, is_multi_target) = (
+            prepare_inputs_and_outputs(
+                self,
+                train_columns={
+                    ("input_ids", "Train Input"): train_input,
+                    ("label", "Train Output"): train_output,
+                },
+                validation_columns={
+                    ("input_ids", "Validation Input"): validation_input,
+                    ("label", "Validation Output"): validation_output,
+                },
+                truncate=truncate,
+            )
         )
         id2label = {v: k for k, v in label2id.items()}
-        assert (
-            len(id2label) > 1
-        ), "There must be at least 2 output labels in your dataset."
+        assert len(id2label) > 1, (
+            "There must be at least 2 output labels in your dataset."
+        )
         if is_multi_target:
             train_dataset = train_dataset.cast_column(
                 "label",
@@ -157,7 +156,9 @@ class TrainHFClassifier(_TrainHFBase):
         )
 
         # Prepare compute metrics
-        def compute_accuracy_metrics(accuracy, f1, eval_pred):
+        compute_metrics_state = ComputeMetricsState()
+
+        def compute_accuracy_metrics(accuracy, f1, eval_pred, compute_result=None):
             predictions, labels = eval_pred
             if isinstance(predictions, tuple):
                 predictions = predictions[0]
@@ -179,18 +180,22 @@ class TrainHFClassifier(_TrainHFBase):
             f1_metrics = f1.compute(
                 predictions=hard_predictions, references=labels, average="micro"
             )
-            return {
-                **accuracy_metrics,
-                **f1_metrics,
-                "joint_metric": JointMetric(
-                    is_joint_metric=True,
-                    primary=f1_metrics["f1"],
-                    primary_name="f1",
-                    secondary=(-1 * loss),
-                    secondary_name="loss",
-                    secondary_inversed=True,
-                ),
-            }
+            return compute_metrics_state.add_metrics(
+                batch_size=len(labels),
+                metrics_dict={
+                    **accuracy_metrics,
+                    **f1_metrics,
+                    "joint_metric": JointMetric(
+                        is_joint_metric=True,
+                        primary=f1_metrics["f1"],
+                        primary_name="f1",
+                        secondary=(-1 * loss),
+                        secondary_name="loss",
+                        secondary_inversed=True,
+                    ),
+                },
+                compute_result=compute_result,
+            )
 
         compute_metrics = kwargs.pop("compute_metrics", None) or partial(
             compute_accuracy_metrics,
@@ -250,6 +255,7 @@ class TrainHFClassifier(_TrainHFBase):
             num_train_epochs=epochs,
             per_device_train_batch_size=batch_size,
             per_device_eval_batch_size=batch_size,
+            batch_eval_metrics=kwargs.pop("batch_eval_metrics", True),
             optim=optim,
             learning_rate=learning_rate,
             weight_decay=weight_decay,
