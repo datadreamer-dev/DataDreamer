@@ -8,7 +8,6 @@ from functools import lru_cache
 from typing import DefaultDict, Optional
 
 import torch
-from outlines.fsm.guide import RegexGuide
 from outlines_core.fsm.guide import (
     RegexGuide as CoreRegexGuide,
     create_states_mapping as uncached_create_states_mapping,
