@@ -10,9 +10,10 @@ from unittest.mock import patch
 import dill
 import numpy as np
 import torch
-from datasets import Dataset, IterableDataset, Value, concatenate_datasets
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LambdaLR
+
+from datasets import Dataset, IterableDataset, Value, concatenate_datasets
 
 from .. import DataDreamer
 from ..datasets import (
@@ -996,9 +997,14 @@ def get_logging_callback(trainer: "_TrainHFBase", log_loss: bool = True) -> Type
 
 
 def wrap_compute_metrics(compute_metrics, training_args: "TrainingArguments"):
-    def _wrapped_compute_metrics(*args, **kwargs):
+    def _wrapped_compute_metrics(*args, compute_result: None | bool = None, **kwargs):
         if not_distributed_or_main_process():
-            computed_metrics = compute_metrics(*args, **kwargs)
+            if compute_result is not None:
+                computed_metrics = compute_metrics(
+                    *args, compute_result=compute_result, **kwargs
+                )
+            else:  # pragma: no cover
+                computed_metrics = compute_metrics(*args, **kwargs)
             if is_distributed():  # pragma: no cover
                 for _ in range(get_local_world_size() - 1):
                     DataDreamer.ctx.distributed_pipe.put(dill.dumps(computed_metrics))
