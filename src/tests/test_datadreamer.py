@@ -4,7 +4,6 @@ import os
 from typing import Callable
 
 import pytest
-
 from datasets import Dataset
 from datasets.fingerprint import is_caching_enabled
 
