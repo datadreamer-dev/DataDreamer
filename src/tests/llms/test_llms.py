@@ -56,6 +56,7 @@ from ...utils.hf_chat_prompt_templates import (
     _chat_prompt_template_and_system_prompt_from_tokenizer,
 )
 from ...utils.hf_model_utils import get_model_prompt_template, get_orig_model
+from ...utils.hf_structured_decoding_utils import JSONLogitProcessor
 from ...utils.import_utils import (
     ignore_litellm_warnings,
     ignore_transformers_warnings,
@@ -1748,6 +1749,52 @@ class TestHFTransformers:
                     "\nWho was the first president?\n\n### Response:\n"
                 ]
             )
+
+    def test_structured_json_decoding(self, create_datadreamer):
+        from typing import Literal
+
+        from pydantic import BaseModel, Field
+
+        class AnswerOutputSchema(BaseModel):
+            answer_to_question: Literal["blue", "green"]
+            rgb_red_value: float = Field(..., ge=0.0, le=1.0)
+            rgb_green_value: float = Field(..., ge=0.0, le=1.0)
+            rgb_blue_value: float = Field(..., ge=0.0, le=1.0)
+            item_being_asked_about: str
+
+        with create_datadreamer():
+            llm = HFTransformers("gpt2")
+            generated_texts = llm.run(
+                [
+                    "Question: What is the color of a UPS truck?\nAnswer in JSON Format:",
+                    "Question: What is the color of the sky?\nAnswer in JSON Format:",
+                ],
+                max_new_tokens=100,
+                do_sample=False,
+                batch_size=2,
+                logits_processor=[
+                    JSONLogitProcessor(
+                        tokenizer=llm.tokenizer,
+                        json_spec=AnswerOutputSchema.model_json_schema(),
+                        whitespace_pattern=r"[\n ]{0,1}",
+                    )
+                ],
+            )
+            objs = [json.loads(t) for t in generated_texts]
+            assert set(objs[0].keys()) == {
+                "answer_to_question",
+                "rgb_red_value",
+                "rgb_green_value",
+                "rgb_blue_value",
+                "item_being_asked_about",
+            }
+            assert set(objs[1].keys()) == {
+                "answer_to_question",
+                "rgb_red_value",
+                "rgb_green_value",
+                "rgb_blue_value",
+                "item_being_asked_about",
+            }
 
 
 class TestCTransformers:

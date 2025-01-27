@@ -92,6 +92,15 @@ def ignore_training_warnings():
 
 
 @contextlib.contextmanager
+def ignore_inference_warnings():
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", category=UserWarning, message="`do_sample` is set to `False`.*"
+        )
+        yield None
+
+
+@contextlib.contextmanager
 def ignore_pydantic_warnings():
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", message="Valid config keys have changed .*")

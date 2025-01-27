@@ -73,7 +73,7 @@ ignore_missing_imports = true
 exclude = [".*/"]
 
 [tool.coverage.run]
-omit = ["src/__main__.py", "src/project/*", "src/tests/*"]
+omit = ["src/__main__.py", "src/project/*", "src/tests/*", "src/utils/hf_structured_decoding_utils.py"]
 
 [tool.coverage.report]
 exclude_lines = [
