@@ -165,7 +165,7 @@ def get_model_max_context_length(model_name: str, config: PretrainedConfig) -> i
     else:
         if "bloom" in model_name:  # pragma: no cover
             max_context_length = 2048
-        elif config.model_type in ["t5", "mt5"]:
+        elif config.model_type in ["t5", "mt5", "umt5"]:
             max_context_length = 512
         else:
             raise RuntimeError(
