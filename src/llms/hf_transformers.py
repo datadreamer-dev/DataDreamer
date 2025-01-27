@@ -412,7 +412,9 @@ class HFTransformers(LLM):
                 stop=stop, prompts=prompts, tokenizer=cached_tokenizer
             )
             stopping_criteria_list.append(sequence_stopping_criteria)
-        logits_processor = LogitsProcessorList(logits_processor_list)
+        logits_processor = LogitsProcessorList(
+            logits_processor_list + kwargs.pop("logits_processor", [])
+        )
         stopping_criteria = StoppingCriteriaList(stopping_criteria_list)
         generation_kwargs = dict(
             max_new_tokens=max_new_tokens,
