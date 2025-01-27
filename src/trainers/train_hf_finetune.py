@@ -6,6 +6,7 @@ import torch
 from ..datasets import OutputDatasetColumn, OutputIterableDatasetColumn
 from ..utils.arg_utils import AUTO, Default
 from ..utils.hf_training_utils import (
+    ComputeMetricsState,
     CustomDataCollatorWithPadding,
     Seq2SeqTrainingArguments,
     TrainingArguments,
@@ -105,9 +106,9 @@ class TrainHFFineTune(_TrainHFBase):
             from transformers import Seq2SeqTrainer
 
         # Prepare datasets
-        assert (
-            self._is_encoder_decoder or truncate
-        ), "`truncate=False` is not supported for this model."
+        assert self._is_encoder_decoder or truncate, (
+            "`truncate=False` is not supported for this model."
+        )
         train_dataset, validation_dataset, _, _ = prepare_inputs_and_outputs(
             self,
             train_columns={
@@ -137,6 +138,7 @@ class TrainHFFineTune(_TrainHFBase):
         )
 
         # Prepare compute metrics
+        compute_metrics_state = ComputeMetricsState()
 
         # This computation can use a fair bit of CPU RAM due to the size of these
         # tensors (batch_size * sequence_length * vocabulary_size), so we should try
@@ -150,13 +152,14 @@ class TrainHFFineTune(_TrainHFBase):
         except RuntimeError:  # pragma: no cover
             compute_perplexity_dtype = torch.float32
 
-        def compute_perplexity_metrics(eval_pred):
+        def compute_perplexity_metrics(eval_pred, compute_result=None):
             preds, labels = eval_pred
             del eval_pred
             if isinstance(preds, tuple):
                 preds = preds[0]
             preds = torch.tensor(preds, dtype=compute_perplexity_dtype)
             labels = torch.tensor(labels)
+            batch_size = len(labels)
             if self._is_encoder_decoder:
                 nll = torch.nn.functional.cross_entropy(
                     input=preds.view(-1, preds.size(-1)), target=labels.view(-1)
@@ -172,7 +175,11 @@ class TrainHFFineTune(_TrainHFBase):
                     input=shift_preds.view(-1, shift_preds.size(-1)),
                     target=shift_labels.view(-1),
                 )
-            return {"perplexity": torch.exp(nll)}
+            return compute_metrics_state.add_metrics(
+                batch_size=batch_size,
+                metrics_dict={"perplexity": torch.exp(nll)},
+                compute_result=compute_result,
+            )
 
         compute_metrics = (
             kwargs.pop("compute_metrics", None) or compute_perplexity_metrics
@@ -230,6 +237,7 @@ class TrainHFFineTune(_TrainHFBase):
             num_train_epochs=epochs,
             per_device_train_batch_size=batch_size,
             per_device_eval_batch_size=batch_size,
+            batch_eval_metrics=kwargs.pop("batch_eval_metrics", True),
             optim=optim,
             learning_rate=learning_rate,
             weight_decay=weight_decay,

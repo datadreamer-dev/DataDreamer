@@ -7,11 +7,12 @@ from time import time
 from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 import torch
-from datasets import IterableDataset
 from torch.optim import AdamW, Optimizer
 from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.data import DataLoader
 from transformers import logging as transformers_logging
+
+from datasets import IterableDataset
 
 from ..datasets import OutputDatasetColumn, OutputIterableDatasetColumn
 from ..llms.llm import _check_temperature_and_top_p
@@ -20,6 +21,7 @@ from ..utils.distributed_utils import set_current_accelerator
 from ..utils.fs_utils import mkdir
 from ..utils.hf_model_utils import is_peft_model
 from ..utils.hf_training_utils import (
+    ComputeMetricsState,
     CustomDataCollatorWithPadding,
     TrainingArguments,
     get_logging_callback,
@@ -105,10 +107,16 @@ def get_ppo_trainer(  # noqa: C901
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
 
-            def compute_metrics(eval_pred):
+            compute_metrics_state = ComputeMetricsState()
+
+            def compute_metrics(eval_pred, compute_result=None):
                 preds, _ = eval_pred
                 mean_preds = preds.mean(axis=0)
-                return {"rewards": mean_preds}
+                return compute_metrics_state.add_metrics(
+                    batch_size=len(preds),
+                    metrics_dict={"rewards": mean_preds},
+                    compute_result=compute_result,
+                )
 
             self.compute_metrics = compute_metrics
 
@@ -512,9 +520,9 @@ class TrainHFPPO(TrainHFFineTune):
             )
 
         # Prepare datasets
-        assert (
-            self._is_encoder_decoder or truncate
-        ), "`truncate=False` is not supported for this model."
+        assert self._is_encoder_decoder or truncate, (
+            "`truncate=False` is not supported for this model."
+        )
         train_dataset, validation_dataset, _, _ = prepare_inputs_and_outputs(
             self,
             train_columns={("input_ids", "Train Input"): train_prompts},
@@ -630,6 +638,7 @@ class TrainHFPPO(TrainHFFineTune):
             num_train_epochs=epochs,
             per_device_train_batch_size=batch_size,
             per_device_eval_batch_size=batch_size,
+            batch_eval_metrics=kwargs.pop("batch_eval_metrics", True),
             optim="adamw_torch",
             learning_rate=learning_rate,
             lr_scheduler_type="linear",

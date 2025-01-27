@@ -6,9 +6,8 @@ from typing import Any, Callable, Type
 import evaluate
 import numpy as np
 import torch
-from torch.nn import functional as F
-
 from datasets import Sequence, Value  # type:ignore[attr-defined]
+from torch.nn import functional as F
 
 from ..datasets import OutputDatasetColumn, OutputIterableDatasetColumn
 from ..trainers.trainer import JointMetric
@@ -114,24 +113,27 @@ class TrainHFClassifier(_TrainHFBase):
         _monkey_patch_TrainerState__post_init__()
 
         # Prepare datasets
-        (train_dataset, validation_dataset, label2id, is_multi_target) = (
-            prepare_inputs_and_outputs(
-                self,
-                train_columns={
-                    ("input_ids", "Train Input"): train_input,
-                    ("label", "Train Output"): train_output,
-                },
-                validation_columns={
-                    ("input_ids", "Validation Input"): validation_input,
-                    ("label", "Validation Output"): validation_output,
-                },
-                truncate=truncate,
-            )
+        (
+            train_dataset,
+            validation_dataset,
+            label2id,
+            is_multi_target,
+        ) = prepare_inputs_and_outputs(
+            self,
+            train_columns={
+                ("input_ids", "Train Input"): train_input,
+                ("label", "Train Output"): train_output,
+            },
+            validation_columns={
+                ("input_ids", "Validation Input"): validation_input,
+                ("label", "Validation Output"): validation_output,
+            },
+            truncate=truncate,
         )
         id2label = {v: k for k, v in label2id.items()}
-        assert len(id2label) > 1, (
-            "There must be at least 2 output labels in your dataset."
-        )
+        assert (
+            len(id2label) > 1
+        ), "There must be at least 2 output labels in your dataset."
         if is_multi_target:
             train_dataset = train_dataset.cast_column(
                 "label",
