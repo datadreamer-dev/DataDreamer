@@ -106,9 +106,9 @@ class TrainHFFineTune(_TrainHFBase):
             from transformers import Seq2SeqTrainer
 
         # Prepare datasets
-        assert self._is_encoder_decoder or truncate, (
-            "`truncate=False` is not supported for this model."
-        )
+        assert (
+            self._is_encoder_decoder or truncate
+        ), "`truncate=False` is not supported for this model."
         train_dataset, validation_dataset, _, _ = prepare_inputs_and_outputs(
             self,
             train_columns={

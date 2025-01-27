@@ -8,9 +8,8 @@ from uuid import uuid4
 import evaluate
 import numpy as np
 import torch
-from torch.nn import functional as F
-
 from datasets import Dataset, Value
+from torch.nn import functional as F
 
 from ..datasets import OutputDatasetColumn, OutputIterableDatasetColumn
 from ..embedders.sentence_transformers_embedder import _normalize_model_name
@@ -353,9 +352,9 @@ class TrainSentenceTransformer(_TrainHFBase):
             train_negatives is not None and validation_negatives is not None
         )
         has_labels = train_labels is not None and validation_labels is not None
-        assert not (has_negative_examples and has_labels), (
-            "You cannot specify both negative examples and labels."
-        )
+        assert not (
+            has_negative_examples and has_labels
+        ), "You cannot specify both negative examples and labels."
 
         # Detect type of training
         loss_cls: Any
@@ -408,9 +407,9 @@ class TrainSentenceTransformer(_TrainHFBase):
             ): validation_positives,
         }
         if has_negative_examples and validation_negatives is not None:
-            validation_columns[("negative_input_ids", "Validation Negatives")] = (
-                validation_negatives
-            )
+            validation_columns[
+                ("negative_input_ids", "Validation Negatives")
+            ] = validation_negatives
         if has_labels and validation_labels is not None:
             validation_columns[("labels", "Validation Labels")] = validation_labels
         train_dataset, validation_dataset, _, _ = prepare_inputs_and_outputs(
@@ -465,9 +464,11 @@ class TrainSentenceTransformer(_TrainHFBase):
             if isinstance(loss, np.ndarray):  # pragma: no cover
                 loss = np.mean(loss)
             if has_negative_examples:
-                (anchor_embeddings, positive_embeddings, negative_embeddings) = (
-                    all_embeddings
-                )
+                (
+                    anchor_embeddings,
+                    positive_embeddings,
+                    negative_embeddings,
+                ) = all_embeddings
                 preds = []
                 labels = []
                 bz = 128
