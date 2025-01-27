@@ -10,9 +10,10 @@ from unittest.mock import patch
 import dill
 import numpy as np
 import torch
-from datasets import Dataset, IterableDataset, Value, concatenate_datasets
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LambdaLR
+
+from datasets import Dataset, IterableDataset, Value, concatenate_datasets
 
 from .. import DataDreamer
 from ..datasets import (
@@ -1062,10 +1063,14 @@ class ComputeMetricsState:
                         isinstance(value, int)
                         or isinstance(value, float)
                         or isinstance(value, JointMetric)
+                        or isinstance(value, torch.Tensor)
+                        or isinstance(value, np.ndarray)
+                        or isinstance(value, np.floating)
+                        or isinstance(value, np.integer)
                     ):  # pragma: no cover
                         value = 0
                     if key not in weighted_sums:
-                        weighted_sums[key] = value
+                        weighted_sums[key] = value * weight
                     else:
                         weighted_sums[key] += value * weight
 
