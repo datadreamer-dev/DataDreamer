@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from functools import cached_property, partial
 from typing import Any, Callable, Generator, Iterable
 
+from datasets.fingerprint import Hasher
 from tenacity import (
     after_log,
     before_sleep_log,
@@ -14,8 +15,6 @@ from tenacity import (
     stop_any,
     wait_exponential,
 )
-
-from datasets.fingerprint import Hasher
 
 from .._cachable._cachable import _StrWithSeed
 from ..utils.arg_utils import AUTO, Default
@@ -107,9 +106,9 @@ class HFAPIEndpoint(HFTransformers):
         **kwargs,
     ) -> list[str] | list[list[str]]:
         prompts = inputs
-        assert logit_bias is None, (
-            f"`logit_bias` is not supported for {type(self).__name__}"
-        )
+        assert (
+            logit_bias is None
+        ), f"`logit_bias` is not supported for {type(self).__name__}"
         assert n == 1, f"Only `n` = 1 is supported for {type(self).__name__}"
 
         # Check max_new_tokens

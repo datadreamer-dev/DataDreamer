@@ -56,7 +56,9 @@ from ...utils.hf_chat_prompt_templates import (
     _chat_prompt_template_and_system_prompt_from_tokenizer,
 )
 from ...utils.hf_model_utils import get_model_prompt_template, get_orig_model
-from ...utils.hf_structured_decoding_utils import JSONLogitProcessor
+from ...utils.hf_structured_decoding_utils import (  # type:ignore[attr-defined]
+    JSONLogitProcessor,
+)
 from ...utils.import_utils import (
     ignore_litellm_warnings,
     ignore_transformers_warnings,
@@ -1780,7 +1782,7 @@ class TestHFTransformers:
                     )
                 ],
             )
-            objs = [json.loads(t) for t in generated_texts]
+            objs = [json.loads(t) for t in generated_texts]  # type:ignore[arg-type]
             assert set(objs[0].keys()) == {
                 "answer_to_question",
                 "rgb_red_value",
