@@ -20,6 +20,7 @@ from ..utils.distributed_utils import set_current_accelerator
 from ..utils.fs_utils import mkdir
 from ..utils.hf_model_utils import is_peft_model
 from ..utils.hf_training_utils import (
+    ComputeMetricsState,
     CustomDataCollatorWithPadding,
     TrainingArguments,
     get_logging_callback,
@@ -105,10 +106,16 @@ def get_ppo_trainer(  # noqa: C901
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
 
-            def compute_metrics(eval_pred):
+            compute_metrics_state = ComputeMetricsState()
+
+            def compute_metrics(eval_pred, compute_result=None):
                 preds, _ = eval_pred
                 mean_preds = preds.mean(axis=0)
-                return {"rewards": mean_preds}
+                return compute_metrics_state.add_metrics(
+                    batch_size=len(preds),
+                    metrics_dict={"rewards": mean_preds},
+                    compute_result=compute_result,
+                )
 
             self.compute_metrics = compute_metrics
 
@@ -630,6 +637,7 @@ class TrainHFPPO(TrainHFFineTune):
             num_train_epochs=epochs,
             per_device_train_batch_size=batch_size,
             per_device_eval_batch_size=batch_size,
+            batch_eval_metrics=kwargs.pop("batch_eval_metrics", True),
             optim="adamw_torch",
             learning_rate=learning_rate,
             lr_scheduler_type="linear",

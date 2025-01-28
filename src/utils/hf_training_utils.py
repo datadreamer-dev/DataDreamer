@@ -10,10 +10,9 @@ from unittest.mock import patch
 import dill
 import numpy as np
 import torch
+from datasets import Dataset, IterableDataset, Value, concatenate_datasets
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LambdaLR
-
-from datasets import Dataset, IterableDataset, Value, concatenate_datasets
 
 from .. import DataDreamer
 from ..datasets import (
@@ -997,9 +996,14 @@ def get_logging_callback(trainer: "_TrainHFBase", log_loss: bool = True) -> Type
 
 
 def wrap_compute_metrics(compute_metrics, training_args: "TrainingArguments"):
-    def _wrapped_compute_metrics(*args, **kwargs):
+    def _wrapped_compute_metrics(*args, compute_result: None | bool = None, **kwargs):
         if not_distributed_or_main_process():
-            computed_metrics = compute_metrics(*args, **kwargs)
+            if compute_result is not None:
+                computed_metrics = compute_metrics(
+                    *args, compute_result=compute_result, **kwargs
+                )
+            else:  # pragma: no cover
+                computed_metrics = compute_metrics(*args, **kwargs)
             if is_distributed():  # pragma: no cover
                 for _ in range(get_local_world_size() - 1):
                     DataDreamer.ctx.distributed_pipe.put(dill.dumps(computed_metrics))
@@ -1028,3 +1032,53 @@ def _save_memory_in__EvalLoopContainer_add(self, *args, **kwargs):
 @cache
 def _monkey_patch_EvalLoopContainer_add():
     EvalLoopContainer.add = _save_memory_in__EvalLoopContainer_add
+
+
+class ComputeMetricsState:
+    def __init__(self):
+        self.metrics = []
+
+    def add_metrics(self, batch_size, metrics_dict, compute_result: None | bool = None):
+        if compute_result is None:  # pragma: no cover
+            return metrics_dict
+        elif compute_result is False:
+            self.metrics.append({"weight": batch_size, "metrics": metrics_dict})
+            return metrics_dict
+        elif compute_result is True:
+            self.metrics.append({"weight": batch_size, "metrics": metrics_dict})
+
+            # Compute total weight
+            total_weight = sum([m["weight"] for m in self.metrics])
+
+            # Initialize a dictionary to store the weighted sums of metrics
+            weighted_sums = {}
+
+            # Accumulate the weighted sum for each metric
+            for entry in self.metrics:
+                weight = entry["weight"]
+                metrics = entry["metrics"]
+                for key, value in metrics.items():
+                    if not (
+                        isinstance(value, int)
+                        or isinstance(value, float)
+                        or isinstance(value, JointMetric)
+                        or isinstance(value, torch.Tensor)
+                        or isinstance(value, np.ndarray)
+                        or isinstance(value, np.floating)
+                        or isinstance(value, np.integer)
+                    ):  # pragma: no cover
+                        value = 0
+                    if key not in weighted_sums:
+                        weighted_sums[key] = value * weight
+                    else:
+                        weighted_sums[key] += value * weight
+
+            # Compute the weighted average for each metric
+            averaged_metrics = {
+                key: weighted_sums[key] / total_weight for key in weighted_sums
+            }
+
+            # Reset the metrics state
+            self.metrics.clear()
+
+            return averaged_metrics

@@ -31,7 +31,7 @@ from ..utils.hf_model_utils import (
     is_encoder_decoder,
     validate_quantization_config,
 )
-from ..utils.import_utils import ignore_transformers_warnings
+from ..utils.import_utils import ignore_inference_warnings, ignore_transformers_warnings
 from .llm import (
     DEFAULT_BATCH_SIZE,
     LLM,
@@ -412,12 +412,22 @@ class HFTransformers(LLM):
                 stop=stop, prompts=prompts, tokenizer=cached_tokenizer
             )
             stopping_criteria_list.append(sequence_stopping_criteria)
-        logits_processor = LogitsProcessorList(logits_processor_list)
+        logits_processor = LogitsProcessorList(
+            kwargs.pop(
+                "logits_processor_list",
+                (
+                    kwargs.pop("pre_logits_processor", [])
+                    + logits_processor_list
+                    + kwargs.pop("logits_processor", [])
+                    + kwargs.pop("post_logits_processor", [])
+                ),
+            )
+        )
         stopping_criteria = StoppingCriteriaList(stopping_criteria_list)
         generation_kwargs = dict(
             max_new_tokens=max_new_tokens,
             pad_token_id=cached_tokenizer.eos_token_id,
-            do_sample=True,
+            do_sample=kwargs.pop("do_sample", True),
             temperature=temperature,
             top_p=top_p,
             logits_processor=logits_processor,
@@ -562,36 +572,37 @@ class HFTransformers(LLM):
                 "cached_tokenizer": cached_tokenizer,
             }
 
-        results_generator = self._run_over_batches(
-            run_batch=self._run_batch,
-            get_max_input_length_function=partial(
-                get_max_length_function, self.tokenizer
-            ),
-            max_model_length=self.get_max_context_length,
-            inputs=prompts,
-            max_new_tokens=max_new_tokens,
-            temperature=temperature,
-            top_p=top_p,
-            n=n,
-            stop=stop,
-            repetition_penalty=repetition_penalty,
-            logit_bias=logit_bias,
-            batch_size=batch_size,
-            batch_scheduler_buffer_size=batch_scheduler_buffer_size,
-            adaptive_batch_size=adaptive_batch_size,
-            seed=seed,
-            progress_interval=progress_interval,
-            force=force,
-            cache_only=cache_only,
-            verbose=verbose,
-            log_level=log_level,
-            total_num_inputs=total_num_prompts,
-            **kwargs,
-        )
-        if not return_generator:
-            return list(results_generator)
-        else:
-            return results_generator
+        with ignore_inference_warnings():
+            results_generator = self._run_over_batches(
+                run_batch=self._run_batch,
+                get_max_input_length_function=partial(
+                    get_max_length_function, self.tokenizer
+                ),
+                max_model_length=self.get_max_context_length,
+                inputs=prompts,
+                max_new_tokens=max_new_tokens,
+                temperature=temperature,
+                top_p=top_p,
+                n=n,
+                stop=stop,
+                repetition_penalty=repetition_penalty,
+                logit_bias=logit_bias,
+                batch_size=batch_size,
+                batch_scheduler_buffer_size=batch_scheduler_buffer_size,
+                adaptive_batch_size=adaptive_batch_size,
+                seed=seed,
+                progress_interval=progress_interval,
+                force=force,
+                cache_only=cache_only,
+                verbose=verbose,
+                log_level=log_level,
+                total_num_inputs=total_num_prompts,
+                **kwargs,
+            )
+            if not return_generator:
+                return list(results_generator)
+            else:
+                return results_generator
 
     @cached_property
     def model_card(self) -> None | str:

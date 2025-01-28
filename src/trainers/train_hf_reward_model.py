@@ -15,6 +15,7 @@ from ..utils.device_utils import _TrainingArgumentDeviceOverrideMixin
 from ..utils.distributed_utils import not_distributed_or_main_process
 from ..utils.hf_model_utils import get_base_model_from_peft_model
 from ..utils.hf_training_utils import (
+    ComputeMetricsState,
     CustomDataCollatorWithPadding,
     TrainingArguments,
     _monkey_patch_TrainerState__post_init__,
@@ -218,7 +219,9 @@ class TrainHFRewardModel(TrainHFClassifier):
         )
 
         # Prepare compute metrics
-        def compute_accuracy_metrics(accuracy, eval_pred):
+        compute_metrics_state = ComputeMetricsState()
+
+        def compute_accuracy_metrics(accuracy, eval_pred, compute_result=None):
             predictions, labels = eval_pred
             loss = F.cross_entropy(
                 input=torch.tensor(predictions),
@@ -228,17 +231,21 @@ class TrainHFRewardModel(TrainHFClassifier):
             accuracy_metrics = accuracy.compute(
                 predictions=hard_predictions, references=labels
             )
-            return {
-                **accuracy_metrics,
-                "joint_metric": JointMetric(
-                    is_joint_metric=True,
-                    primary=accuracy_metrics["accuracy"],
-                    primary_name="f1",
-                    secondary=(-1 * loss),
-                    secondary_name="loss",
-                    secondary_inversed=True,
-                ),
-            }
+            return compute_metrics_state.add_metrics(
+                batch_size=len(labels),
+                metrics_dict={
+                    **accuracy_metrics,
+                    "joint_metric": JointMetric(
+                        is_joint_metric=True,
+                        primary=accuracy_metrics["accuracy"],
+                        primary_name="f1",
+                        secondary=(-1 * loss),
+                        secondary_name="loss",
+                        secondary_inversed=True,
+                    ),
+                },
+                compute_result=compute_result,
+            )
 
         compute_metrics = kwargs.pop("compute_metrics", None) or partial(
             compute_accuracy_metrics, evaluate.load("accuracy")
@@ -306,6 +313,7 @@ class TrainHFRewardModel(TrainHFClassifier):
             num_train_epochs=epochs,
             per_device_train_batch_size=batch_size,
             per_device_eval_batch_size=batch_size,
+            batch_eval_metrics=kwargs.pop("batch_eval_metrics", True),
             optim=optim,
             learning_rate=learning_rate,
             weight_decay=weight_decay,
@@ -442,7 +450,9 @@ class TrainHFRewardModel(TrainHFClassifier):
         )
 
         # Prepare compute metrics
-        def compute_mse_metrics(eval_pred):
+        compute_metrics_state = ComputeMetricsState()
+
+        def compute_mse_metrics(eval_pred, compute_result=None):
             predictions, labels = eval_pred
             if isinstance(predictions, tuple):  # pragma: no cover
                 predictions = predictions[0]
@@ -450,7 +460,11 @@ class TrainHFRewardModel(TrainHFClassifier):
             mse_metrics = {
                 "mse": F.mse_loss(torch.tensor(predictions), torch.tensor(labels))
             }
-            return {**mse_metrics}
+            return compute_metrics_state.add_metrics(
+                batch_size=len(labels),
+                metrics_dict={**mse_metrics},
+                compute_result=compute_result,
+            )
 
         compute_metrics = kwargs.pop("compute_metrics", None) or compute_mse_metrics
 
@@ -507,6 +521,7 @@ class TrainHFRewardModel(TrainHFClassifier):
             num_train_epochs=epochs,
             per_device_train_batch_size=batch_size,
             per_device_eval_batch_size=batch_size,
+            batch_eval_metrics=kwargs.pop("batch_eval_metrics", True),
             optim=optim,
             learning_rate=learning_rate,
             weight_decay=weight_decay,

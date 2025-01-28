@@ -47,6 +47,36 @@ class JointMetric:
     def __sub__(self, other):
         return self.secondary - other.secondary
 
+    def __add__(self, other):
+        return JointMetric(
+            is_joint_metric=True,
+            primary=self.primary + other.primary,
+            primary_name=self.primary_name,
+            secondary=self.secondary + other.secondary,
+            secondary_name=self.secondary_name,
+            secondary_inversed=self.secondary_inversed,
+        )
+
+    def __mul__(self, other):
+        return JointMetric(
+            is_joint_metric=True,
+            primary=self.primary * other,
+            primary_name=self.primary_name,
+            secondary=self.secondary * other,
+            secondary_name=self.secondary_name,
+            secondary_inversed=self.secondary_inversed,
+        )
+
+    def __truediv__(self, other):
+        return JointMetric(
+            is_joint_metric=True,
+            primary=self.primary / other,
+            primary_name=self.primary_name,
+            secondary=self.secondary / other,
+            secondary_name=self.secondary_name,
+            secondary_inversed=self.secondary_inversed,
+        )
+
     def __repr__(self) -> str:  # pragma: no cover
         secondary = (-1 * self.secondary) if self.secondary_inversed else self.secondary
         return (

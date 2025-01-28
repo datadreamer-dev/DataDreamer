@@ -24,6 +24,7 @@ from ..utils.hf_model_utils import (
     validate_peft_config,
 )
 from ..utils.hf_training_utils import (
+    ComputeMetricsState,
     CustomDataCollatorWithPadding,
     TrainingArguments,
     _monkey_patch_TrainerState__post_init__,
@@ -124,6 +125,7 @@ class SentenceTransformerLossWrapper(torch.nn.Module):
         negative_input_ids: None | torch.Tensor = None,
         negative_attention_mask: None | torch.Tensor = None,
         labels: None | torch.Tensor = None,
+        num_items_in_batch=None,
     ):
         _uniq_ids = []
         sentence_features = []
@@ -456,7 +458,9 @@ class TrainSentenceTransformer(_TrainHFBase):
         )
 
         # Prepare compute metrics
-        def compute_accuracy_metrics(accuracy, f1, eval_pred):
+        compute_metrics_state = ComputeMetricsState()
+
+        def compute_accuracy_metrics(accuracy, f1, eval_pred, compute_result=None):
             (all_embeddings, loss), labels = eval_pred
             if isinstance(loss, np.ndarray):  # pragma: no cover
                 loss = np.mean(loss)
@@ -496,17 +500,24 @@ class TrainSentenceTransformer(_TrainHFBase):
                 accuracy_metrics = accuracy.compute(
                     predictions=preds, references=labels
                 )
-                return {
-                    **accuracy_metrics,
-                    "joint_metric": JointMetric(
-                        is_joint_metric=True,
-                        primary=accuracy_metrics["accuracy"],
-                        primary_name="f1",
-                        secondary=(-1 * loss),
-                        secondary_name="loss",
-                        secondary_inversed=True,
-                    ),
-                }
+                inverse_loss = -1 * loss
+                if isinstance(inverse_loss, torch.Tensor):  # pragma: no cover
+                    inverse_loss = inverse_loss.cpu().item()
+                return compute_metrics_state.add_metrics(
+                    batch_size=len(labels),
+                    metrics_dict={
+                        **accuracy_metrics,
+                        "joint_metric": JointMetric(
+                            is_joint_metric=True,
+                            primary=accuracy_metrics["accuracy"],
+                            primary_name="f1",
+                            secondary=inverse_loss,
+                            secondary_name="loss",
+                            secondary_inversed=True,
+                        ),
+                    },
+                    compute_result=compute_result,
+                )
             else:
                 return {}
 
@@ -598,6 +609,7 @@ class TrainSentenceTransformer(_TrainHFBase):
             num_train_epochs=epochs,
             per_device_train_batch_size=batch_size,
             per_device_eval_batch_size=batch_size,
+            batch_eval_metrics=kwargs.pop("batch_eval_metrics", True),
             optim=optim,
             learning_rate=learning_rate,
             weight_decay=weight_decay,

@@ -134,7 +134,7 @@ class HFAPIEndpoint(HFTransformers):
                 func=self.client.text_generation,
                 model=self.endpoint,
                 prompt=prompt,
-                do_sample=True,
+                do_sample=kwargs.pop("do_sample", True),
                 max_new_tokens=max_new_tokens,
                 repetition_penalty=repetition_penalty,
                 return_full_text=False,
