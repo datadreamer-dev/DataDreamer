@@ -7,8 +7,9 @@ from typing import Any, Callable, Generator, Iterable, cast
 
 import numpy as np
 import torch
-from datasets.fingerprint import Hasher
 from sqlitedict import SqliteDict
+
+from datasets.fingerprint import Hasher
 
 from ..datasets import OutputDatasetColumn, OutputIterableDatasetColumn
 from ..embedders.embedder import Embedder
@@ -28,6 +29,7 @@ class EmbeddingRetriever(Retriever):
         texts: OutputDatasetColumn | OutputIterableDatasetColumn,
         embedder: Embedder,
         truncate: bool = False,
+        index_type: str | None = None,
         index_batch_size: int = DEFAULT_BATCH_SIZE,
         index_instruction: None | str = None,
         query_instruction: None | str = None,
@@ -52,6 +54,7 @@ class EmbeddingRetriever(Retriever):
         super().__init__(texts=texts, cache_folder_path=cache_folder_path)
         self.embedder = embedder
         self.truncate = truncate
+        self.index_type = index_type
         self.index_batch_size = index_batch_size
         self.index_instruction = index_instruction
         self.query_instruction = query_instruction
@@ -99,7 +102,12 @@ class EmbeddingRetriever(Retriever):
                     ):
                         self._initialize_retriever_index_folder()
                         index_logger.info("Building index.")
-                        index = faiss.IndexFlatIP(self.embedder.dims)
+                        if self.index_type is not None:  # pragma: no cover
+                            index = faiss.index_factory(
+                                self.embedder.dims, self.index_type
+                            )
+                        else:
+                            index = faiss.IndexFlatIP(self.embedder.dims)
                         if self.device is not None:  # pragma: no cover
                             index = faiss.index_cpu_to_gpus_list(
                                 index=index, gpus=self.device
@@ -137,6 +145,8 @@ class EmbeddingRetriever(Retriever):
                                     ),
                                 )
                             )
+                            if not index.is_trained:  # pragma: no cover
+                                index.train(texts_embedded)
                             index.add(texts_embedded)
                             for id_, text in zip(ids_batch, texts_batch):
                                 index_lookup[id_] = text
@@ -212,7 +222,7 @@ class EmbeddingRetriever(Retriever):
                 break
             lookup_query = (
                 "SELECT key, value FROM lookup"
-                f' WHERE key IN ({",".join(["?"] * len(indices_batch))})'
+                f" WHERE key IN ({','.join(['?'] * len(indices_batch))})"
             )
             results.update(
                 {
