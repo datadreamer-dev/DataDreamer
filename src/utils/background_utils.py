@@ -170,8 +170,11 @@ def restore_parent_process_context(
         lgr.__dict__.update(log_dict)
         for level, formatter in log_handler:
             if "DATADREAMER_DISTRIBUTED" in env:
-                formatter._style._fmt = format_for_worker_logging(formatter._style._fmt)
-                formatter._fmt = format_for_worker_logging(formatter._fmt)
+                if formatter is not None:
+                    formatter._style._fmt = format_for_worker_logging(
+                        formatter._style._fmt
+                    )
+                    formatter._fmt = format_for_worker_logging(formatter._fmt)
             stderr_handler = StreamHandler()
             stderr_handler.setLevel(level)
             stderr_handler.setFormatter(formatter)
