@@ -7,9 +7,8 @@ from typing import Any, Callable, Generator, Iterable, cast
 
 import numpy as np
 import torch
-from sqlitedict import SqliteDict
-
 from datasets.fingerprint import Hasher
+from sqlitedict import SqliteDict
 
 from ..datasets import OutputDatasetColumn, OutputIterableDatasetColumn
 from ..embedders.embedder import Embedder

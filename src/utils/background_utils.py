@@ -402,6 +402,8 @@ def proxy_resource_in_background(resource: Type, env=None, run_in_background=Tru
         def __init__(self):
             class ClientProxyWrapper:
                 def __getattr__(self, name):
+                    if run_in_background:  # pragma: no cover
+                        _proxy._pyroClaimOwnership()
                     if name in dill_serialized_meth_names:
                         orig_meth = getattr(_proxy, name)
 
