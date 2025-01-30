@@ -7,6 +7,7 @@ from shutil import copy2
 from typing import TYPE_CHECKING, Any, Type, cast
 
 import torch
+
 from datasets.fingerprint import Hasher
 
 from .. import DataDreamer
@@ -489,9 +490,9 @@ class _TrainHFBase(DataDreamerTrainer):
         from .train_hf_finetune import TrainHFFineTune
         from .train_setfit_classifier import TrainSetFitClassifier
 
-        assert (
-            not adapter_only or self.peft_config
-        ), "`adapter_only` can only be used if a `peft_config` was provided."
+        assert not adapter_only or self.peft_config, (
+            "`adapter_only` can only be used if a `peft_config` was provided."
+        )
 
         # Clear the directory
         clear_dir(path)
@@ -624,9 +625,9 @@ This model was trained with [DataDreamer 🤖💤](https://datadreamer.dev)."""
         from .train_hf_finetune import TrainHFFineTune
         from .train_setfit_classifier import TrainSetFitClassifier
 
-        assert (
-            not adapter_only or self.peft_config
-        ), "`adapter_only` can only be used if a `peft_config` was provided."
+        assert not adapter_only or self.peft_config, (
+            "`adapter_only` can only be used if a `peft_config` was provided."
+        )
 
         # Login
         api = hf_hub_login(token=token)
@@ -741,8 +742,8 @@ base_model: {base_model}
 tags:
 {tags}
 {library_name}
-{widget}
 {pipeline_tag}
+{widget}
 ---
 # Model Card
 
@@ -752,13 +753,16 @@ tags:
 
 ---
 This model was trained with"""
-            f""" a {'synthetic ' if is_synthetic else ''}dataset with"""
+            f""" a {"synthetic " if is_synthetic else ""}dataset with"""
             f""" [DataDreamer 🤖💤](https://datadreamer.dev)."""
-            f""" The {'synthetic ' if is_synthetic else ''}dataset card and model"""
+            f""" The {"synthetic " if is_synthetic else ""}dataset card and model"""
             f""" card can be found [here](datadreamer.json)."""
             f""" The training arguments can be found [here](training_args.json)."""
         )
-        readme_contents = readme_contents.replace("{base_model}", self.model_name)
+        if os.path.exists(self.model_name) and os.path.isdir(self.model_name):
+            readme_contents = readme_contents.replace("{base_model}", self.model_name)
+        else:
+            readme_contents = readme_contents.replace("\nbase_model: {base_model}", "")
         tags = tags + model_names
         tags = (
             tags
