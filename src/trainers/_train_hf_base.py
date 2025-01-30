@@ -7,7 +7,6 @@ from shutil import copy2
 from typing import TYPE_CHECKING, Any, Type, cast
 
 import torch
-
 from datasets.fingerprint import Hasher
 
 from .. import DataDreamer
@@ -490,9 +489,9 @@ class _TrainHFBase(DataDreamerTrainer):
         from .train_hf_finetune import TrainHFFineTune
         from .train_setfit_classifier import TrainSetFitClassifier
 
-        assert not adapter_only or self.peft_config, (
-            "`adapter_only` can only be used if a `peft_config` was provided."
-        )
+        assert (
+            not adapter_only or self.peft_config
+        ), "`adapter_only` can only be used if a `peft_config` was provided."
 
         # Clear the directory
         clear_dir(path)
@@ -625,9 +624,9 @@ This model was trained with [DataDreamer 🤖💤](https://datadreamer.dev)."""
         from .train_hf_finetune import TrainHFFineTune
         from .train_setfit_classifier import TrainSetFitClassifier
 
-        assert not adapter_only or self.peft_config, (
-            "`adapter_only` can only be used if a `peft_config` was provided."
-        )
+        assert (
+            not adapter_only or self.peft_config
+        ), "`adapter_only` can only be used if a `peft_config` was provided."
 
         # Login
         api = hf_hub_login(token=token)
