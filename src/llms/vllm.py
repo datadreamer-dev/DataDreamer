@@ -6,6 +6,14 @@ from functools import cached_property, partial
 from typing import Any, Callable, Generator, Iterable
 
 import torch
+from tenacity import (
+    after_log,
+    before_sleep_log,
+    retry,
+    retry_if_exception_type,
+    wait_exponential,
+)
+
 from datasets.fingerprint import Hasher
 
 from .. import DataDreamer
@@ -73,6 +81,34 @@ class VLLM(HFTransformers):  # pragma: no cover
         self.swap_space = swap_space
 
     @cached_property
+    def retry_wrapper(self):
+        # Create a retry wrapper function
+        tenacity_logger = self.get_logger(key="retry", verbose=True, log_level=None)
+
+        from requests.exceptions import ConnectionError, Timeout
+
+        @retry(
+            retry=retry_if_exception_type(Timeout),
+            wait=wait_exponential(multiplier=1, min=10, max=60),
+            before_sleep=before_sleep_log(tenacity_logger, logging.INFO),
+            after=after_log(tenacity_logger, logging.INFO),
+            reraise=True,
+        )
+        @retry(
+            retry=retry_if_exception_type(ConnectionError),
+            wait=wait_exponential(multiplier=1, min=10, max=60),
+            before_sleep=before_sleep_log(tenacity_logger, logging.INFO),
+            after=after_log(tenacity_logger, logging.INFO),
+            reraise=True,
+        )
+        def _retry_wrapper(func, *args, **kwargs):
+            return func(*args, **kwargs)
+
+        _retry_wrapper.__wrapped__.__module__ = None  # type: ignore[attr-defined]
+        _retry_wrapper.__wrapped__.__qualname__ = f"{self.__class__.__name__}.run"  # type: ignore[attr-defined]
+        return _retry_wrapper
+
+    @cached_property
     def model(self) -> Any:
         env = os.environ.copy()
         assert isinstance(self.device, list)
@@ -119,17 +155,21 @@ class VLLM(HFTransformers):  # pragma: no cover
                     if datadreamer_logger.level > logging.DEBUG
                     else nullcontext()
                 ):
-                    self_resource.model = LLM(
-                        model=self.model_name,
-                        trust_remote_code=self.trust_remote_code,
-                        dtype=str(self.dtype).replace("torch.", "")
-                        if self.dtype is not None
-                        else "auto",
-                        quantization=self.quantization,
-                        revision=self.revision,
-                        swap_space=self.swap_space,
-                        tensor_parallel_size=tensor_parallel_size,
-                        **kwargs,
+                    self_resource.model = self.retry_wrapper(
+                        func=(
+                            lambda: LLM(
+                                model=self.model_name,
+                                trust_remote_code=self.trust_remote_code,
+                                dtype=str(self.dtype).replace("torch.", "")
+                                if self.dtype is not None
+                                else "auto",
+                                quantization=self.quantization,
+                                revision=self.revision,
+                                swap_space=self.swap_space,
+                                tensor_parallel_size=tensor_parallel_size,
+                                **kwargs,
+                            )
+                        )
                     )
 
                 # Finished loading
@@ -144,7 +184,9 @@ class VLLM(HFTransformers):  # pragma: no cover
 
             @dill_serializer
             def get_generated_texts_batch(self_resource, *args, **kwargs):
-                outputs = self_resource.model.generate(*args, **kwargs)
+                outputs = self.retry_wrapper(
+                    self_resource.model.generate, *args, **kwargs
+                )
                 generated_texts_batch = [
                     [o.text for o in batch.outputs] for batch in outputs
                 ]
@@ -183,9 +225,9 @@ class VLLM(HFTransformers):  # pragma: no cover
         **kwargs,
     ) -> list[str] | list[list[str]]:
         prompts = inputs
-        assert (
-            logit_bias is None
-        ), f"`logit_bias` is not supported for {type(self).__name__}"
+        assert logit_bias is None, (
+            f"`logit_bias` is not supported for {type(self).__name__}"
+        )
         assert seed is None, f"`seed` is not supported for {type(self).__name__}"
 
         SamplingParams = import_module("vllm").SamplingParams
@@ -323,6 +365,7 @@ class VLLM(HFTransformers):  # pragma: no cover
         state = super().__getstate__()
 
         # Remove cached model or tokenizer before serializing
+        state.pop("retry_wrapper", None)
         state.pop("model", None)
         state.pop("tokenizer", None)
 
