@@ -1,3 +1,34 @@
+# DataDreamer (forked)
+
+- This repository supports xxx based on DataDreamer
+
+## prerequisite
+
+- [uv](https://docs.astral.sh/uv/getting-started/installation/) installation
+
+## setup
+
+- install `DataDreamer`
+
+```bash
+git clone git@github.com:ohashi3399/DataDreamer.git && cd DataDreamer
+uvx migrate-to-uv
+uv sync
+uv pip install datadreamer.dev
+```
+
+- `HuggingFace`モデルを使う場合
+
+```
+pip install datasets==3.2.0
+pip install torchvision
+pip install protobuf
+pip install sentencepiece
+```
+
+## job execution
+
+
 <p align="center">
   <a href="https://datadreamer.dev"><img src="https://datadreamer.dev/docs/latest/_static/logo.svg" alt="DataDreamer" style="max-width: 100%;"></a><br />
   <a href="https://datadreamer.dev"><b>https://datadreamer.dev</b></a>

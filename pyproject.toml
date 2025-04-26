@@ -1,19 +1,32 @@
-[tool.poetry]
+[project]
 name = "DataDreamer"
 version = "0.46.0"
 description = "Prompt. Generate Synthetic Data. Train & Align Models."
-license = "MIT"
-authors= [
-    "Ajay Patel <me@ajayp.app>"
-]
-maintainers = [
-    "Ajay Patel <me@ajayp.app>"
-]
+authors = [{ name = "Ajay Patel", email = "me@ajayp.app" }]
+requires-python = ">=3.10,<3.14"
 readme = "README.md"
-homepage = "https://datadreamer.dev/"
-repository = "https://github.com/datadreamer-dev/DataDreamer"
-documentation = "https://datadreamer.dev/docs/"
-keywords = ["python", "nlp", "machine learning", "natural language processing", "deep learning", "transformers", "pytorch", "openai", "alignment", "gpt", "nlp library", "synthetic data", "fine-tuning", "synthetic dataset generation", "llm", "llms", "llmops", "instruction-tuning"]
+license = "MIT"
+maintainers = [{ name = "Ajay Patel", email = "me@ajayp.app" }]
+keywords = [
+    "python",
+    "nlp",
+    "machine learning",
+    "natural language processing",
+    "deep learning",
+    "transformers",
+    "pytorch",
+    "openai",
+    "alignment",
+    "gpt",
+    "nlp library",
+    "synthetic data",
+    "fine-tuning",
+    "synthetic dataset generation",
+    "llm",
+    "llms",
+    "llmops",
+    "instruction-tuning",
+]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
@@ -27,17 +40,25 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence"
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-packages = [
-    {include = "datadreamer"}
+dependencies = [
+    "python-dotenv>=1.1.0",
 ]
 
-[tool.poetry.dependencies]
-python = ">=3.10,<3.14"
+[project.urls]
+Homepage = "https://datadreamer.dev/"
+Repository = "https://github.com/datadreamer-dev/DataDreamer"
+Documentation = "https://datadreamer.dev/docs/"
 
-[tool.poetry.group.dev.dependencies]
-poetry = "1.4.2"
+[dependency-groups]
+dev = ["poetry==1.4.2"]
+
+[tool.hatch.build.targets.sdist]
+include = ["datadreamer"]
+
+[tool.hatch.build.targets.wheel]
+include = ["datadreamer"]
 
 [tool.ruff]
 extend-exclude = ["docs"]

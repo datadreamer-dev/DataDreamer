@@ -26,3 +26,9 @@ coverage.json*
 
 # This directory is temporarily generated when building docs or publishing to PyPI. Remove this line before running poetry. (See: https://github.com/python-poetry/poetry/issues/5547)
 datadreamer
+
+# avoid uploading Zone.Identifier files when using Windows
+*Zone.Identifier
+
+# avoid uploading .env
+.env
