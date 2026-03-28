@@ -32,6 +32,7 @@ from ...llms import (
     GoogleAIStudio,
     HFAPIEndpoint,
     HFTransformers,
+    MiniMax,
     MistralAI,
     OpenAI,
     OpenAIAssistant,
@@ -3160,6 +3161,221 @@ class TestMistralAI:
             assert "client" in llm.__dict__ and "tokenizer" in llm.__dict__
             llm.unload_model()
             assert "client" not in llm.__dict__ and "tokenizer" not in llm.__dict__
+
+
+class TestMiniMax:
+    def test_init(self, create_datadreamer):
+        with create_datadreamer():
+            llm = MiniMax("MiniMax-M2.7", api_key="fake-key")
+            assert llm.model_name == "MiniMax-M2.7"
+            assert llm.base_url == "https://api.minimax.io/v1"
+            assert llm.system_prompt == "You are a helpful assistant."
+
+    def test_metadata(self, create_datadreamer):
+        llm = MiniMax("MiniMax-M2.7", api_key="fake-key")
+        assert llm.model_card == "https://platform.minimaxi.com/document/Models"
+        assert (
+            llm.license
+            == "https://platform.minimaxi.com/document/Terms%20of%20service"
+        )
+        assert llm.citation is None
+
+    def test_count_tokens(self, create_datadreamer):
+        with create_datadreamer():
+            llm = MiniMax("MiniMax-M2.7", api_key="fake-key")
+            token_count = llm.count_tokens("This is a test.")
+            assert isinstance(token_count, int)
+            assert token_count > 0
+
+    def test_get_max_context_length(self, create_datadreamer):
+        with create_datadreamer():
+            llm = MiniMax("MiniMax-M2.7", api_key="fake-key")
+            ctx = llm.get_max_context_length(max_new_tokens=0)
+            # M2.7 has 1M context, minus format tokens
+            assert ctx > 999000
+            assert ctx < 1000000
+
+            llm2 = MiniMax("MiniMax-M2.5", api_key="fake-key")
+            ctx2 = llm2.get_max_context_length(max_new_tokens=0)
+            assert ctx2 > 204000
+            assert ctx2 < 204800
+
+    def test_get_max_output_length(self, create_datadreamer):
+        with create_datadreamer():
+            llm = MiniMax("MiniMax-M2.7", api_key="fake-key")
+            assert llm._get_max_output_length() == 16384
+
+            llm2 = MiniMax("MiniMax-M2.5", api_key="fake-key")
+            assert llm2._get_max_output_length() == 8192
+
+            llm3 = MiniMax("MiniMax-M2.5-highspeed", api_key="fake-key")
+            assert llm3._get_max_output_length() == 8192
+
+            llm4 = MiniMax("MiniMax-M2.7-highspeed", api_key="fake-key")
+            assert llm4._get_max_output_length() == 16384
+
+    def test_temperature_clamping(self, create_datadreamer, mocker):
+        from unittest.mock import MagicMock
+
+        with create_datadreamer():
+            llm = MiniMax("MiniMax-M2.7", api_key="fake-key")
+
+            # Create a mock response
+            mock_choice = MagicMock()
+            mock_choice.message.content = "Test response"
+            mock_response = MagicMock()
+            mock_response.choices = [mock_choice]
+
+            mocker.patch.object(
+                llm.client.chat.completions,
+                "create",
+                return_value=mock_response,
+            )
+
+            # Run with temperature=0.0 (should be clamped to 0.01)
+            llm.run(
+                ["Test prompt"],
+                max_new_tokens=10,
+                temperature=0.0,
+                top_p=1.0,
+                n=1,
+                batch_size=1,
+            )
+            call_kwargs = llm.client.chat.completions.create.call_args_list[
+                0
+            ].kwargs
+            assert call_kwargs["temperature"] == 0.01
+
+    @typing.no_type_check
+    def test_run(self, create_datadreamer, mocker):
+        from unittest.mock import MagicMock
+
+        with create_datadreamer():
+            llm = MiniMax("MiniMax-M2.7", api_key="fake-key")
+
+            # Create a mock response factory
+            def chat_mocked(**kwargs):
+                prompt = kwargs["messages"][-1]["content"]
+                mock_choice = MagicMock()
+                mock_choice.message.content = f"Response to: {prompt}"
+                mock_response = MagicMock()
+                mock_response.choices = [mock_choice]
+                return mock_response
+
+            mocker.patch.object(
+                llm.client.chat.completions,
+                "create",
+                side_effect=chat_mocked,
+            )
+
+            # Simple run
+            generated_texts = llm.run(
+                ["What color is the sky?", "What color are trees?"],
+                max_new_tokens=25,
+                temperature=0.3,
+                top_p=1.0,
+                n=1,
+                stop=None,
+                repetition_penalty=None,
+                logit_bias=None,
+                batch_size=2,
+            )
+            assert generated_texts == [
+                "Response to: What color is the sky?",
+                "Response to: What color are trees?",
+            ]
+
+            # Test return_generator
+            generated_texts_generator = llm.run(
+                ["What color is the sky?", "What color are trees?"],
+                max_new_tokens=25,
+                temperature=0.3,
+                top_p=1.0,
+                n=1,
+                stop=None,
+                repetition_penalty=None,
+                logit_bias=None,
+                batch_size=2,
+                return_generator=True,
+            )
+            assert isinstance(generated_texts_generator, GeneratorType)
+            assert list(generated_texts_generator) == generated_texts
+
+            # Test unload model
+            assert "client" in llm.__dict__
+            llm.unload_model()
+            assert "client" not in llm.__dict__
+
+    def test_custom_system_prompt(self, create_datadreamer):
+        with create_datadreamer():
+            llm = MiniMax(
+                "MiniMax-M2.7",
+                system_prompt="You are a coding assistant.",
+                api_key="fake-key",
+            )
+            assert llm.system_prompt == "You are a coding assistant."
+
+    def test_display_name(self, create_datadreamer):
+        with create_datadreamer():
+            llm = MiniMax("MiniMax-M2.7", api_key="fake-key")
+            assert "MiniMax-M2.7" in llm.display_name
+
+    @pytest.mark.skipif(
+        "MINIMAX_API_KEY" not in os.environ, reason="requires MiniMax API key"
+    )
+    def test_integration_run(self, create_datadreamer):
+        """Integration test that runs against the real MiniMax API."""
+        with create_datadreamer():
+            llm = MiniMax("MiniMax-M2.7")
+            generated_texts = llm.run(
+                ["Say hello in one word."],
+                max_new_tokens=10,
+                temperature=0.01,
+                top_p=1.0,
+                n=1,
+                batch_size=1,
+            )
+            assert len(generated_texts) == 1
+            assert isinstance(generated_texts[0], str)
+            assert len(generated_texts[0]) > 0
+
+    @pytest.mark.skipif(
+        "MINIMAX_API_KEY" not in os.environ, reason="requires MiniMax API key"
+    )
+    def test_integration_streaming(self, create_datadreamer):
+        """Integration test for generator-based output."""
+        with create_datadreamer():
+            llm = MiniMax("MiniMax-M2.7")
+            results = llm.run(
+                ["What is 2+2? Answer with just the number."],
+                max_new_tokens=5,
+                temperature=0.01,
+                top_p=1.0,
+                n=1,
+                batch_size=1,
+                return_generator=True,
+            )
+            results_list = list(results)
+            assert len(results_list) == 1
+            assert "4" in results_list[0]
+
+    @pytest.mark.skipif(
+        "MINIMAX_API_KEY" not in os.environ, reason="requires MiniMax API key"
+    )
+    def test_integration_m27_highspeed(self, create_datadreamer):
+        """Integration test for the M2.7-highspeed model."""
+        with create_datadreamer():
+            llm = MiniMax("MiniMax-M2.7-highspeed")
+            generated_texts = llm.run(
+                ["Say 'yes' or 'no'."],
+                max_new_tokens=5,
+                temperature=0.01,
+                top_p=1.0,
+                n=1,
+                batch_size=1,
+            )
+            assert len(generated_texts) == 1
+            assert isinstance(generated_texts[0], str)
 
 
 class TestPetals:

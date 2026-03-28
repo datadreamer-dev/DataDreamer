@@ -85,6 +85,7 @@ from .google_ai_studio import GoogleAIStudio
 from .hf_api_endpoint import HFAPIEndpoint
 from .hf_transformers import HFTransformers
 from .llm import LLM
+from .minimax import MiniMax
 from .mistral_ai import MistralAI
 from .openai import OpenAI
 from .openai_assistant import OpenAIAssistant
@@ -105,6 +106,7 @@ __all__ = [
     "HFAPIEndpoint",
     "Together",
     "MistralAI",
+    "MiniMax",
     "Anthropic",
     "Cohere",
     "AI21",
